@@ -11,33 +11,32 @@ import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
+import { useLogin, useRequest } from '../api/auth';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
-  onGoogleLogin: () => void;
-  onSubmitForm: (data: any, fromSignup: boolean) => void;
 };
 
-const LoginScreen: React.FC<LoginScreenProps> = ({
-  fromSignup = false,
-  onGoogleLogin,
-  onSubmitForm,
-}) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
-
+  const { mutate: requestMutate } = useRequest();
+  const { mutate: loginMutate } = useLogin();
   const {
-    register,
+    control,
     handleSubmit,
-    setValue,
     formState: { errors },
+    reset,
   } = useForm();
 
   const onSubmit = (data: any) => {
-    if (onSubmitForm) onSubmitForm(data, fromSignup);
+    fromSignup ? requestMutate(data) : loginMutate(data);
+    reset();
   };
+
+  const onGoogleLogin = async () => {};
 
   return (
     <ScrollView
@@ -62,57 +61,93 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
         <Text style={styles.label}>Your Information</Text>
 
         {fromSignup && (
-          <View>
-            <TextInput
-              style={styles.input}
-              placeholder="Your Fullname"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              onChangeText={text => setValue('fullname', text)}
-            />
-            {errors.fullname && (
-              <Text style={styles.error}>Fullname is required</Text>
+          <Controller
+            control={control}
+            name="fullname"
+            rules={{ required: 'Fullname is required' }}
+            render={({ field: { onChange, value } }) => (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your Fullname"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={value}
+                  onChangeText={onChange}
+                />
+                {errors.fullname && (
+                  <Text style={styles.error}>
+                    {errors.fullname?.message as string}
+                  </Text>
+                )}
+              </>
             )}
-          </View>
-        )}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="rgba(255,255,255,0.3)"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          onChangeText={text => setValue('email', text)}
-        />
-        {errors.email && (
-          <Text style={styles.error}>
-            {typeof errors.email.message === 'string'
-              ? errors.email.message
-              : 'Email is invalid'}
-          </Text>
-        )}
-
-        <View style={styles.passwordWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="Your Password"
-            placeholderTextColor="rgba(255,255,255,0.3)"
-            secureTextEntry={!showPassword}
-            onChangeText={text => setValue('password', text)}
           />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-          </TouchableOpacity>
-        </View>
-        {errors.password && (
-          <Text style={styles.error}>
-            {typeof errors.password.message === 'string'
-              ? errors.password.message
-              : 'Password is invalid'}
-          </Text>
         )}
+
+        <Controller
+          control={control}
+          name="email"
+          rules={{
+            required: 'Email is required',
+            pattern: {
+              value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+              message: 'Invalid email address',
+            },
+          }}
+          render={({ field: { onChange, value } }) => (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={value}
+                onChangeText={onChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {errors.email?.message && (
+                <Text style={styles.error}>
+                  {errors.email.message as string}
+                </Text>
+              )}
+            </>
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="password"
+          rules={{
+            required: 'Password is required',
+            minLength: {
+              value: 8,
+              message: 'Password must be at least 8 characters',
+            },
+          }}
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Your Password"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                secureTextEntry={!showPassword}
+                value={value}
+                onChangeText={onChange}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+              </TouchableOpacity>
+              {errors.password && (
+                <Text style={styles.error}>
+                  {errors.password?.message as string}
+                </Text>
+              )}
+            </View>
+          )}
+        />
 
         <TouchableOpacity
           style={styles.continueBtn}
@@ -124,7 +159,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           <ButtonIcon />
         </TouchableOpacity>
 
-        {/* Divider */}
         <View style={styles.orSection}>
           <View style={styles.line} />
           <Text style={styles.orText}>or</Text>

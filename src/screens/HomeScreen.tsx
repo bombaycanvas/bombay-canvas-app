@@ -1,41 +1,27 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
+import { useMoviesData } from '../api/video';
+import Landing from '../components/Landing';
+import Explore from '../components/Explore';
 
 const HomeScreen = () => {
+  const { data, isLoading } = useMoviesData();
+
   return (
-    <View>
-      <Text>India’s first</Text>
-    </View>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <Landing movieData={data?.allMovies} isLoading={isLoading} />
+      <Explore latest movieData={data?.allMovies} isLoading={isLoading} />
+      <Explore movieData={data?.allMovies} isLoading={isLoading} />
+    </ScrollView>
   );
 };
 
 export default HomeScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
     backgroundColor: 'black',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  bold: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: 700,
-  },
-  regular: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontWeight: 400,
-  },
-  light: {
-    fontFamily: 'HelveticaNowDisplay-Light',
-    fontWeight: 300,
-  },
-  medium: {
-    fontFamily: 'HelveticaNowDisplay-Medium',
-    fontWeight: 500,
-  },
-  extraBold: {
-    fontFamily: 'HelveticaNowDisplay-ExtraBold',
-    fontWeight: 800,
   },
 });

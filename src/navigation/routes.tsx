@@ -7,13 +7,11 @@ import HomeScreen from '../screens/HomeScreen';
 import VideoScreen from '../screens/VideoScreen';
 import CreatorScreen from '../screens/CreatorScreen';
 import LoginScreen from '../screens/LoginScreen';
-import SigninScreen from '../screens/SigninScreen';
-// import PrivateRoute from '../routes/PrivateRoute';
 
 export type MainTabsParamList = {
   Home: undefined;
-  Creator: undefined;
-  Video: undefined;
+  Creator: { id: string };
+  Video: { id: string };
   Login: undefined;
   SignUp: undefined;
 };
@@ -22,7 +20,7 @@ const Stack = createNativeStackNavigator();
 
 const AppStack = () => {
   return (
-    <Stack.Navigator initialRouteName="Login">
+    <Stack.Navigator initialRouteName="Home">
       <Stack.Screen
         name="Home"
         component={HomeScreen}
@@ -42,27 +40,13 @@ const AppStack = () => {
         name="Login"
         options={{ headerShown: false, gestureEnabled: true }}
       >
-        {props => (
-          <LoginScreen
-            {...props}
-            onGoogleLogin={() => {}}
-            onSubmitForm={() => {}}
-            fromSignup={false}
-          />
-        )}
+        {props => <LoginScreen {...props} fromSignup={false} />}
       </Stack.Screen>
       <Stack.Screen
         name="SignUp"
         options={{ headerShown: false, gestureEnabled: true }}
       >
-        {props => (
-          <LoginScreen
-            {...props}
-            onGoogleLogin={() => {}}
-            onSubmitForm={() => {}}
-            fromSignup={true}
-          />
-        )}
+        {props => <LoginScreen {...props} fromSignup={true} />}
       </Stack.Screen>
     </Stack.Navigator>
   );

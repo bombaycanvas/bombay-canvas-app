@@ -1,18 +1,15 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import { Text, View } from 'react-native';
 
 const VideoScreen = () => {
+  const route = useRoute();
+  const { id } = route.params;
+
   return (
     <View>
-      <Text style={styles.title}>Home</Text>
+      <Text>Video ID: {id}</Text>
     </View>
   );
 };
 
 export default VideoScreen;
-
-const styles = StyleSheet.create({
-  title: {
-    color: 'red',
-  },
-});
