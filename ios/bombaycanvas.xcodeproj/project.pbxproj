@@ -9,8 +9,14 @@
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-bombaycanvas.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-bombaycanvas.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		28CD831DEBC54F92B40ED769 /* HelveticaNowDisplay-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8242F9DF700949F28F5DEEBE /* HelveticaNowDisplay-Light.ttf */; };
+		663F7D568A1F47DF909EA40D /* HelveticaNowDisplay-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B95FA282EFAC48F5A5DFAF89 /* HelveticaNowDisplay-Medium.ttf */; };
+		6FCE52C4A4A430F1358084CA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		B4A167FF6A20497BA47FDD9C /* HelveticaNowDisplay-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 45E6A2E85E764DEEB9375671 /* HelveticaNowDisplay-Regular.ttf */; };
+		B7E5ADDD49A348AD87B7771F /* HelveticaNowDisplay-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8C3429EEB78A4CCA9CCCF042 /* HelveticaNowDisplay-Bold.ttf */; };
+		D4E583EA556F4C9D9ACE5677 /* HelveticaNowDisplay-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 78A10ED4FEDE402BB9238754 /* HelveticaNowDisplay-ExtraBold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,10 +25,15 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = bombaycanvas/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = bombaycanvas/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-bombaycanvas.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-bombaycanvas.debug.xcconfig"; path = "Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas.debug.xcconfig"; sourceTree = "<group>"; };
+		45E6A2E85E764DEEB9375671 /* HelveticaNowDisplay-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-Regular.ttf"; path = "../assets/fonts/HelveticaNowDisplay-Regular.ttf"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-bombaycanvas.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-bombaycanvas.release.xcconfig"; path = "Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-bombaycanvas.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-bombaycanvas.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = bombaycanvas/AppDelegate.swift; sourceTree = "<group>"; };
+		78A10ED4FEDE402BB9238754 /* HelveticaNowDisplay-ExtraBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-ExtraBold.ttf"; path = "../assets/fonts/HelveticaNowDisplay-ExtraBold.ttf"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = bombaycanvas/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8242F9DF700949F28F5DEEBE /* HelveticaNowDisplay-Light.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-Light.ttf"; path = "../assets/fonts/HelveticaNowDisplay-Light.ttf"; sourceTree = "<group>"; };
+		8C3429EEB78A4CCA9CCCF042 /* HelveticaNowDisplay-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-Bold.ttf"; path = "../assets/fonts/HelveticaNowDisplay-Bold.ttf"; sourceTree = "<group>"; };
+		B95FA282EFAC48F5A5DFAF89 /* HelveticaNowDisplay-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-Medium.ttf"; path = "../assets/fonts/HelveticaNowDisplay-Medium.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -74,6 +85,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				A26C82B78EB54CBB8AAD14AD /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -86,6 +98,19 @@
 				13B07F961A680F5B00A75B9A /* bombaycanvas.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A26C82B78EB54CBB8AAD14AD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				8C3429EEB78A4CCA9CCCF042 /* HelveticaNowDisplay-Bold.ttf */,
+				78A10ED4FEDE402BB9238754 /* HelveticaNowDisplay-ExtraBold.ttf */,
+				8242F9DF700949F28F5DEEBE /* HelveticaNowDisplay-Light.ttf */,
+				B95FA282EFAC48F5A5DFAF89 /* HelveticaNowDisplay-Medium.ttf */,
+				45E6A2E85E764DEEB9375671 /* HelveticaNowDisplay-Regular.ttf */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
@@ -159,6 +184,12 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				6FCE52C4A4A430F1358084CA /* PrivacyInfo.xcprivacy in Resources */,
+				B7E5ADDD49A348AD87B7771F /* HelveticaNowDisplay-Bold.ttf in Resources */,
+				D4E583EA556F4C9D9ACE5677 /* HelveticaNowDisplay-ExtraBold.ttf in Resources */,
+				28CD831DEBC54F92B40ED769 /* HelveticaNowDisplay-Light.ttf in Resources */,
+				663F7D568A1F47DF909EA40D /* HelveticaNowDisplay-Medium.ttf in Resources */,
+				B4A167FF6A20497BA47FDD9C /* HelveticaNowDisplay-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -374,7 +405,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -439,7 +473,9 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
