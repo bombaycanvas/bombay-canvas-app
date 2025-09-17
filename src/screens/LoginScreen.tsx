@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Switch,
 } from 'react-native';
 import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
@@ -14,7 +13,7 @@ import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
-import { useLogin, useRequest } from '../api/auth';
+import { useGoogleLogin, useLogin, useRequest } from '../api/auth';
 import { googleLogin } from '../utils/authService';
 
 type LoginScreenProps = {
@@ -24,10 +23,9 @@ type LoginScreenProps = {
 const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
-  const [isEnabled, setIsEnabled] = useState(false);
-  const toggleSwitch = () => setIsEnabled(previous => !previous);
   const { mutate: requestMutate } = useRequest();
   const { mutate: loginMutate } = useLogin();
+  const { mutate: googleLoginMutate } = useGoogleLogin();
   const {
     control,
     handleSubmit,
@@ -42,8 +40,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
   const handleLogin = async () => {
     try {
-      const userCredential = await googleLogin();
-      console.log('✅ User logged in:', userCredential.user);
+      const data = await googleLogin();
+      console.log('user', data.idToken);
+      googleLoginMutate(data.idToken);
+      console.log('✅ User logged in:');
     } catch (error) {
       console.error('❌ Google login error:', error);
     }
