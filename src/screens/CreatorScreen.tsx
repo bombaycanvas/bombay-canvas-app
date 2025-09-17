@@ -6,8 +6,10 @@ import CreatorGrids from '../components/CreatorGrid';
 
 const CreatorScreen = () => {
   const route = useRoute();
-  const { id } = route.params;
-  const { data, isLoading } = useMoviesDataByCreator(id);
+  const { id } = route.params ?? { id: 'cmfc48arw0002s60ex05k9w5c' };
+  const { data, isLoading } = useMoviesDataByCreator(
+    id ?? 'cmfc48arw0002s60ex05k9w5c',
+  );
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

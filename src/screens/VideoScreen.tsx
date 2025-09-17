@@ -3,11 +3,11 @@ import { Text, View } from 'react-native';
 
 const VideoScreen = () => {
   const route = useRoute();
-  const { id } = route.params;
+  // const { id } = route.params;
 
   return (
     <View>
-      <Text>Video ID: {id}</Text>
+      <Text>Video ID: </Text>
     </View>
   );
 };

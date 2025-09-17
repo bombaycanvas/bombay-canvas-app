@@ -41,11 +41,15 @@ const MainTabs = () => {
           fontSize: 12,
           fontWeight: '600',
         },
-        tabBarIcon: ({ color, size, focused }) => {
-          let iconName: string;
+        tabBarIcon: ({ color, focused }) => {
+          let iconName = 'home-outline';
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Video') {
+            iconName = focused ? 'play-circle' : 'play-circle-outline';
+          } else if (route.name === 'Creator') {
+            iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'Login') {
             iconName = focused ? 'log-in' : 'log-in-outline';
           }
@@ -54,15 +58,12 @@ const MainTabs = () => {
         },
       })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ tabBarLabel: 'Home' }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Video" component={VideoScreen} />
+      <Tab.Screen name="Creator" component={CreatorScreen} />
       <Tab.Screen
         name="Login"
         children={props => <LoginScreen {...props} fromSignup={false} />}
-        options={{ tabBarLabel: 'Login' }}
       />
     </Tab.Navigator>
   );
@@ -77,18 +78,13 @@ const AppStack = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Videos"
-        component={VideoScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Creator"
-        component={CreatorScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
         name="Signup"
-        component={LoginScreen}
+        children={props => <LoginScreen {...props} fromSignup={true} />}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Login"
+        children={props => <LoginScreen {...props} fromSignup={false} />}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

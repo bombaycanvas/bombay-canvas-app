@@ -198,7 +198,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
             Don’t have an account?{' '}
             <Text
               style={styles.link}
-              onPress={() => navigation.navigate('SignUp' as never)}
+              onPress={() => navigation.navigate('Signup' as never)}
             >
               Sign Up
             </Text>
