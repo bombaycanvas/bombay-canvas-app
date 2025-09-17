@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Switch,
 } from 'react-native';
 import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
@@ -14,6 +15,7 @@ import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import { useLogin, useRequest } from '../api/auth';
+import { googleLogin } from '../utils/authService';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
@@ -22,6 +24,8 @@ type LoginScreenProps = {
 const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
+  const [isEnabled, setIsEnabled] = useState(false);
+  const toggleSwitch = () => setIsEnabled(previous => !previous);
   const { mutate: requestMutate } = useRequest();
   const { mutate: loginMutate } = useLogin();
   const {
@@ -36,7 +40,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
     reset();
   };
 
-  const onGoogleLogin = async () => {};
+  const handleLogin = async () => {
+    try {
+      const userCredential = await googleLogin();
+      console.log('✅ User logged in:', userCredential.user);
+    } catch (error) {
+      console.error('❌ Google login error:', error);
+    }
+  };
 
   return (
     <ScrollView
@@ -165,7 +176,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           <View style={styles.line} />
         </View>
 
-        <TouchableOpacity style={styles.googleBtn} onPress={onGoogleLogin}>
+        <TouchableOpacity style={styles.googleBtn} onPress={handleLogin}>
           <GoogleLogin />
           <Text style={styles.googleTxt}>
             {fromSignup ? 'Sign in' : 'Log in'} with Google
@@ -174,11 +185,33 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
         {/* Terms */}
         <View style={styles.termsWrapper}>
-          <View style={styles.checkbox} />
-          <Text style={styles.termsText}>
-            I agree to the <Text style={styles.bold}>Terms of Service</Text> and{' '}
-            <Text style={styles.bold}>Privacy Policy</Text>
-          </Text>
+          <Controller
+            control={control}
+            name="terms"
+            rules={{ required: 'You must accept the terms to continue' }}
+            render={({ field: { value, onChange } }) => (
+              <View style={styles.termsWrapper}>
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    value && { backgroundColor: '#ef8a4c' },
+                  ]}
+                  onPress={() => onChange(!value)}
+                >
+                  {value && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <Text style={styles.termsText}>
+                  I agree to the{' '}
+                  <Text style={styles.bold}>Terms of Service</Text> and{' '}
+                  <Text style={styles.bold}>Privacy Policy</Text>
+                </Text>
+              </View>
+            )}
+          />
+
+          {errors.terms && (
+            <Text style={styles.error}>{errors.terms?.message as string}</Text>
+          )}
         </View>
       </View>
 
@@ -248,6 +281,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     marginBottom: 10,
+  },
+
+  checkmark: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   input: {
     backgroundColor: '#353535',
@@ -332,6 +371,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    display: 'flex',
     borderWidth: 1,
     borderColor: '#ef8a4c',
   },
