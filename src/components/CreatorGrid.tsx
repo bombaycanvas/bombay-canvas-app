@@ -61,15 +61,13 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
           />
 
           <TouchableOpacity
-            style={styles.video}
+            style={styles.videoOverlay}
             onPress={() => onNavigateCreator?.(item.uploaderId ?? '')}
           >
-            <View style={styles.avatarWrapper}>
-              <Image
-                source={{ uri: item.uploader.profiles[0].avatarUrl }}
-                style={styles.avatar}
-              />
-            </View>
+            <Image
+              source={{ uri: item.uploader.profiles[0].avatarUrl }}
+              style={styles.avatar}
+            />
             <Text style={styles.name}>{item?.uploader?.name}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -106,31 +104,27 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: 12,
   },
-  video: {
+  videoOverlay: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
+    left: 10,
+    height: 12,
+    width: 42,
+    bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.36)',
-  },
-  avatarWrapper: {
-    width: 7,
-    height: 7,
-    borderRadius: 50,
-    overflow: 'hidden',
-    marginRight: 6,
+    // paddingHorizontal: 6,
+    // paddingVertical: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   avatar: {
-    width: '100%',
-    height: '100%',
+    width: 10,
+    height: 10,
     borderRadius: 50,
+    marginRight: 6,
   },
   name: {
+    fontSize: 3.3,
     color: '#fff',
-    fontSize: 5,
   },
 });

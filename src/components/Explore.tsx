@@ -41,7 +41,7 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
   const renderCard = (movie: Movie) => (
     <TouchableOpacity
       key={movie.id}
-      style={[styles.card, { backgroundColor: '#222' }]}
+      style={[styles.card, { backgroundColor: 'rgba(0, 0, 0, 0.36) ' }]}
       onPress={() =>
         navigation.navigate('Video' as never, { id: movie.id } as never)
       }
@@ -128,19 +128,19 @@ const styles = StyleSheet.create({
     bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    // paddingHorizontal: 6,
+    // paddingVertical: 4,
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   avatar: {
-    width: 14,
-    height: 14,
+    width: 10,
+    height: 10,
     borderRadius: 50,
     marginRight: 6,
   },
   name: {
-    fontSize: 8,
+    fontSize: 3.3,
     color: '#fff',
   },
 });

@@ -57,5 +57,10 @@
 		<string>HelveticaNowDisplay-Medium.ttf</string>
 		<string>HelveticaNowDisplay-Regular.ttf</string>
 	</array>
+	<key>UIAppFonts</key>
+    <array>
+        <string>Ionicons.ttf</string>
+    </array>
+
 </dict>
 </plist>

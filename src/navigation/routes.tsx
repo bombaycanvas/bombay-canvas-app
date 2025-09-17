@@ -7,6 +7,9 @@ import HomeScreen from '../screens/HomeScreen';
 import VideoScreen from '../screens/VideoScreen';
 import CreatorScreen from '../screens/CreatorScreen';
 import LoginScreen from '../screens/LoginScreen';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -18,12 +21,59 @@ export type MainTabsParamList = {
 
 const Stack = createNativeStackNavigator();
 
-const AppStack = () => {
+const Tab = createBottomTabNavigator();
+
+const MainTabs = () => {
   return (
-    <Stack.Navigator initialRouteName="Home">
-      <Stack.Screen
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#ffffff',
+        tabBarInactiveTintColor: '#888',
+        tabBarStyle: {
+          backgroundColor: '#000000',
+          borderTopWidth: 0,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
+        tabBarIcon: ({ color, size, focused }) => {
+          let iconName: string;
+
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Login') {
+            iconName = focused ? 'log-in' : 'log-in-outline';
+          }
+
+          return <Ionicons name={iconName} size={24} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen
         name="Home"
         component={HomeScreen}
+        options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen
+        name="Login"
+        children={props => <LoginScreen {...props} fromSignup={false} />}
+        options={{ tabBarLabel: 'Login' }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+const AppStack = () => {
+  return (
+    <Stack.Navigator initialRouteName="MainTabs">
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabs}
         options={{ headerShown: false }}
       />
       <Stack.Screen
@@ -37,17 +87,10 @@ const AppStack = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="Login"
-        options={{ headerShown: false, gestureEnabled: true }}
-      >
-        {props => <LoginScreen {...props} fromSignup={false} />}
-      </Stack.Screen>
-      <Stack.Screen
-        name="SignUp"
-        options={{ headerShown: false, gestureEnabled: true }}
-      >
-        {props => <LoginScreen {...props} fromSignup={true} />}
-      </Stack.Screen>
+        name="Signup"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 };

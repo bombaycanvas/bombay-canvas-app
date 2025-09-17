@@ -134,7 +134,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    marginHorizontal: 4,
+    paddingLeft: 0,
+    // marginHorizontal: 4,
   },
   buttonText: {
     marginLeft: 8,
