@@ -40,12 +40,12 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
         style={styles.background}
         resizeMode="cover"
       >
-        <LinearGradient
+        {/* <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
           style={styles.gradient}
           start={{ x: 0.5, y: 1 }}
           end={{ x: 0.5, y: 0 }}
-        />
+        /> */}
 
         <View style={styles.content}>
           <Text style={styles.mainTitle}>
@@ -55,22 +55,36 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
 
           <View style={styles.ctaWrapper}>
             {profile?.instUrl && (
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => Linking.openURL(profile.instUrl!)}
+              <LinearGradient
+                colors={['rgba(14,14,14,0.71)', '#000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradient2}
               >
-                <InstagramIcon width={16} height={16} />
-                <Text style={styles.buttonText}>Instagram</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => Linking.openURL(profile.instUrl!)}
+                >
+                  <InstagramIcon width={16} height={16} />
+                  <Text style={styles.buttonText}>Instagram</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             )}
             {profile?.youtubeUrl && (
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => Linking.openURL(profile.youtubeUrl!)}
+              <LinearGradient
+                colors={['rgba(14,14,14,0.71)', '#000']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradient2}
               >
-                <YoutubeIcon width={16} height={16} />
-                <Text style={styles.buttonText}>YouTube</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => Linking.openURL(profile.youtubeUrl!)}
+                >
+                  <YoutubeIcon width={16} height={16} />
+                  <Text style={styles.buttonText}>YouTube</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             )}
           </View>
         </View>
@@ -106,10 +120,12 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+
     color: '#fff',
     // textAlign: 'center',
     marginBottom: 12,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: 700,
   },
   para: {
     fontSize: 12,
@@ -119,6 +135,8 @@ const styles = StyleSheet.create({
     // textAlign: 'center',
     // alignSelf: 'center',
     marginBottom: 20,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontWeight: 400,
   },
   ctaWrapper: {
     flexDirection: 'row',
@@ -126,21 +144,22 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     flexWrap: 'wrap',
   },
+  gradient2: {
+    borderRadius: 10,
+    width: 140,
+  },
   button: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    paddingLeft: 0,
-    // marginHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 32,
   },
   buttonText: {
     marginLeft: 8,
     fontSize: 12,
     color: '#fff',
-    fontWeight: '500',
+    fontFamily: 'HelveticaNowDisplay-Medium',
+    fontWeight: 500,
   },
 });

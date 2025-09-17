@@ -125,6 +125,8 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 3.3,
+    fontFamily: 'HelveticaNowDisplay-Medium',
+    fontWeight: 500,
     color: '#fff',
   },
 });
