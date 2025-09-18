@@ -161,7 +161,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingTop: 12,
+    paddingBottom: 18,
     paddingHorizontal: 32,
   },
   buttonText: {

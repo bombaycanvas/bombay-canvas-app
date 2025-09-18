@@ -148,8 +148,8 @@ export default function VideoPlayer({
         </Pressable>
       )}
 
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
+      <View
+        // colors={['transparent', 'rgba(0,0,0,0.8)']}
         style={styles.bottomOverlay}
       >
         <View style={styles.bottomControls}>
@@ -180,7 +180,7 @@ export default function VideoPlayer({
             </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={styles.sideControls}>
         <TouchableOpacity style={styles.sideButton} onPress={onOpenEpisodes}>
