@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import {
   View,
@@ -25,12 +26,9 @@ type CreatorGridsProps = {
   onNavigateCreator?: (id: string) => void;
 };
 
-const CreatorGrids: React.FC<CreatorGridsProps> = ({
-  data,
-  isLoading,
-  onNavigateVideo,
-  onNavigateCreator,
-}) => {
+const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
+  const navigation = useNavigation();
+
   if (isLoading) {
     return (
       <FlatList
@@ -59,7 +57,9 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
         <TouchableOpacity
           activeOpacity={0.9}
           style={[styles.card, { backgroundColor: '#222' }]}
-          onPress={() => onNavigateVideo?.(item.id)}
+          onPress={() =>
+            navigation.navigate('Video' as never, { id: item.id } as never)
+          }
         >
           <Image
             source={{ uri: item.posterUrl }}
@@ -67,10 +67,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
             resizeMode="cover"
           />
 
-          <TouchableOpacity
-            style={styles.videoOverlay}
-            onPress={() => onNavigateCreator?.(item.uploaderId ?? '')}
-          >
+          <TouchableOpacity style={styles.videoOverlay}>
             <Image
               source={{ uri: item.uploader.profiles[0].avatarUrl }}
               style={styles.avatar}

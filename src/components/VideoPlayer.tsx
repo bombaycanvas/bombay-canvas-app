@@ -5,27 +5,27 @@ import {
   StyleSheet,
   Text,
   Dimensions,
+  Image,
+  ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import Slider from '@react-native-community/slider';
-import {
-  Pause,
-  Play,
-  VolumeX,
-  Volume2,
-  Maximize,
-  Minimize,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react-native';
+import { Pause, Play, ChevronUp } from 'lucide-react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type VideoPlayerProps = {
-  episode: { videoUrl: string };
-  movie?: { posterUrl?: string };
+  episode: { videoUrl: string; title: string; description: string };
+  movie?: {
+    posterUrl?: string;
+    title?: string;
+    uploader?: { name?: string; profiles?: { avatarUrl?: string }[] };
+  };
   playing: boolean;
   setPlaying: (val: boolean) => void;
+  onOpenEpisodes: () => void;
 };
 
 export default function VideoPlayer({
@@ -33,34 +33,30 @@ export default function VideoPlayer({
   movie,
   playing,
   setPlaying,
+  onOpenEpisodes,
 }: VideoPlayerProps) {
-  const videoRef = useRef(null);
+  const videoRef = useRef<Video>(null);
 
-  const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const togglePlay = () => {
-    setPlaying(!playing);
-  };
-
-  const toggleMute = () => {
-    setMuted(!muted);
-  };
+  const [controlsVisible, setControlsVisible] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
 
   const handleProgress = (data: OnProgressData) => {
-    setCurrentTime(data.currentTime);
-    setProgress(data.currentTime / duration);
+    if (!isBuffering) {
+      setCurrentTime(data.currentTime);
+      setProgress(data.currentTime / duration);
+    }
   };
 
   const handleLoad = (data: OnLoadData) => {
     setDuration(data.duration);
+    setIsBuffering(false);
   };
 
-  const seek = (seconds: number) => {
-    const newTime = currentTime + seconds;
+  const onSeek = (value: number) => {
+    const newTime = value * duration;
     videoRef.current?.seek(newTime);
     setCurrentTime(newTime);
   };
@@ -71,137 +67,189 @@ export default function VideoPlayer({
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
+  const bufferConfig = {
+    minBufferMs: 15000,
+    maxBufferMs: 50000,
+    bufferForPlaybackMs: 2500,
+    bufferForPlaybackAfterRebufferMs: 5000,
+  };
+
   return (
-    <View style={[styles.container, { borderRadius: isFullscreen ? 0 : 20 }]}>
+    <Pressable
+      style={styles.container}
+      onPress={() => setControlsVisible(!controlsVisible)}
+    >
       <Video
         ref={videoRef}
         source={{ uri: episode?.videoUrl }}
         style={styles.video}
         paused={!playing}
-        muted={muted}
-        resizeMode={isFullscreen ? 'contain' : 'cover'}
-        onProgress={handleProgress}
+        resizeMode="contain"
+        onLoadStart={() => setIsBuffering(true)}
         onLoad={handleLoad}
+        onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
+        onProgress={handleProgress}
         poster={movie?.posterUrl}
         posterResizeMode="cover"
+        repeat
+        bufferConfig={bufferConfig}
+        progressUpdateInterval={250}
       />
 
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={[styles.sideButton, { left: screenWidth * 0.15 }]}
-          onPress={() => seek(-10)}
+      {isBuffering && (
+        <ActivityIndicator
+          size="large"
+          color="white"
+          style={styles.loadingIndicator}
+        />
+      )}
+
+      {controlsVisible && !isBuffering && (
+        <Pressable
+          style={styles.controlsOverlay}
+          onPress={() => setControlsVisible(false)}
         >
-          <ChevronLeft color="white" size={32} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.centerButton} onPress={togglePlay}>
-          {playing ? (
-            <Pause color="white" size={50} />
-          ) : (
-            <Play color="white" size={50} />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.sideButton, { right: screenWidth * 0.15 }]}
-          onPress={() => seek(10)}
-        >
-          <ChevronRight color="white" size={32} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.muteButton} onPress={toggleMute}>
-          {muted ? (
-            <VolumeX color="white" size={28} />
-          ) : (
-            <Volume2 color="white" size={28} />
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.fullscreenButton}
-          onPress={() => setIsFullscreen(!isFullscreen)}
-        >
-          {isFullscreen ? (
-            <Minimize color="white" size={24} />
-          ) : (
-            <Maximize color="white" size={24} />
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.bottomControls}>
-          <Slider
-            style={{ flex: 1 }}
-            minimumValue={0}
-            maximumValue={1}
-            value={progress}
-            minimumTrackTintColor="#fff"
-            maximumTrackTintColor="#808080"
-            thumbTintColor="#fff"
-            onValueChange={val => {
-              const newTime = val * duration;
-              videoRef.current?.seek(newTime);
-              setCurrentTime(newTime);
+          <TouchableOpacity
+            style={styles.playPauseButton}
+            onPress={e => {
+              e.stopPropagation();
+              setPlaying(!playing);
             }}
-          />
-          <Text style={styles.timeText}>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </Text>
+          >
+            {playing ? (
+              <Pause color="white" size={60} />
+            ) : (
+              <Play color="white" size={60} />
+            )}
+          </TouchableOpacity>
+        </Pressable>
+      )}
+
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.8)']}
+        style={styles.bottomOverlay}
+      >
+        <View style={styles.bottomControls}>
+          <View style={styles.textInfoContainer}>
+            <Text style={styles.movieTitle}>{movie?.title}</Text>
+            <Text style={styles.episodeTitle}>{episode?.title}</Text>
+            <View style={styles.creatorInfo}>
+              <Image
+                source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
+                style={styles.avatar}
+              />
+              <Text style={styles.creatorName}>{movie?.uploader?.name}</Text>
+            </View>
+          </View>
+          <View style={styles.sliderContainer}>
+            <Slider
+              style={{ flex: 1 }}
+              minimumValue={0}
+              maximumValue={1}
+              value={progress}
+              minimumTrackTintColor="#fff"
+              maximumTrackTintColor="#808080"
+              thumbTintColor="#fff"
+              onValueChange={onSeek}
+            />
+            <Text style={styles.timeText}>
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </Text>
+          </View>
         </View>
+      </LinearGradient>
+
+      <View style={styles.sideControls}>
+        <TouchableOpacity style={styles.sideButton} onPress={onOpenEpisodes}>
+          <ChevronUp color="white" size={32} />
+          <Text style={styles.sideButtonText}>Episodes</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    height: 300,
-    width: '100%',
-    overflow: 'hidden',
+    width: width,
+    height: height,
     backgroundColor: 'black',
+    justifyContent: 'center',
   },
   video: {
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
-  controls: {
+  loadingIndicator: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  controlsOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
-  centerButton: {
+  playPauseButton: {},
+  bottomOverlay: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -25 }, { translateY: -25 }],
-  },
-  sideButton: {
-    position: 'absolute',
-    top: '50%',
-    transform: [{ translateY: -16 }],
-  },
-  muteButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-  },
-  fullscreenButton: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingBottom: 32,
   },
   bottomControls: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 50,
+    flexDirection: 'column',
+  },
+  textInfoContainer: {
+    marginBottom: 16,
+  },
+  movieTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  episodeTitle: {
+    color: 'white',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  creatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 8,
+  },
+  creatorName: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   timeText: {
     color: 'white',
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 12,
+  },
+  sideControls: {
+    position: 'absolute',
+    right: 16,
+    bottom: '25%',
+    alignItems: 'center',
+    gap: 24,
+  },
+  sideButton: {
+    alignItems: 'center',
+  },
+  sideButtonText: {
+    color: 'white',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

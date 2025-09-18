@@ -33,7 +33,21 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.header}>Loading...</Text>
+        <Text style={styles.header}>
+          {latest ? 'New On Canvas' : 'Recommended for You'}
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginBottom: 10 }}
+        >
+          {Array.from({ length: 5 }).map((_, index) => (
+            <View
+              key={`skeleton-${index}`}
+              style={[styles.card, { backgroundColor: '#333' }]}
+            />
+          ))}
+        </ScrollView>
       </View>
     );
   }
