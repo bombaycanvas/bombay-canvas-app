@@ -40,12 +40,12 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
         style={styles.background}
         resizeMode="cover"
       >
-        {/* <LinearGradient
+        <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
           style={styles.gradient}
           start={{ x: 0.5, y: 1 }}
           end={{ x: 0.5, y: 0 }}
-        /> */}
+        />
 
         <View style={styles.content}>
           <Text style={styles.mainTitle}>
@@ -58,7 +58,7 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
               <LinearGradient
                 colors={['rgba(14,14,14,0.71)', '#000']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 0, y: 1 }}
                 style={styles.gradient2}
               >
                 <TouchableOpacity
@@ -74,7 +74,7 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
               <LinearGradient
                 colors={['rgba(14,14,14,0.71)', '#000']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 0, y: 1 }}
                 style={styles.gradient2}
               >
                 <TouchableOpacity
@@ -140,19 +140,28 @@ const styles = StyleSheet.create({
   },
   ctaWrapper: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 5,
     justifyContent: 'flex-start',
     flexWrap: 'wrap',
   },
   gradient2: {
-    borderRadius: 10,
-    width: 140,
+    borderRadius: 15,
+    width: 150,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+
+    shadowColor: '#fffafa6f',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+
+    elevation: 8,
   },
   button: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 9,
+    paddingVertical: 4,
     paddingHorizontal: 32,
   },
   buttonText: {

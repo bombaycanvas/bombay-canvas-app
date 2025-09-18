@@ -86,7 +86,7 @@ export const useMoviesDataById = id => {
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
-    retry: false,
+    retry: true,
   });
 };
 

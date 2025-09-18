@@ -23,7 +23,7 @@ const HomeScreen = () => {
       }
     >
       <Landing movieData={data?.allMovies} isLoading={isLoading} />
-      <Explore movieData={data?.allMovies} isLoading={isLoading} />
+      <Explore latest movieData={data?.allMovies} isLoading={isLoading} />
       <Explore movieData={data?.allMovies} isLoading={isLoading} />
     </ScrollView>
   );

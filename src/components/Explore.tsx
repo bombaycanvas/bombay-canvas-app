@@ -134,13 +134,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   avatar: {
-    width: 10,
-    height: 10,
+    width: 9.5,
+    height: 9.5,
     borderRadius: 50,
     marginRight: 6,
   },
   name: {
-    fontSize: 3.3,
+    fontSize: 4.5,
     color: '#fff',
   },
 });

@@ -33,11 +33,18 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <View style={styles.wrapper}>
-        {Array.from({ length: 15 }).map((_, index) => (
-          <View key={index} style={styles.skeletonCard} />
-        ))}
-      </View>
+      <FlatList
+        data={Array.from({ length: 16 })}
+        numColumns={4}
+        contentContainerStyle={styles.wrapper}
+        columnWrapperStyle={{ justifyContent: 'space-between' }}
+        keyExtractor={(_, index) => `skeleton-${index}`}
+        renderItem={() => (
+          <View style={styles.card}>
+            <View style={[styles.poster, { backgroundColor: '#333' }]} />
+          </View>
+        )}
+      />
     );
   }
 
@@ -84,13 +91,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: 'black',
     gap: 16,
-  },
-  skeletonCard: {
-    width: 150,
-    height: 250,
-    backgroundColor: '#333',
-    borderRadius: 12,
-    margin: 8,
   },
   card: {
     borderRadius: 12,
