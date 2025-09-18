@@ -40,10 +40,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
   const handleLogin = async () => {
     try {
-      const data = await googleLogin();
-      console.log('user', data.idToken);
-      googleLoginMutate(data.idToken);
-      console.log('✅ User logged in:');
+      const firebaseToken = await googleLogin();
+      googleLoginMutate(firebaseToken);
     } catch (error) {
       console.error('❌ Google login error:', error);
     }
@@ -271,6 +269,8 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 16,
     borderRadius: 24,
+    paddingBottom: 6,
+    paddingTop: 6,
     borderWidth: 6,
     borderColor: 'rgba(54, 54, 54, 0.37)',
     backgroundColor: 'rgba(32, 32, 32, 0.7)',

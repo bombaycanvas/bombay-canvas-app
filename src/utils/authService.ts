@@ -1,5 +1,5 @@
-import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import auth from '@react-native-firebase/auth';
 
 export async function googleLogin() {
   try {
@@ -7,7 +7,12 @@ export async function googleLogin() {
 
     const { data } = await GoogleSignin.signIn();
 
-    return data;
+    const googleCredential = auth.GoogleAuthProvider.credential(data.idToken);
+    const userCredential = await auth().signInWithCredential(googleCredential);
+
+    const firebaseToken = await userCredential.user.getIdToken();
+
+    return firebaseToken;
   } catch (error) {
     console.error('Google login error:', error);
     throw error;
