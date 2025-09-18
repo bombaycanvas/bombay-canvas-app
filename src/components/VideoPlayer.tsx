@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -35,13 +35,36 @@ export default function VideoPlayer({
   setPlaying,
   onOpenEpisodes,
 }: VideoPlayerProps) {
-  const videoRef = useRef<Video>(null);
+  const videoRef = useRef(null);
+  const bufferTimeout = useRef<null>(null);
 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
+
+  useEffect(() => {
+    return () => {
+      if (bufferTimeout.current) {
+        clearTimeout(bufferTimeout.current);
+      }
+    };
+  }, []);
+
+  const handleBuffer = ({ isBuffering }: { isBuffering: boolean }) => {
+    if (bufferTimeout.current) {
+      clearTimeout(bufferTimeout.current);
+    }
+
+    if (isBuffering) {
+      bufferTimeout.current = setTimeout(() => {
+        setIsBuffering(true);
+      }, 200);
+    } else {
+      setIsBuffering(false);
+    }
+  };
 
   const handleProgress = (data: OnProgressData) => {
     if (!isBuffering) {
@@ -87,7 +110,7 @@ export default function VideoPlayer({
         resizeMode="contain"
         onLoadStart={() => setIsBuffering(true)}
         onLoad={handleLoad}
-        onBuffer={({ isBuffering }) => setIsBuffering(isBuffering)}
+        onBuffer={handleBuffer}
         onProgress={handleProgress}
         poster={movie?.posterUrl}
         posterResizeMode="cover"
