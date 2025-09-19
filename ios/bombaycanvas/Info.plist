@@ -2,6 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</key>
+	<string>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</string>
+
+	<key>LSApplicationCategoryType</key>
+	<string></string>
+
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -32,7 +48,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string/>
+	<string></string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -56,11 +72,7 @@
 		<string>HelveticaNowDisplay-Light.ttf</string>
 		<string>HelveticaNowDisplay-Medium.ttf</string>
 		<string>HelveticaNowDisplay-Regular.ttf</string>
+		<string>Ionicons.ttf</string>
 	</array>
-	<key>UIAppFonts</key>
-    <array>
-        <string>Ionicons.ttf</string>
-    </array>
-
 </dict>
 </plist>

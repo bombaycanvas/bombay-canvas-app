@@ -57,9 +57,6 @@ export const api = async (endpoint: string, config: any = {}) => {
   try {
     const apiUrl = 'https://bombay-canvas-1018893063821.asia-south1.run.app';
 
-    // const apiUrl =
-    //   ' https://f7ad-2402-a00-172-f90a-fc6c-f300-be66-4da5.ngrok-free.app';
-
     const response = await fetch(`${apiUrl}/${endpoint}`, requestConfig);
 
     if (!response.ok) {

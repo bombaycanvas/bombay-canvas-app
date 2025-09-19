@@ -13,7 +13,7 @@ if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 else
-  # ✅ Ensure frameworks are linked statically if not set in ENV
+  # ✅ Default to static frameworks
   use_frameworks! :linkage => :static
 end
 
@@ -26,26 +26,26 @@ target 'bombaycanvas' do
   )
 
   # ✅ Firebase pods with modular headers
-  pod 'FirebaseAuth', :modular_headers => true
-  pod 'FirebaseAuthInterop', :modular_headers => true
-  pod 'FirebaseAppCheckInterop', :modular_headers => true
-  pod 'FirebaseCoreExtension', :modular_headers => true
-  pod 'RecaptchaInterop', :modular_headers => true
-  pod 'FirebaseCore', :modular_headers => true
+  pod 'Firebase/Auth', :modular_headers => true
+  pod 'Firebase/Core', :modular_headers => true
   pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseCoreExtension', :modular_headers => true
+  pod 'FirebaseAppCheckInterop', :modular_headers => true
+  pod 'FirebaseAuthInterop', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
 
   # ✅ Google dependencies
-  pod 'GoogleUtilities', :modular_headers => true
   pod 'GoogleSignIn', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
 
   post_install do |installer|
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
+      :mac_catalyst_enabled => false
     )
 
-    # ✅ Force modular includes across Firebase pods
+    # ✅ Fix non-modular include errors for all pods
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'

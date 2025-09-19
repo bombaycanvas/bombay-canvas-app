@@ -51,8 +51,7 @@ export const useRequest = () => {
   });
 };
 
-export const login = async data => {
-  console.log('data', data);
+export const login = async (data: any) => {
   try {
     const response = await api('/api/auth/login', {
       method: 'POST',
