@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   gradient2: {
     borderRadius: 15,
-    width: 150,
+    width: 110,
     paddingVertical: 6,
     paddingHorizontal: 2,
 
@@ -159,11 +159,11 @@ const styles = StyleSheet.create({
   },
   button: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingTop: 12,
     paddingBottom: 18,
-    paddingHorizontal: 32,
+    paddingHorizontal: 14,
   },
   buttonText: {
     marginLeft: 8,

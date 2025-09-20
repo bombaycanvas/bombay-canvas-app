@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import Video from 'react-native-video';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useGetCoverVideo } from '../api/video';
 import LinearGradient from 'react-native-linear-gradient';
 import PlayButtonIcon from './assets/PlayButtonIcon';
@@ -20,22 +20,24 @@ interface LandingProps {
   isLoading?: boolean;
 }
 
-const Landing: React.FC<LandingProps> = ({ movieData, isLoading }) => {
+const Landing: React.FC<LandingProps> = () => {
   const videoRef = useRef(null);
   const navigation = useNavigation();
   const [isPlaying, setIsPlaying] = useState(true);
   const { data } = useGetCoverVideo();
 
-  const togglePlay = () => {
-    if (isPlaying) {
-      videoRef.current?.pause?.();
-    } else {
-      videoRef.current?.resume?.();
-    }
-    setIsPlaying(!isPlaying);
-  };
+  useFocusEffect(
+    useCallback(() => {
+      setIsPlaying(true);
+      return () => {
+        setIsPlaying(false);
+      };
+    }, []),
+  );
 
-  console.log('movieData', movieData);
+  const togglePlay = () => {
+    setIsPlaying(prev => !prev);
+  };
 
   return (
     <View style={styles.layout}>
@@ -45,7 +47,6 @@ const Landing: React.FC<LandingProps> = ({ movieData, isLoading }) => {
         style={styles.backgroundVideo}
         resizeMode="cover"
         repeat
-        muted
         paused={!isPlaying}
       />
       <LinearGradient
@@ -199,5 +200,17 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
     fontSize: 12,
+  },
+  gradient2: {
+    borderRadius: 15,
+    width: 110,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+
+    shadowColor: '#fffafa6f',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });

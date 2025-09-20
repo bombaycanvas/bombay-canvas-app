@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -13,6 +13,7 @@ import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import Slider from '@react-native-community/slider';
 import { Pause, Play, ChevronUp } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -51,6 +52,15 @@ export default function VideoPlayer({
       }
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setPlaying(true);
+      return () => {
+        setPlaying(false);
+      };
+    }, [setPlaying]),
+  );
 
   const handleBuffer = ({ isBuffering }: { isBuffering: boolean }) => {
     if (bufferTimeout.current) {
