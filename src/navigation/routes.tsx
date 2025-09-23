@@ -28,6 +28,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const { token } = useAuthStore();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -50,10 +51,6 @@ const MainTabs = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Video') {
-            iconName = focused ? 'play-circle' : 'play-circle-outline';
-          } else if (route.name === 'Creator') {
-            iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
@@ -63,11 +60,9 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      {/* <Tab.Screen name="Video" component={VideoScreen} /> */}
-      {/* <Tab.Screen name="Creator" component={CreatorScreen} /> */}
       <Tab.Screen
         name="Profile"
-        component={useAuthStore.getState().token ? ProfileScreen : LoginScreen}
+        component={token ? ProfileScreen : LoginScreen}
       />
     </Tab.Navigator>
   );

@@ -1,4 +1,4 @@
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Text,
@@ -25,6 +25,7 @@ const VideoListItem = React.memo(
     isPlaying: boolean;
   }) => {
     const [playing, setPlaying] = useState(isPlaying);
+    const navigation = useNavigation();
 
     useEffect(() => {
       setPlaying(isPlaying);
@@ -45,7 +46,17 @@ const VideoListItem = React.memo(
                 source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
                 style={styles.avatar}
               />
-              <Text style={styles.username}>{movie?.uploader?.name}</Text>
+              <Text
+                onPress={() =>
+                  navigation.navigate(
+                    'Creator' as never,
+                    { id: movie.uploader?.id } as never,
+                  )
+                }
+                style={styles.username}
+              >
+                {movie?.uploader?.name}
+              </Text>
             </View>
             <Text style={styles.title}>
               E{item.episodeNo}: {item.title}

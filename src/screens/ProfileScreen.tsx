@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   ImageBackground,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import UserVideos from '../components/UserVideos';
 import { useMoviesDataByCreator } from '../api/video';
 import { useUserData } from '../api/auth';
+import FastImage from '@d11/react-native-fast-image';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -37,13 +37,16 @@ const ProfileScreen = () => {
             style={styles.coverPhoto}
           >
             <View style={styles.overlay} />
-            <Image
+            <FastImage
               source={{
                 uri:
                   userData?.creator?.profiles[0]?.avatarUrl ||
                   'https://via.placeholder.com/150',
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
               }}
               style={styles.avatar}
+              resizeMode={FastImage.resizeMode.cover}
             />
           </ImageBackground>
 

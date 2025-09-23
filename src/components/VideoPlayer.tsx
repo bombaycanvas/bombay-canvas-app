@@ -157,28 +157,30 @@ export default function VideoPlayer({
         </Pressable>
       )}
 
-      <View
-        // colors={['transparent', 'rgba(0,0,0,0.8)']}
-        style={styles.bottomOverlay}
-      >
-        <View style={styles.bottomControls}>
-          <View style={styles.sliderContainer}>
-            <Slider
-              style={{ flex: 1 }}
-              minimumValue={0}
-              maximumValue={1}
-              value={progress}
-              minimumTrackTintColor="#fff"
-              maximumTrackTintColor="#808080"
-              thumbTintColor="#fff"
-              onValueChange={onSeek}
-            />
-            <Text style={styles.timeText}>
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </Text>
+      {controlsVisible && (
+        <View
+          // colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.bottomOverlay}
+        >
+          <View style={styles.bottomControls}>
+            <View style={styles.sliderContainer}>
+              <Slider
+                style={{ flex: 1 }}
+                minimumValue={0}
+                maximumValue={1}
+                value={progress}
+                minimumTrackTintColor="#fff"
+                maximumTrackTintColor="#808080"
+                thumbTintColor="#fff"
+                onValueChange={onSeek}
+              />
+              <Text style={styles.timeText}>
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
     </Pressable>
   );
 }
