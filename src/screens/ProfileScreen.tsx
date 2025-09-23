@@ -11,14 +11,15 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import UserVideos from '../components/UserVideos';
-import { useMoviesData, useMoviesDataByCreator } from '../api/video';
+import { useMoviesDataByCreator } from '../api/video';
 import { useUserData } from '../api/auth';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { data, isLoading } = useMoviesData();
   const { data: userProfile } = useUserData(useAuthStore.getState().token);
-  const { data: userData } = useMoviesDataByCreator(userProfile?.userData?.id);
+  const { data: userData, isLoading } = useMoviesDataByCreator(
+    userProfile?.userData?.id,
+  );
   const isCreator =
     userProfile?.userData?.role === 'CREATOR' ||
     userProfile?.userData?.role === 'ADMIN';
@@ -62,7 +63,7 @@ const ProfileScreen = () => {
                 </View> */}
                 <View style={styles.stat}>
                   <Text style={styles.statValue}>
-                    {data?.allMovies?.length}
+                    {userData?.allMovies?.length}
                   </Text>
                   <Text style={styles.statLabel}>Videos</Text>
                 </View>
@@ -82,7 +83,7 @@ const ProfileScreen = () => {
           </View>
 
           {isCreator && (
-            <UserVideos data={data?.allMovies} isLoading={isLoading} />
+            <UserVideos data={userData?.allMovies} isLoading={isLoading} />
           )}
         </View>
       )}

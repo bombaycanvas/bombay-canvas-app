@@ -26,7 +26,6 @@ type VideoPlayerProps = {
   };
   playing: boolean;
   setPlaying: (val: boolean) => void;
-  onOpenEpisodes: () => void;
 };
 
 export default function VideoPlayer({
@@ -34,8 +33,7 @@ export default function VideoPlayer({
   movie,
   playing,
   setPlaying,
-  onOpenEpisodes,
-}: VideoPlayerProps) {
+}: Omit<VideoPlayerProps, 'onOpenEpisodes'>) {
   const videoRef = useRef(null);
   const bufferTimeout = useRef<null>(null);
 
@@ -102,7 +100,7 @@ export default function VideoPlayer({
   };
 
   const bufferConfig = {
-    minBufferMs: 15000,
+    minBufferMs: 5000,
     maxBufferMs: 50000,
     bufferForPlaybackMs: 2500,
     bufferForPlaybackAfterRebufferMs: 5000,
@@ -164,26 +162,6 @@ export default function VideoPlayer({
         style={styles.bottomOverlay}
       >
         <View style={styles.bottomControls}>
-          <View style={styles.textInfoContainer}>
-            <Text style={styles.movieTitle}>{movie?.title}</Text>
-            <Text style={styles.episodeTitle}>{episode?.title}</Text>
-            <View style={styles.creatorInfo}>
-              <Image
-                source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
-                style={styles.avatar}
-              />
-              <Text
-                onPress={() =>
-                  navigation.navigate('Creator', {
-                    id: movie?.uploader?.profiles?.[0]?.userId,
-                  })
-                }
-                style={styles.creatorName}
-              >
-                {movie?.uploader?.name}
-              </Text>
-            </View>
-          </View>
           <View style={styles.sliderContainer}>
             <Slider
               style={{ flex: 1 }}
@@ -200,13 +178,6 @@ export default function VideoPlayer({
             </Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.sideControls}>
-        <TouchableOpacity style={styles.sideButton} onPress={onOpenEpisodes}>
-          <ChevronUp color="white" size={32} />
-          <Text style={styles.sideButtonText}>Episodes</Text>
-        </TouchableOpacity>
       </View>
     </Pressable>
   );

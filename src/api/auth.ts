@@ -124,10 +124,11 @@ export const useGoogleLogin = () => {
       return response;
     },
     onSuccess: async data => {
+      console.log('data', data);
       if (data.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
-        navigation.navigate('Home' as never);
+        navigation.navigate('MainTabs' as never);
       }
     },
     onError: error => {
