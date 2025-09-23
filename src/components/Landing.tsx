@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   para: {
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
-    fontSize: 10,
+    fontSize: 12,
     color: '#fff',
     maxWidth: '90%',
   },

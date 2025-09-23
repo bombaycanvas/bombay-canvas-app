@@ -7,9 +7,11 @@ export const useAuthStore = create<AuthState>(set => {
     try {
       const storedAuth = await AsyncStorage.getItem('isAuthenticated');
       const token = await AsyncStorage.getItem('accessToken');
+      const user = await AsyncStorage.getItem('user');
 
       set({ isAuthenticated: storedAuth === 'true' });
       set({ token: token });
+      set({ user: user ? JSON.parse(user) : null });
     } catch (error) {
       console.error('Error loading authentication state:', error);
     }
@@ -19,10 +21,12 @@ export const useAuthStore = create<AuthState>(set => {
   return {
     isAuthenticated: false,
     token: null,
+    user: null,
     logout: async () => {
       await AsyncStorage.removeItem('isAuthenticated');
       await AsyncStorage.removeItem('accessToken');
-      set({ isAuthenticated: false });
+      await AsyncStorage.removeItem('user');
+      set({ isAuthenticated: false, token: null, user: null });
     },
 
     saveToken: async (token: string) => {
@@ -44,5 +48,11 @@ export const useAuthStore = create<AuthState>(set => {
     initializeAuth: async () => {
       await loadAuthState();
     },
+    setUser: async (user: any) => {
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      set({ user });
+    },
   };
 });
+
+export const useAuth = useAuthStore;

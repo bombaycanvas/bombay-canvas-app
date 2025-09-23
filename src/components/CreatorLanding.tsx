@@ -6,11 +6,11 @@ import {
   Dimensions,
   TouchableOpacity,
   Linking,
-  ImageBackground,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import YoutubeIcon from '../assets/YoutubeIcon';
 import InstagramIcon from '../assets/InstagramIcon';
+import { BackgroundWrapper } from './BackgroudImage';
 
 const { height } = Dimensions.get('window');
 
@@ -35,11 +35,12 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
+      {/* <ImageBackground
         source={{ uri: bgImage }}
         style={styles.background}
         resizeMode="cover"
-      >
+      > */}
+      <BackgroundWrapper source={bgImage}>
         <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
           style={styles.gradient}
@@ -88,7 +89,8 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
             )}
           </View>
         </View>
-      </ImageBackground>
+      </BackgroundWrapper>
+      {/* </ImageBackground> */}
     </View>
   );
 };
@@ -98,7 +100,7 @@ export default CreatorLanding;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    height: height * 0.5,
+    height: height * 0.6,
   },
   background: {
     width: '100%',

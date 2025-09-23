@@ -10,6 +10,8 @@ import LoginScreen from '../screens/LoginScreen';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import ProfileScreen from '../screens/ProfileScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -17,6 +19,8 @@ export type MainTabsParamList = {
   Video: { id: string };
   Login: undefined;
   SignUp: undefined;
+  Profile: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator();
@@ -50,8 +54,8 @@ const MainTabs = () => {
             iconName = focused ? 'play-circle' : 'play-circle-outline';
           } else if (route.name === 'Creator') {
             iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Login') {
-            iconName = focused ? 'log-in' : 'log-in-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
 
           return <Ionicons name={iconName} size={24} color={color} />;
@@ -59,11 +63,11 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Video" component={VideoScreen} />
-      <Tab.Screen name="Creator" component={CreatorScreen} />
+      {/* <Tab.Screen name="Video" component={VideoScreen} /> */}
+      {/* <Tab.Screen name="Creator" component={CreatorScreen} /> */}
       <Tab.Screen
-        name="Login"
-        children={props => <LoginScreen {...props} fromSignup={false} />}
+        name="Profile"
+        component={useAuthStore.getState().token ? ProfileScreen : LoginScreen}
       />
     </Tab.Navigator>
   );
@@ -83,9 +87,33 @@ const AppStack = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="Video"
+        children={() => <VideoScreen />}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Creator"
+        children={() => <CreatorScreen />}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="Login"
         children={props => <LoginScreen {...props} fromSignup={false} />}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#202020',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontFamily: 'HelveticaNowDisplay-Bold',
+          },
+        }}
       />
     </Stack.Navigator>
   );

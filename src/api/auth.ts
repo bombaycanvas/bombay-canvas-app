@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
@@ -41,9 +41,10 @@ export const useRequest = () => {
           .getState()
           .saveToken(data.token)
           .then(() => {
-            navigation.navigate('Home' as never);
+            navigation.navigate('MainTabs' as never);
           });
       }
+      c;
     },
     onError: error => {
       console.log('Signup Failed', error.message);
@@ -82,12 +83,9 @@ export const useLogin = () => {
     },
     onSuccess: async data => {
       if (data?.token) {
-        await useAuthStore
-          .getState()
-          .saveToken(data.token)
-          .then(() => {
-            navigation.navigate('Home' as never);
-          });
+        await useAuthStore.getState().saveToken(data.token);
+        await useAuthStore.getState().setUser(data.user);
+        navigation.navigate('MainTabs' as never);
       }
     },
     onError: error => {
@@ -127,16 +125,44 @@ export const useGoogleLogin = () => {
     },
     onSuccess: async data => {
       if (data.token) {
-        await useAuthStore
-          .getState()
-          .saveToken(data.token)
-          .then(() => {
-            navigation.navigate('Home' as never);
-          });
+        await useAuthStore.getState().saveToken(data.token);
+        await useAuthStore.getState().setUser(data.user);
+        navigation.navigate('Home' as never);
       }
     },
     onError: error => {
       console.log('Login Failed', error.message);
     },
+  });
+};
+
+export const fetchUserData = async () => {
+  try {
+    const response = await api('/api/user/userInfo', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+
+    const data = await response;
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.log('user Error', error.message);
+    } else {
+      console.log('user Error', error);
+    }
+  }
+};
+
+export const useUserData = (token: any) => {
+  return useQuery({
+    queryKey: ['userData'],
+    queryFn: fetchUserData,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    enabled: !!token,
   });
 };

@@ -13,7 +13,7 @@ import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import Slider from '@react-native-community/slider';
 import { Pause, Play, ChevronUp } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +44,7 @@ export default function VideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
+  const navigation = useNavigation();
 
   useEffect(() => {
     return () => {
@@ -171,7 +172,16 @@ export default function VideoPlayer({
                 source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
                 style={styles.avatar}
               />
-              <Text style={styles.creatorName}>{movie?.uploader?.name}</Text>
+              <Text
+                onPress={() =>
+                  navigation.navigate('Creator', {
+                    id: movie?.uploader?.profiles?.[0]?.userId,
+                  })
+                }
+                style={styles.creatorName}
+              >
+                {movie?.uploader?.name}
+              </Text>
             </View>
           </View>
           <View style={styles.sliderContainer}>

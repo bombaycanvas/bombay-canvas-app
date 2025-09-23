@@ -181,12 +181,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Terms */}
         <View style={styles.termsWrapper}>
           <Controller
             control={control}
             name="terms"
-            rules={{ required: 'You must accept the terms to continue' }}
             render={({ field: { value, onChange } }) => (
               <View style={styles.termsWrapper}>
                 <TouchableOpacity

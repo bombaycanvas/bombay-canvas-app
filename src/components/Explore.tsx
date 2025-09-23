@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import FastImage from '@d11/react-native-fast-image';
 
 type Movie = any;
 
@@ -76,13 +77,16 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
           )
         }
       >
-        <Image
+        <FastImage
           source={{
             uri:
               movie.uploader?.profiles?.[0]?.avatarUrl ||
               'https://via.placeholder.com/50',
+            priority: FastImage.priority.normal,
+            cache: FastImage.cacheControl.immutable,
           }}
           style={styles.avatar}
+          resizeMode={FastImage.resizeMode.cover}
         />
         <Text style={styles.name}>{movie.uploader?.name}</Text>
       </TouchableOpacity>
