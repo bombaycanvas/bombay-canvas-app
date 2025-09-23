@@ -74,7 +74,14 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
 
           <TouchableOpacity style={styles.videoOverlay}>
             <Image
-              source={{ uri: item.uploader.profiles[0].avatarUrl }}
+              source={{
+                uri:
+                  item?.uploader?.profiles &&
+                  item.uploader.profiles.length > 0 &&
+                  item.uploader.profiles[0]?.avatarUrl
+                    ? item.uploader.profiles[0].avatarUrl
+                    : undefined,
+              }}
               style={styles.avatar}
             />
             <Text style={styles.name}>{item?.uploader?.name}</Text>

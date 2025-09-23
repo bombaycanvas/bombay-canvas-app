@@ -30,7 +30,7 @@ export const useMoviesData = () => {
   });
 };
 
-const getMoviesByCreator = async id => {
+const getMoviesByCreator = async (id: string) => {
   try {
     const response = await api(`/api/Movie/creator/${id}/${'all'}`, {
       method: 'GET',
@@ -48,7 +48,7 @@ const getMoviesByCreator = async id => {
   }
 };
 
-export const useMoviesDataByCreator = id => {
+export const useMoviesDataByCreator = (id: string) => {
   return useQuery({
     queryKey: ['moviesDataByCreator', id],
     queryFn: () => getMoviesByCreator(id),
@@ -60,7 +60,7 @@ export const useMoviesDataByCreator = id => {
   });
 };
 
-const getMoviesById = async id => {
+const getMoviesById = async (id: string) => {
   try {
     const response = await api(`/api/Movie/movie-id/${id}`, {
       method: 'GET',
@@ -78,7 +78,7 @@ const getMoviesById = async id => {
   }
 };
 
-export const useMoviesDataById = id => {
+export const useMoviesDataById = (id: string) => {
   return useQuery({
     queryKey: ['moviesDataById', id],
     queryFn: () => getMoviesById(id),

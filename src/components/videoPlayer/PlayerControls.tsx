@@ -14,7 +14,7 @@ export const PlayerControls = ({ onPressContainer }: PlayerControlsProps) => {
     <Pressable style={styles.controlsOverlay} onPress={onPressContainer}>
       <TouchableOpacity
         style={styles.playPauseButton}
-        onPress={(e) => {
+        onPress={e => {
           e.stopPropagation();
           setPaused(!isPaused);
         }}

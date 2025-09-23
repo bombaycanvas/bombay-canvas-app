@@ -6,6 +6,7 @@ import queryClient from './src/config/queryClient';
 import MainApp from './src/navigation/MainApp';
 import { initializeApp, getApps } from 'firebase/app';
 import { firebaseConfig } from './src/config/firebaseConfig';
+import { IOS_CLIENT_ID, WEB_CLIENT_ID } from '@env';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
@@ -17,10 +18,8 @@ export default function App() {
       initializeApp(firebaseConfig);
     }
     GoogleSignin.configure({
-      webClientId:
-        '145295638585-iiaal82avvss8vad07rlcura4sr2t9ps.apps.googleusercontent.com',
-      iosClientId:
-        '145295638585-dp5sicfb645783a8dggg3peee2450tf9.apps.googleusercontent.com',
+      webClientId: WEB_CLIENT_ID,
+      iosClientId: IOS_CLIENT_ID,
     });
   }, [appsLength]);
 

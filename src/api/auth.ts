@@ -3,7 +3,7 @@ import { api } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
 
-export const requestOtp = async data => {
+export const requestOtp = async (data: any) => {
   try {
     console.log('data', data);
     const response = await api('/api/auth/signup', {
@@ -44,7 +44,6 @@ export const useRequest = () => {
             navigation.navigate('MainTabs' as never);
           });
       }
-      c;
     },
     onError: error => {
       console.log('Signup Failed', error.message);
@@ -94,7 +93,7 @@ export const useLogin = () => {
   });
 };
 
-export const googleLogin = async idToken => {
+export const googleLogin = async (idToken: string) => {
   try {
     const response = await api('/api/auth/google', {
       method: 'POST',
@@ -119,7 +118,7 @@ export const useGoogleLogin = () => {
   const navigation = useNavigation();
 
   return useMutation({
-    mutationFn: async data => {
+    mutationFn: async (data: any) => {
       const response = await googleLogin(data);
       return response;
     },

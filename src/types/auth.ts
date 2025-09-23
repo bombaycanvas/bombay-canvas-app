@@ -75,10 +75,6 @@ export interface UserType {
   id: string;
   email: string;
   name: string;
-  profile_pic: string;
-  dob: string | null;
-  mobileNumber: string | null;
-  location: string | null;
   status: 'active' | 'inactive';
   resetToken: string | null;
   resetTokenExpiry: string | null;
