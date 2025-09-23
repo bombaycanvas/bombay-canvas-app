@@ -1,15 +1,6 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  TouchableOpacity,
-  Linking,
-} from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import YoutubeIcon from '../assets/YoutubeIcon';
-import InstagramIcon from '../assets/InstagramIcon';
 import { BackgroundWrapper } from './BackgroudImage';
 
 const { height } = Dimensions.get('window');
@@ -35,11 +26,6 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
 
   return (
     <View style={styles.container}>
-      {/* <ImageBackground
-        source={{ uri: bgImage }}
-        style={styles.background}
-        resizeMode="cover"
-      > */}
       <BackgroundWrapper source={bgImage}>
         <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
@@ -53,44 +39,8 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
             {profile?.name || data?.creator?.name}
           </Text>
           <Text style={styles.para}>{profile?.description}</Text>
-
-          <View style={styles.ctaWrapper}>
-            {profile?.instUrl && (
-              <LinearGradient
-                colors={['rgba(14,14,14,0.71)', '#000']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.gradient2}
-              >
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={() => Linking.openURL(profile.instUrl!)}
-                >
-                  <InstagramIcon width={16} height={16} />
-                  <Text style={styles.buttonText}>Instagram</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            )}
-            {profile?.youtubeUrl && (
-              <LinearGradient
-                colors={['rgba(14,14,14,0.71)', '#000']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.gradient2}
-              >
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={() => Linking.openURL(profile.youtubeUrl!)}
-                >
-                  <YoutubeIcon width={16} height={16} />
-                  <Text style={styles.buttonText}>YouTube</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            )}
-          </View>
         </View>
       </BackgroundWrapper>
-      {/* </ImageBackground> */}
     </View>
   );
 };
@@ -122,9 +72,7 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     fontSize: 24,
-
     color: '#fff',
-    // textAlign: 'center',
     marginBottom: 12,
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: 700,
@@ -134,8 +82,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.6,
     maxWidth: 500,
-    // textAlign: 'center',
-    // alignSelf: 'center',
     marginBottom: 20,
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
@@ -151,7 +97,6 @@ const styles = StyleSheet.create({
     width: 110,
     paddingVertical: 6,
     paddingHorizontal: 2,
-
     shadowColor: '#fffafa6f',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,

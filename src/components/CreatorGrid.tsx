@@ -114,8 +114,6 @@ const styles = StyleSheet.create({
     bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    // paddingHorizontal: 6,
-    // paddingVertical: 4,
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },

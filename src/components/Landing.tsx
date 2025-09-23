@@ -122,7 +122,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '40%',
-    // zIndex: 2,
   },
   content: {
     position: 'absolute',

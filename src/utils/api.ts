@@ -55,7 +55,7 @@ export const api = async (endpoint: string, config: any = {}) => {
   }
 
   try {
-    const apiUrl = 'https://bombay-canvas-1018893063821.asia-south1.run.app';
+    const apiUrl = BASE_URL;
 
     const response = await fetch(`${apiUrl}/${endpoint}`, requestConfig);
 

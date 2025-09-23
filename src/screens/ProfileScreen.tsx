@@ -60,20 +60,12 @@ const ProfileScreen = () => {
 
             {isCreator && (
               <View style={styles.statsContainer}>
-                {/* <View style={styles.stat}>
-                  <Text style={styles.statValue}>1.2M</Text>
-                  <Text style={styles.statLabel}>Followers</Text>
-                </View> */}
                 <View style={styles.stat}>
                   <Text style={styles.statValue}>
                     {userData?.allMovies?.length}
                   </Text>
                   <Text style={styles.statLabel}>Videos</Text>
                 </View>
-                {/* <View style={styles.stat}>
-                  <Text style={styles.statValue}>2.5M</Text>
-                  <Text style={styles.statLabel}>Likes</Text>
-                </View> */}
               </View>
             )}
 

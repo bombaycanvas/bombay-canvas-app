@@ -1,14 +1,7 @@
 import FastImage from '@d11/react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 
 type Movie = {
   id: string;

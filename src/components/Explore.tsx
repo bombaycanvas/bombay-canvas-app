@@ -123,7 +123,6 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 16,
     color: '#fff',
-    // marginBottom: 12,
     fontFamily: 'HelveticaNowDisplay-Medium',
     fontWeight: 500,
   },
@@ -146,8 +145,6 @@ const styles = StyleSheet.create({
     bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    // paddingHorizontal: 6,
-    // paddingVertical: 4,
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
