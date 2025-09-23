@@ -1,5 +1,5 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   Text,
   View,
@@ -11,34 +11,16 @@ import {
 } from 'react-native';
 import { useMoviesDataById } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
+import { useVideoStore } from '../store/videoStore';
 
 const { height, width } = Dimensions.get('window');
 
 const VideoListItem = React.memo(
-  ({
-    item,
-    movie,
-    isPlaying,
-  }: {
-    item: any;
-    movie: any;
-    isPlaying: boolean;
-  }) => {
-    const [playing, setPlaying] = useState(isPlaying);
+  ({ item, movie }: { item: any; movie: any }) => {
     const navigation = useNavigation();
-
-    useEffect(() => {
-      setPlaying(isPlaying);
-    }, [isPlaying]);
-
     return (
       <View style={styles.videoContainer}>
-        <VideoPlayer
-          episode={item}
-          movie={movie}
-          playing={playing}
-          setPlaying={setPlaying}
-        />
+        <VideoPlayer episode={item} movie={movie} />
         <View style={styles.overlay}>
           <View style={styles.textContainer}>
             <View style={styles.userInfo}>
@@ -75,30 +57,35 @@ const VideoScreen = () => {
   const route = useRoute();
   const { id } = route.params ?? {};
 
-  const [viewableItemId, setViewableItemId] = useState<string | null>(null);
+  const { setEpisodes, setCurrentEpisodeId, currentEpisodeId } =
+    useVideoStore();
 
-  const { data, isLoading } = useMoviesDataById(
+  const { data, isLoading, isError } = useMoviesDataById(
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
   const episodes = data?.movie?.episodes;
 
   useEffect(() => {
-    if (episodes?.length > 0 && !viewableItemId) {
-      setViewableItemId(episodes[0].id);
+    if (episodes?.length > 0) {
+      setEpisodes(episodes);
+
+      if (!currentEpisodeId) {
+        setCurrentEpisodeId(episodes[0].id);
+      }
     }
-  }, [episodes, viewableItemId]);
+  }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }) => {
       if (viewableItems.length > 0) {
         const visibleItem = viewableItems[0];
-        if (visibleItem.isViewable && visibleItem.item.id !== viewableItemId) {
-          setViewableItemId(visibleItem.item.id);
+        if (visibleItem.isViewable) {
+          setCurrentEpisodeId(visibleItem.item.id);
         }
       }
     },
-    [viewableItemId],
+    [setCurrentEpisodeId],
   );
 
   const viewabilityConfig = useRef({
@@ -106,20 +93,22 @@ const VideoScreen = () => {
   }).current;
 
   const renderItem = useCallback(
-    ({ item }) => (
-      <VideoListItem
-        item={item}
-        movie={data?.movie}
-        isPlaying={item.id === viewableItemId}
-      />
-    ),
-    [viewableItemId, data?.movie],
+    ({ item }) => <VideoListItem item={item} movie={data?.movie} />,
+    [data?.movie],
   );
 
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="white" />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.loaderContainer}>
+        <Text style={styles.emptyText}>Error loading videos.</Text>
       </View>
     );
   }
