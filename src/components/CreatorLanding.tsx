@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { BackgroundWrapper } from './BackgroudImage';
+import { BackgroundWrapper } from './BackgroundImage';
 
 const { height } = Dimensions.get('window');
 
