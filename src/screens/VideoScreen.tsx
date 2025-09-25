@@ -1,5 +1,5 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Text,
   View,
@@ -8,44 +8,117 @@ import {
   Dimensions,
   ActivityIndicator,
   Image,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { useMoviesDataById } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
+import { X } from 'lucide-react-native';
 
 const { height, width } = Dimensions.get('window');
 
+const EpisodesBottomSheet = ({
+  visible,
+  onClose,
+  episodes,
+  activeEpisode,
+  onEpisodeSelect,
+}) => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Episodes</Text>
+            <TouchableOpacity onPress={onClose}>
+              <X color="white" size={24} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={episodes}
+            keyExtractor={item => item.id}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[
+                  styles.episodeItem,
+                  activeEpisode?.id === item.id && styles.activeEpisodeItem,
+                ]}
+                onPress={() => onEpisodeSelect(item, index)}
+              >
+                <Image
+                  source={{ uri: item.thumbnail }}
+                  style={styles.thumbnail}
+                />
+                <View style={styles.episodeInfo}>
+                  <Text style={styles.episodeTitleText}>
+                    E{item.episodeNo}: {item.title}
+                  </Text>
+                  <Text style={styles.episodeDuration}>{item.duration}m</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const VideoListItem = React.memo(
-  ({ item, movie }: { item: any; movie: any }) => {
+  ({
+    item,
+    movie,
+    onEpisodesPress,
+  }: {
+    item: any;
+    movie: any;
+    onEpisodesPress: () => void;
+  }) => {
     const navigation = useNavigation();
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer episode={item} movie={movie} />
         <View style={styles.overlay}>
-          <View style={styles.textContainer}>
-            <View style={styles.userInfo}>
-              <Image
-                source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
-                style={styles.avatar}
-              />
-              <Text
-                onPress={() =>
-                  navigation.navigate(
-                    'Creator' as never,
-                    { id: movie.uploader?.id } as never,
-                  )
-                }
-                style={styles.username}
-              >
-                {movie?.uploader?.name}
+          <View style={styles.leftOverlay}>
+            <View style={styles.textContainer}>
+              <View style={styles.userInfo}>
+                <Image
+                  source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
+                  style={styles.avatar}
+                />
+                <Text
+                  onPress={() =>
+                    navigation.navigate(
+                      'Creator' as never,
+                      { id: movie.uploader?.id } as never,
+                    )
+                  }
+                  style={styles.username}
+                >
+                  {movie?.uploader?.name}
+                </Text>
+              </View>
+              <Text style={styles.title}>
+                E{item.episodeNo}: {item.title}
+              </Text>
+              <Text style={styles.description} numberOfLines={2}>
+                {item.description}
               </Text>
             </View>
-            <Text style={styles.title}>
-              E{item.episodeNo}: {item.title}
-            </Text>
-            <Text style={styles.description} numberOfLines={2}>
-              {item.description}
-            </Text>
+          </View>
+          <View style={styles.rightOverlay}>
+            <TouchableOpacity
+              onPress={onEpisodesPress}
+              style={styles.episodesButton}
+            >
+              <Text style={styles.episodesButtonText}>Episodes</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -65,6 +138,8 @@ const VideoScreen = () => {
   );
 
   const episodes = data?.movie?.episodes;
+  const flatListRef = useRef<FlatList>(null);
+  const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
 
   useEffect(() => {
     if (episodes?.length > 0) {
@@ -75,6 +150,12 @@ const VideoScreen = () => {
       }
     }
   }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
+
+  const handleEpisodeSelect = (episode: any, index: number) => {
+    setCurrentEpisodeId(episode.id);
+    flatListRef.current?.scrollToIndex({ animated: true, index });
+    setIsEpisodesVisible(false);
+  };
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }) => {
@@ -93,7 +174,13 @@ const VideoScreen = () => {
   }).current;
 
   const renderItem = useCallback(
-    ({ item }) => <VideoListItem item={item} movie={data?.movie} />,
+    ({ item }: { item: any }) => (
+      <VideoListItem
+        item={item}
+        movie={data?.movie}
+        onEpisodesPress={() => setIsEpisodesVisible(true)}
+      />
+    ),
     [data?.movie],
   );
 
@@ -121,9 +208,12 @@ const VideoScreen = () => {
     );
   }
 
+  const activeEpisode = episodes.find(e => e.id === currentEpisodeId);
+
   return (
     <View style={styles.container}>
       <FlatList
+        ref={flatListRef}
         data={episodes}
         renderItem={renderItem}
         keyExtractor={item => item.id}
@@ -136,9 +226,19 @@ const VideoScreen = () => {
           offset: height * index,
           index,
         })}
+        initialScrollIndex={episodes.findIndex(
+          item => item.id === currentEpisodeId,
+        )}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
         windowSize={3}
+      />
+      <EpisodesBottomSheet
+        visible={isEpisodesVisible}
+        onClose={() => setIsEpisodesVisible(false)}
+        episodes={episodes}
+        activeEpisode={activeEpisode}
+        onEpisodeSelect={handleEpisodeSelect}
       />
     </View>
   );
@@ -173,10 +273,16 @@ const styles = StyleSheet.create({
     bottom: 80,
     left: 0,
     right: 0,
-    width: '100%',
-    paddingTop: 20,
-    paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     paddingHorizontal: 16,
+  },
+  leftOverlay: {
+    flex: 1,
+  },
+  rightOverlay: {
+    marginLeft: 16,
   },
   textContainer: {},
   userInfo: {
@@ -206,5 +312,67 @@ const styles = StyleSheet.create({
   description: {
     color: 'white',
     fontSize: 14,
+  },
+  episodesButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  episodesButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#181818',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    height: '60%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  episodeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  activeEpisodeItem: {
+    backgroundColor: '#333',
+  },
+  thumbnail: {
+    width: 120,
+    height: 70,
+    borderRadius: 4,
+  },
+  episodeInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  episodeTitleText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  episodeDuration: {
+    color: '#aaa',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
