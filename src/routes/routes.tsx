@@ -35,6 +35,7 @@ const MainTabs = () => {
         headerShown: false,
         tabBarActiveTintColor: '#ffffff',
         tabBarInactiveTintColor: '#888',
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: '#000000',
           borderTopWidth: 0,
