@@ -12,6 +12,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SplashScreen from '../screens/SplashScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -96,6 +97,7 @@ const AppStack = () => {
         children={props => <LoginScreen {...props} fromSignup={false} />}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="Splash" component={SplashScreen} />
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}

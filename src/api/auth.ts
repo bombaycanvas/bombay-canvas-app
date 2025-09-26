@@ -3,7 +3,7 @@ import { api } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
 
-export const requestOtp = async (data: any) => {
+export const request = async (data: any) => {
   try {
     console.log('data', data);
     const response = await api('/api/auth/signup', {
@@ -32,7 +32,7 @@ export const useRequest = () => {
 
   return useMutation({
     mutationFn: async data => {
-      const response = await requestOtp(data);
+      const response = await request(data);
       return response;
     },
     onSuccess: async data => {

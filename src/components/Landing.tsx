@@ -58,7 +58,7 @@ const Landing: React.FC<LandingProps> = () => {
 
       <View style={styles.content}>
         <Image
-          source={require('../images/logo.png')}
+          source={require('../images/logoTransparent.png')}
           style={styles.logo}
           resizeMode="contain"
         />
