@@ -18,9 +18,9 @@ const HomeScreen = () => {
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      // refreshControl={
+      //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      // }
     >
       <Landing movieData={data?.allMovies} isLoading={isLoading} />
       <Explore latest movieData={data?.allMovies} isLoading={isLoading} />
