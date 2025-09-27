@@ -153,6 +153,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: 'white',
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontWeight: 400,
     fontSize: 16,
     paddingVertical: 12,
   },
@@ -175,6 +177,8 @@ const styles = StyleSheet.create({
   resultText: {
     color: 'white',
     fontSize: 16,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontWeight: 400,
     flex: 1,
   },
   noResultsText: {
