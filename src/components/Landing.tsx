@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  TextInput,
-  FlatList,
 } from 'react-native';
 import Video from 'react-native-video';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -16,22 +14,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import PlayButtonIcon from './assets/PlayButtonIcon';
 
 import { Pause } from 'lucide-react-native';
-
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
 
 const { height } = Dimensions.get('window');
 
@@ -45,9 +27,6 @@ const Landing: React.FC<LandingProps> = ({ movieData }) => {
   const navigation = useNavigation();
   const [isPlaying, setIsPlaying] = useState(true);
   const { data } = useGetCoverVideo();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,39 +37,8 @@ const Landing: React.FC<LandingProps> = ({ movieData }) => {
     }, []),
   );
 
-  useEffect(() => {
-    if (debouncedSearchQuery) {
-      const filteredMovies =
-        movieData?.filter(movie =>
-          movie.title
-            .toLowerCase()
-            .includes(debouncedSearchQuery.toLowerCase()),
-        ) || [];
-      setSearchResults(filteredMovies);
-    } else {
-      setSearchResults([]);
-    }
-  }, [debouncedSearchQuery, movieData]);
-
   const togglePlay = () => {
     setIsPlaying(prev => !prev);
-  };
-
-  const renderMovieItem = ({ item }) => {
-    return (
-      <TouchableOpacity
-        style={styles.resultItem}
-        onPress={() => navigation.navigate('Video', { id: item.id })}
-      >
-        <Image
-          source={{ uri: item.posterUrl }}
-          style={styles.resultThumbnail}
-        />
-        <Text style={styles.resultText} numberOfLines={1}>
-          {item.title}
-        </Text>
-      </TouchableOpacity>
-    );
   };
 
   return (
@@ -127,54 +75,33 @@ const Landing: React.FC<LandingProps> = ({ movieData }) => {
           more — discover it all in vertical
         </Text>
 
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search for movies..."
-          placeholderTextColor="#A9A9A9"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-
-        {searchQuery ? (
-          <FlatList
-            data={searchResults}
-            renderItem={renderMovieItem}
-            keyExtractor={item => item.id.toString()}
-            style={styles.resultsList}
-            ListEmptyComponent={
-              <Text style={styles.noResultsText}>No movies found.</Text>
+        <View style={styles.ctaWrapper}>
+          <TouchableOpacity
+            style={styles.infoCta}
+            onPress={() =>
+              navigation.navigate('Creator', { id: data?.admin?.id })
             }
-            nestedScrollEnabled={true}
-          />
-        ) : (
-          <View style={styles.ctaWrapper}>
-            <TouchableOpacity
-              style={styles.infoCta}
-              onPress={() =>
-                navigation.navigate('Creator', { id: data?.admin?.id })
-              }
-            >
-              <Image
-                source={{
-                  uri:
-                    data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
-                }}
-                style={styles.avatar}
-              />
-              <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
-              {isPlaying ? (
-                <Pause fill={'#ffffff'} color="white" height={19} width={17} />
-              ) : (
-                <PlayButtonIcon />
-              )}
-              <Text style={styles.playText}>
-                {isPlaying ? ' Pause' : ' Play'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          >
+            <Image
+              source={{
+                uri:
+                  data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
+              }}
+              style={styles.avatar}
+            />
+            <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
+            {isPlaying ? (
+              <Pause fill={'#ffffff'} color="white" height={19} width={17} />
+            ) : (
+              <PlayButtonIcon />
+            )}
+            <Text style={styles.playText}>
+              {isPlaying ? ' Pause' : ' Play'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -233,43 +160,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     maxWidth: '90%',
-  },
-  searchInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    color: 'white',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginTop: 10,
-  },
-  resultsList: {
-    maxHeight: height * 0.15, // Limit height of search results
-    marginTop: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', //
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  resultThumbnail: {
-    width: 60,
-    height: 34,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  resultText: {
-    color: 'white',
-    fontSize: 14,
-    flex: 1,
-  },
-  noResultsText: {
-    color: '#A9A9A9',
-    textAlign: 'center',
-    marginTop: 10,
   },
   ctaWrapper: {
     flexDirection: 'row',

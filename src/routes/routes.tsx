@@ -12,9 +12,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SearchScreen from '../screens/SearchScreen';
+import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
+import { Platform } from 'react-native';
 
 export type MainTabsParamList = {
   Home: undefined;
+  Search: undefined;
   Creator: { id: string };
   Video: { id: string };
   Login: undefined;
@@ -28,30 +32,33 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const { isKeyboardVisible } = useKeyboardHandler();
   const { token } = useAuthStore();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        animation: 'none',
         tabBarActiveTintColor: '#ffffff',
         tabBarInactiveTintColor: '#888',
-        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: '#000000',
           borderTopWidth: 0,
           height: 70,
-          paddingBottom: 10,
-          paddingTop: 10,
+          display: Platform.OS !== 'ios' && isKeyboardVisible ? 'none' : 'flex',
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
         },
+
         tabBarIcon: ({ color, focused }) => {
           let iconName = 'home-outline';
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Search') {
+            iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
@@ -61,6 +68,7 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen
         name="Profile"
         component={token ? ProfileScreen : LoginScreen}
