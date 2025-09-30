@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMoviesData } from '../api/video';
@@ -18,13 +19,8 @@ const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
 
   return debouncedValue;
@@ -53,33 +49,44 @@ const SearchScreen = () => {
     }
   }, [debouncedSearchQuery, movieData]);
 
-  const renderMovieItem = ({ item }) => {
-    return (
-      <TouchableOpacity
-        style={styles.resultItem}
-        onPress={() => navigation.navigate('Video', { id: item.id })}
-      >
-        <Image
-          source={{ uri: item.posterUrl }}
-          style={styles.resultThumbnail}
-        />
-        <Text style={styles.resultText} numberOfLines={1}>
-          {item.title}
-        </Text>
-      </TouchableOpacity>
-    );
+  // Create genre-based structure
+  const getMoviesByGenre = () => {
+    const genreMap = {};
+    movieData?.allMovies?.forEach(movie => {
+      movie.genres?.forEach(genre => {
+        if (!genreMap[genre.name]) genreMap[genre.name] = [];
+        genreMap[genre.name].push(movie);
+      });
+    });
+    return genreMap;
   };
 
-  const renderTrendingItem = ({ item }) => (
+  const genreMap = getMoviesByGenre();
+
+  const renderMovieItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.trendingItem}
+      style={styles.movieItem}
       onPress={() => navigation.navigate('Video', { id: item.id })}
     >
-      <Image
-        source={{ uri: item.posterUrl }}
-        style={styles.trendingThumbnail}
-      />
+      <Image source={{ uri: item.posterUrl }} style={styles.movieThumbnail} />
+      <Text style={styles.movieTitle} numberOfLines={1}>
+        {item.title}
+      </Text>
     </TouchableOpacity>
+  );
+
+  const renderGenreSection = (genre, movies) => (
+    <View key={genre} style={styles.genreSection}>
+      <Text style={styles.genreTitle}>{genre}</Text>
+      <FlatList
+        data={movies}
+        renderItem={renderMovieItem}
+        keyExtractor={item => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 15 }}
+      />
+    </View>
   );
 
   return (
@@ -113,27 +120,18 @@ const SearchScreen = () => {
           }
         />
       ) : (
-        <View style={styles.exploreContent}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
-          <FlatList
-            data={movieData?.allMovies}
-            renderItem={renderTrendingItem}
-            keyExtractor={item => item.id.toString()}
-            numColumns={3}
-            style={styles.trendingList}
-          />
-        </View>
+        <ScrollView style={styles.genreContainer}>
+          {Object.keys(genreMap).map(genre =>
+            renderGenreSection(genre, genreMap[genre]),
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    paddingTop: 20,
-  },
+  container: { flex: 1, backgroundColor: '#000', paddingTop: 20 },
   searchHeader: {
     paddingHorizontal: 15,
     paddingBottom: 15,
@@ -147,20 +145,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    color: 'white',
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontWeight: 400,
-    fontSize: 16,
-    paddingVertical: 12,
-  },
-  resultsList: {
-    paddingHorizontal: 15,
-  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, color: 'white', fontSize: 16, paddingVertical: 12 },
+  resultsList: { paddingHorizontal: 15 },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -168,46 +155,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#222',
   },
-  resultThumbnail: {
-    width: 80,
-    height: 45,
-    borderRadius: 5,
-    marginRight: 12,
-  },
-  resultText: {
-    color: 'white',
-    fontSize: 16,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontWeight: 400,
-    flex: 1,
-  },
+  resultThumbnail: { width: 80, height: 45, borderRadius: 5, marginRight: 12 },
+  resultText: { color: 'white', fontSize: 16, flex: 1 },
   noResultsText: {
     color: '#888',
     textAlign: 'center',
     marginTop: 30,
     fontSize: 16,
   },
-  exploreContent: {
-    flex: 1,
-  },
-  sectionTitle: {
+  genreContainer: { flex: 1 },
+  genreSection: { marginBottom: 25 },
+  genreTitle: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 15,
+    marginBottom: 12,
     paddingHorizontal: 15,
   },
-  trendingList: {
-    flex: 1,
-  },
-  trendingItem: {
-    width: width / 3,
-    height: width / 2,
-  },
-  trendingThumbnail: {
-    flex: 1,
-    margin: 1,
+  movieItem: { marginRight: 12, width: width / 3 - 20, height: width / 2.5 },
+  movieThumbnail: { flex: 1, borderRadius: 8 },
+  movieTitle: {
+    color: 'white',
+    marginTop: 5,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 
