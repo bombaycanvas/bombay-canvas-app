@@ -7,6 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  ImageBackground,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMoviesData } from '../api/video';
@@ -15,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Movie } from '../types/movie';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { SearchListDataImage } from '../api/const';
 
 type SearchScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -66,7 +68,7 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
-
+  console.log('genreMap', genreMap);
   const renderMovieItem = ({ item }: { item: Movie }) => (
     <TouchableOpacity
       style={styles.movieItem}
@@ -76,6 +78,12 @@ const SearchScreen = () => {
       <Text style={styles.title}>{item.title}</Text>
     </TouchableOpacity>
   );
+
+  const getItemURL = (item: any) => {
+    const data = SearchListDataImage[item];
+    console.log('item data', item);
+    return data;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -126,7 +134,15 @@ const SearchScreen = () => {
                 })
               }
             >
-              <Text style={styles.categoryText}>{item}</Text>
+              <ImageBackground
+                source={{
+                  uri: getItemURL(item),
+                }}
+                style={styles.coverPhoto}
+              />
+              <View style={styles.text1}>
+                <Text style={styles.categoryAnotherText}>{item}</Text>
+              </View>
             </TouchableOpacity>
           )}
           keyExtractor={item => item}
@@ -142,6 +158,18 @@ const SearchScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  text1: {
+    position: 'absolute',
+    inset: 0,
+  },
+  coverPhoto: {
+    width: '100%',
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    opacity: 0.5,
+  },
   container: { flex: 1, backgroundColor: '#000', paddingTop: 20 },
   searchHeader: {
     paddingHorizontal: 15,
@@ -201,12 +229,12 @@ const styles = StyleSheet.create({
   },
   categoryBox: {
     width: '48%',
-    minHeight: 120,
+    minHeight: 80,
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     justifyContent: 'flex-end',
-    padding: 12,
     marginBottom: 15,
+    overflow: 'hidden',
   },
   categoryText: {
     color: 'white',
@@ -216,6 +244,20 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     flexWrap: 'wrap',
     lineHeight: 20,
+  },
+  categoryAnotherText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+    textAlign: 'left',
+    width: '100%',
+    maxWidth: '90%',
+    flexWrap: 'wrap',
+    lineHeight: 20,
+    marginTop: 'auto',
+    marginBottom: 10,
+    marginLeft: 10,
   },
 });
 
