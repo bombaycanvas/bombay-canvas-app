@@ -8,6 +8,7 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
+  Dimensions,
 } from 'react-native';
 
 type Movie = {
@@ -26,6 +27,11 @@ type CreatorGridsProps = {
   onNavigateVideo?: (id: string) => void;
   onNavigateCreator?: (id: string) => void;
 };
+
+const { width } = Dimensions.get('window');
+const CARD_MARGIN = 12;
+const NUM_COLUMNS = 3;
+const CARD_WIDTH = (width - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
 const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
   const navigation = useNavigation();
@@ -50,7 +56,8 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
   return (
     <FlatList
       data={data?.allMovies ?? []}
-      numColumns={4}
+      scrollEnabled={false}
+      numColumns={3}
       contentContainerStyle={styles.wrapper}
       columnWrapperStyle={{ justifyContent: 'space-between' }}
       keyExtractor={item => item.id}
@@ -97,21 +104,20 @@ export default CreatorGrids;
 const styles = StyleSheet.create({
   wrapper: {
     flexGrow: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: CARD_MARGIN,
     backgroundColor: 'black',
-    gap: 16,
   },
   card: {
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: CARD_MARGIN,
     alignItems: 'center',
     justifyContent: 'center',
   },
   poster: {
-    width: 80,
-    height: 130,
-    borderRadius: 12,
+    width: CARD_WIDTH,
+    height: CARD_WIDTH * 1.5,
+    borderRadius: 8.78,
   },
   videoOverlay: {
     position: 'absolute',
