@@ -6,6 +6,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMoviesData } from '../api/video';
@@ -35,28 +36,22 @@ const SearchScreen = () => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
   const { data: movieData } = useMoviesData();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-
-  const allGenres = React.useMemo(() => {
-    const genreSet = new Set<string>();
-    movieData?.allMovies?.forEach(movie => {
-      movie?.genres?.forEach(genre => genreSet.add(genre.name));
-    });
-    return Array.from(genreSet);
-  }, [movieData]);
 
   useEffect(() => {
     if (debouncedSearchQuery) {
-      const filteredCategories =
-        allGenres.filter(genre =>
-          genre.toLowerCase().includes(debouncedSearchQuery.toLowerCase()),
+      const filteredMovies =
+        movieData?.allMovies?.filter(movie =>
+          movie.title
+            .toLowerCase()
+            .includes(debouncedSearchQuery.toLowerCase()),
         ) || [];
-      setSearchResults(filteredCategories);
+      setSearchResults(filteredMovies);
     } else {
       setSearchResults([]);
     }
-  }, [debouncedSearchQuery, allGenres]);
+  }, [debouncedSearchQuery, movieData]);
 
   // Create genre-based structure
   const getMoviesByGenre = () => {
@@ -71,6 +66,16 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
+
+  const renderMovieItem = ({ item }: { item: Movie }) => (
+    <TouchableOpacity
+      style={styles.movieItem}
+      onPress={() => navigation.navigate('Video', { id: item.id })}
+    >
+      <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+      <Text style={styles.title}>{item.title}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -94,29 +99,18 @@ const SearchScreen = () => {
       {searchQuery ? (
         <FlatList
           key={'list-search'}
-          data={searchResults}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.categoryBox}
-              onPress={() =>
-                navigation.navigate('CategoryMovies', {
-                  category: item,
-                  movies: genreMap[item] ?? [],
-                })
-              }
-            >
-              <Text style={styles.categoryText}>{item}</Text>
-            </TouchableOpacity>
-          )}
-          keyExtractor={item => item}
+          data={searchResults ?? []}
+          renderItem={renderMovieItem}
           numColumns={2}
           columnWrapperStyle={{
             justifyContent: 'space-between',
+            marginBottom: 15,
           }}
-          contentContainerStyle={{ padding: 15 }}
+          keyExtractor={item => item.id.toString()}
           ListEmptyComponent={
-            <Text style={styles.noResultsText}>No categories found.</Text>
+            <Text style={styles.noResultsText}>No movies found.</Text>
           }
+          contentContainerStyle={{ padding: 15 }}
         />
       ) : (
         <FlatList
