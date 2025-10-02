@@ -6,4 +6,4 @@ export const SearchListDataImage = {
   drama: 'https://i.postimg.cc/NjfvWgD8/Drama.jpg',
   comedy: 'https://i.postimg.cc/bYn4ZGd2/Comedy.jpg',
   'travel & experiences': 'https://i.postimg.cc/gcThwJX4/Travel.jpg',
-};
+} as const;

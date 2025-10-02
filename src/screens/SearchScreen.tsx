@@ -23,6 +23,7 @@ type SearchScreenNavigationProp = NativeStackNavigationProp<
   'Search'
 >;
 
+type SearchListKey = keyof typeof SearchListDataImage;
 const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -79,10 +80,11 @@ const SearchScreen = () => {
     </TouchableOpacity>
   );
 
-  const getItemURL = (item: any) => {
-    const data = SearchListDataImage[item];
-    console.log('item data', item);
-    return data;
+  const getItemURL = (item: string) => {
+    if (item in SearchListDataImage) {
+      return SearchListDataImage[item as SearchListKey];
+    }
+    return 'https://i.postimg.cc/NjfvWgD8/Drama.jpg';
   };
 
   return (
