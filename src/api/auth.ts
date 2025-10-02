@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 
 export const requestOtp = async (data: any) => {
   try {
-    console.log('data', data);
     const response = await api('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -123,7 +122,6 @@ export const useGoogleLogin = () => {
       return response;
     },
     onSuccess: async data => {
-      console.log('data', data);
       if (data.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);

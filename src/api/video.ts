@@ -1,28 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
+import { Movie, Category, CoverVideo } from '../types/movie';
 
-export const getMovies = async () => {
+export const getMovies = async (): Promise<{ allMovies: Movie[] }> => {
   try {
     const response = await api(`/api/Movie/movies/all`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     });
-    const data = await response;
-    return data;
-  } catch (error) {
-    if (error instanceof Error) {
-      console.log('Movies Error', error.message);
-    } else {
-      console.log('Movies Error', error);
+
+    if (!response) {
+      throw new Error('No Movies data found');
     }
+
+    const data = await response;
+    return data ?? [];
+  } catch (error) {
+    console.error('Movies Error', error);
+    throw error;
   }
 };
 
 export const useMoviesData = () => {
   return useQuery({
     queryKey: ['moviesData'],
-    queryFn: () => getMovies(),
+    queryFn: getMovies,
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -38,7 +41,7 @@ const getMoviesByCreator = async (id: string) => {
       cache: 'no-store',
     });
     const data = await response;
-    return data;
+    return data ?? [];
   } catch (error) {
     if (error instanceof Error) {
       console.log('Movies Error', error.message);
@@ -90,7 +93,7 @@ export const useMoviesDataById = (id: string) => {
   });
 };
 
-const getCategories = async () => {
+const getCategories = async (): Promise<Category[] | any> => {
   try {
     const response = await api(`/api/Movie/categories`, {
       method: 'GET',
@@ -98,7 +101,7 @@ const getCategories = async () => {
       cache: 'no-store',
     });
     const data = await response;
-    return data;
+    return data ?? [];
   } catch (error) {
     if (error instanceof Error) {
       console.log('Movies Error', error.message);
@@ -119,7 +122,7 @@ export const useCategories = () => {
   });
 };
 
-const getCoverVideo = async () => {
+const getCoverVideo = async (): Promise<CoverVideo | any> => {
   try {
     const response = await api(`/api/Movie/cover-video`, {
       method: 'GET',

@@ -6,16 +6,21 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
-  Dimensions,
-  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMoviesData } from '../api/video';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Movie } from '../types/movie';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 
-const useDebounce = (value, delay) => {
+type SearchScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Search'
+>;
+
+const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
@@ -26,32 +31,36 @@ const useDebounce = (value, delay) => {
   return debouncedValue;
 };
 
-const { width } = Dimensions.get('window');
-
 const SearchScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<SearchScreenNavigationProp>();
   const { data: movieData } = useMoviesData();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<string[]>([]);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  const allGenres = React.useMemo(() => {
+    const genreSet = new Set<string>();
+    movieData?.allMovies?.forEach(movie => {
+      movie?.genres?.forEach(genre => genreSet.add(genre.name));
+    });
+    return Array.from(genreSet);
+  }, [movieData]);
 
   useEffect(() => {
     if (debouncedSearchQuery) {
-      const filteredMovies =
-        movieData?.allMovies?.filter(movie =>
-          movie.title
-            .toLowerCase()
-            .includes(debouncedSearchQuery.toLowerCase()),
+      const filteredCategories =
+        allGenres.filter(genre =>
+          genre.toLowerCase().includes(debouncedSearchQuery.toLowerCase()),
         ) || [];
-      setSearchResults(filteredMovies);
+      setSearchResults(filteredCategories);
     } else {
       setSearchResults([]);
     }
-  }, [debouncedSearchQuery, movieData]);
+  }, [debouncedSearchQuery, allGenres]);
 
   // Create genre-based structure
   const getMoviesByGenre = () => {
-    const genreMap = {};
+    const genreMap: Record<string, Movie[]> = {} as Record<string, Movie[]>;
     movieData?.allMovies?.forEach(movie => {
       movie.genres?.forEach(genre => {
         if (!genreMap[genre.name]) genreMap[genre.name] = [];
@@ -62,32 +71,6 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
-
-  const renderMovieItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.movieItem}
-      onPress={() => navigation.navigate('Video', { id: item.id })}
-    >
-      <Image source={{ uri: item.posterUrl }} style={styles.movieThumbnail} />
-      <Text style={styles.movieTitle} numberOfLines={1}>
-        {item.title}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const renderGenreSection = (genre, movies) => (
-    <View key={genre} style={styles.genreSection}>
-      <Text style={styles.genreTitle}>{genre}</Text>
-      <FlatList
-        data={movies}
-        renderItem={renderMovieItem}
-        keyExtractor={item => item.id.toString()}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 15 }}
-      />
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -108,23 +91,57 @@ const SearchScreen = () => {
           />
         </View>
       </View>
-
       {searchQuery ? (
         <FlatList
+          key={'list-search'}
           data={searchResults}
-          renderItem={renderMovieItem}
-          keyExtractor={item => item.id.toString()}
-          style={styles.resultsList}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.categoryBox}
+              onPress={() =>
+                navigation.navigate('CategoryMovies', {
+                  category: item,
+                  movies: genreMap[item] ?? [],
+                })
+              }
+            >
+              <Text style={styles.categoryText}>{item}</Text>
+            </TouchableOpacity>
+          )}
+          keyExtractor={item => item}
+          numColumns={2}
+          columnWrapperStyle={{
+            justifyContent: 'space-between',
+          }}
+          contentContainerStyle={{ padding: 15 }}
           ListEmptyComponent={
-            <Text style={styles.noResultsText}>No movies found.</Text>
+            <Text style={styles.noResultsText}>No categories found.</Text>
           }
         />
       ) : (
-        <ScrollView style={styles.genreContainer}>
-          {Object.keys(genreMap).map(genre =>
-            renderGenreSection(genre, genreMap[genre]),
+        <FlatList
+          key={'list-categories'}
+          data={Object.keys(genreMap)}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.categoryBox}
+              onPress={() =>
+                navigation.navigate('CategoryMovies', {
+                  category: item,
+                  movies: genreMap[item],
+                })
+              }
+            >
+              <Text style={styles.categoryText}>{item}</Text>
+            </TouchableOpacity>
           )}
-        </ScrollView>
+          keyExtractor={item => item}
+          numColumns={2}
+          columnWrapperStyle={{
+            justifyContent: 'space-between',
+          }}
+          contentContainerStyle={{ padding: 15 }}
+        />
       )}
     </SafeAreaView>
   );
@@ -172,13 +189,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 15,
   },
-  movieItem: { marginRight: 12, width: width / 3 - 20, height: width / 2.5 },
+  movieItem: { flex: 0.48 },
+  poster: { width: '100%', height: 180, borderRadius: 10 },
+  title: {
+    color: 'white',
+    marginTop: 5,
+    fontSize: 16,
+    textAlign: 'left',
+    textTransform: 'capitalize',
+  },
   movieThumbnail: { flex: 1, borderRadius: 8 },
   movieTitle: {
     color: 'white',
     marginTop: 5,
     fontSize: 14,
     textAlign: 'center',
+  },
+  categoryBox: {
+    width: '48%',
+    minHeight: 120,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    justifyContent: 'flex-end',
+    padding: 12,
+    marginBottom: 15,
+  },
+  categoryText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+    textAlign: 'left',
+    flexWrap: 'wrap',
+    lineHeight: 20,
   },
 });
 

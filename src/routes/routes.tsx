@@ -15,6 +15,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import SearchScreen from '../screens/SearchScreen';
 import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import { Platform } from 'react-native';
+import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -117,6 +118,22 @@ const AppStack = () => {
           headerTitleStyle: {
             fontFamily: 'HelveticaNowDisplay-Bold',
           },
+        }}
+      />
+      <Stack.Screen
+        name="CategoryMovies"
+        component={CategoryMoviesScreen}
+        options={({ route }) => {
+          const rawCategory = route?.params?.category;
+          const title =
+            rawCategory.charAt(0).toUpperCase() +
+            rawCategory.slice(1).toLowerCase();
+
+          return {
+            title,
+            headerStyle: { backgroundColor: '#000' },
+            headerTintColor: '#fff',
+          };
         }}
       />
     </Stack.Navigator>

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from '@env';
+import { NEXT_PUBLIC_BASE_URL } from '@env';
 import { useAuthStore } from '../store/authStore';
 
 export const getToken = async (key: string): Promise<string | null> => {
@@ -55,9 +55,12 @@ export const api = async (endpoint: string, config: any = {}) => {
   }
 
   try {
-    const apiUrl = BASE_URL;
+    const apiUrl = NEXT_PUBLIC_BASE_URL;
 
-    const response = await fetch(`${apiUrl}/${endpoint}`, requestConfig);
+    const response = await fetch(
+      `${apiUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
+      requestConfig,
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(e => ({ message: e }));
