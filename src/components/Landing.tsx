@@ -148,11 +148,13 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     fontSize: 30,
     color: '#fff',
+    lineHeight: 36,
   },
   mainTitleBold: {
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: '700',
     fontSize: 30,
+    lineHeight: 36,
   },
   para: {
     fontFamily: 'HelveticaNowDisplay-Regular',
@@ -160,6 +162,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     maxWidth: '90%',
+    lineHeight: 16,
   },
   ctaWrapper: {
     flexDirection: 'row',

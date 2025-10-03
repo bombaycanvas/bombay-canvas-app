@@ -92,25 +92,13 @@ export const useLogin = () => {
   });
 };
 
-export const googleLogin = async (idToken: string) => {
-  try {
-    const response = await api('/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: idToken,
-      }),
-    });
-
-    const resp = await response;
-    return resp;
-  } catch (error) {
-    if (error instanceof Error) {
-      console.log('login Error', error.message);
-    } else {
-      console.log('login Error', error);
-    }
-  }
+export const googleAuthApi = async (idToken: string) => {
+  const response = await api('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: idToken }),
+  });
+  return response;
 };
 
 export const useGoogleLogin = () => {
@@ -118,11 +106,10 @@ export const useGoogleLogin = () => {
 
   return useMutation({
     mutationFn: async (data: any) => {
-      const response = await googleLogin(data);
-      return response;
+      return await googleAuthApi(data);
     },
     onSuccess: async data => {
-      if (data.token) {
+      if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
         navigation.navigate('MainTabs' as never);

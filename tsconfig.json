@@ -4,6 +4,8 @@
     "jsx": "react-native"
   },
   "include": [
+    "src",
+    "src/types/declarations.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "src/assets/ButtonIcon.js",

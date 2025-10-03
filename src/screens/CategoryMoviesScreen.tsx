@@ -1,16 +1,10 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Movie } from '../types/movie';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
+import { FlatGrid } from 'react-native-super-grid';
 
 type CategoryMoviesRoute = {
   params: {
@@ -31,26 +25,27 @@ const CategoryMoviesScreen = () => {
 
   const renderMovie = ({ item }: { item: Movie }) => (
     <TouchableOpacity
+      activeOpacity={0.9}
       style={styles.movieItem}
       onPress={() => navigation.navigate('Video', { id: item.id })}
     >
       <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlatGrid
         data={movies}
+        spacing={12}
+        itemDimension={110}
         renderItem={renderMovie}
         keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={{
-          justifyContent: 'space-between',
-          marginBottom: 15,
-        }}
-        contentContainerStyle={{ padding: 15 }}
+        scrollEnabled={false}
+        contentContainerStyle={styles.wrapper}
       />
     </View>
   );
@@ -58,14 +53,21 @@ const CategoryMoviesScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  movieItem: { flex: 0.48 },
-  poster: { width: '100%', height: 180, borderRadius: 10 },
+  wrapper: {
+    flexGrow: 1,
+    backgroundColor: 'black',
+  },
+  movieItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  poster: { width: '100%', height: 160, borderRadius: 10 },
   title: {
     color: 'white',
     marginTop: 5,
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'left',
-    textTransform: 'capitalize',
+    width: '100%',
   },
 });
 

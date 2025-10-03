@@ -17,6 +17,8 @@ import { Movie } from '../types/movie';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { SearchListDataImage } from '../api/const';
+import Drama from '../images/Drama.jpg';
+import { FlatGrid } from 'react-native-super-grid';
 
 type SearchScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -69,14 +71,15 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
-  console.log('genreMap', genreMap);
   const renderMovieItem = ({ item }: { item: Movie }) => (
     <TouchableOpacity
       style={styles.movieItem}
       onPress={() => navigation.navigate('Video', { id: item.id })}
     >
       <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -84,7 +87,7 @@ const SearchScreen = () => {
     if (item in SearchListDataImage) {
       return SearchListDataImage[item as SearchListKey];
     }
-    return 'https://i.postimg.cc/NjfvWgD8/Drama.jpg';
+    return Drama;
   };
 
   return (
@@ -99,7 +102,7 @@ const SearchScreen = () => {
           />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for movies, series and more"
+            placeholder="Search..."
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -107,20 +110,18 @@ const SearchScreen = () => {
         </View>
       </View>
       {searchQuery ? (
-        <FlatList
+        <FlatGrid
           key={'list-search'}
           data={searchResults ?? []}
           renderItem={renderMovieItem}
-          numColumns={2}
-          columnWrapperStyle={{
-            justifyContent: 'space-between',
-            marginBottom: 15,
-          }}
+          spacing={12}
+          itemDimension={110}
+          scrollEnabled={false}
           keyExtractor={item => item.id.toString()}
           ListEmptyComponent={
             <Text style={styles.noResultsText}>No movies found.</Text>
           }
-          contentContainerStyle={{ padding: 15 }}
+          contentContainerStyle={styles.wrapper}
         />
       ) : (
         <FlatList
@@ -137,9 +138,7 @@ const SearchScreen = () => {
               }
             >
               <ImageBackground
-                source={{
-                  uri: getItemURL(item),
-                }}
+                source={getItemURL(item)}
                 style={styles.coverPhoto}
               />
               <View style={styles.text1}>
@@ -164,9 +163,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     inset: 0,
   },
+  wrapper: {
+    flexGrow: 1,
+    backgroundColor: 'black',
+  },
   coverPhoto: {
     width: '100%',
-    height: 200,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -214,13 +217,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   movieItem: { flex: 0.48 },
-  poster: { width: '100%', height: 180, borderRadius: 10 },
+  poster: { width: '100%', height: 160, borderRadius: 10 },
   title: {
     color: 'white',
     marginTop: 5,
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'left',
-    textTransform: 'capitalize',
+    width: '100%',
   },
   movieThumbnail: { flex: 1, borderRadius: 8 },
   movieTitle: {

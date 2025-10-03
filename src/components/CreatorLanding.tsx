@@ -50,7 +50,7 @@ export default CreatorLanding;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    height: height * 0.6,
+    height: height * 0.59,
   },
   background: {
     width: '100%',
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 20,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
@@ -73,18 +73,19 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 24,
     color: '#fff',
-    marginBottom: 12,
+    marginBottom: 5,
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: 700,
+    lineHeight: 28,
   },
   para: {
     fontSize: 12,
     color: '#fff',
     opacity: 0.6,
     maxWidth: 500,
-    marginBottom: 20,
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
+    lineHeight: 20,
   },
   ctaWrapper: {
     flexDirection: 'row',

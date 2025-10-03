@@ -1,9 +1,17 @@
+import Microdrams from '../images/Microdrams.png';
+import FitnessDiet from '../images/Fiteness-Diet.jpg';
+import Fashion from '../images/Fashion.jpg';
+import Podcasts from '../images/PodCast.jpg';
+import Drama from '../images/Drama.jpg';
+import Comedy from '../images/Comedy.jpg';
+import Travel from '../images/Travel.jpg';
+
 export const SearchListDataImage = {
-  'microdramas & fiction': 'https://i.postimg.cc/2506PcnX/Microdrams.png',
-  'fitness & diet': 'https://i.postimg.cc/2jcQ4GJV/Fiteness-Diet.jpg',
-  'fashion & self-care': 'https://i.postimg.cc/4N01TPb8/Fashion.jpg',
-  'podcasts & talk series': 'https://i.postimg.cc/VLtJdFcd/PodCast.jpg',
-  drama: 'https://i.postimg.cc/NjfvWgD8/Drama.jpg',
-  comedy: 'https://i.postimg.cc/bYn4ZGd2/Comedy.jpg',
-  'travel & experiences': 'https://i.postimg.cc/gcThwJX4/Travel.jpg',
+  'microdramas & fiction': Microdrams,
+  'fitness & diet': FitnessDiet,
+  'fashion & self-care': Fashion,
+  'podcasts & talk series': Podcasts,
+  drama: Drama,
+  comedy: Comedy,
+  'travel & experiences': Travel,
 } as const;

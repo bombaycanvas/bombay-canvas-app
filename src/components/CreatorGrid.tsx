@@ -1,5 +1,6 @@
 import FastImage from '@d11/react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import {
   View,
@@ -10,6 +11,8 @@ import {
   FlatList,
   Dimensions,
 } from 'react-native';
+import { FlatGrid } from 'react-native-super-grid';
+import { RootStackParamList } from '../types/navigation';
 
 type Movie = {
   id: string;
@@ -28,13 +31,18 @@ type CreatorGridsProps = {
   onNavigateCreator?: (id: string) => void;
 };
 
+type SearchScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Search'
+>;
+
 const { width } = Dimensions.get('window');
 const CARD_MARGIN = 12;
 const NUM_COLUMNS = 3;
 const CARD_WIDTH = (width - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
 const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<SearchScreenNavigationProp>();
 
   if (isLoading) {
     return (
@@ -54,20 +62,18 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
   }
 
   return (
-    <FlatList
+    <FlatGrid
       data={data?.allMovies ?? []}
-      scrollEnabled={false}
-      numColumns={3}
-      contentContainerStyle={styles.wrapper}
-      columnWrapperStyle={{ justifyContent: 'space-between' }}
+      spacing={12}
+      itemDimension={110}
       keyExtractor={item => item.id}
+      contentContainerStyle={styles.wrapper}
+      scrollEnabled={false}
       renderItem={({ item }) => (
         <TouchableOpacity
           activeOpacity={0.9}
           style={[styles.card, { backgroundColor: '#222' }]}
-          onPress={() =>
-            navigation.navigate('Video' as never, { id: item.id } as never)
-          }
+          onPress={() => navigation.navigate('Video', { id: item.id })}
         >
           <FastImage
             source={{
@@ -104,13 +110,11 @@ export default CreatorGrids;
 const styles = StyleSheet.create({
   wrapper: {
     flexGrow: 1,
-    paddingHorizontal: CARD_MARGIN,
     backgroundColor: 'black',
   },
   card: {
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: CARD_MARGIN,
     alignItems: 'center',
     justifyContent: 'center',
   },

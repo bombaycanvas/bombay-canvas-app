@@ -14,7 +14,7 @@ import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import { useGoogleLogin, useLogin, useRequest } from '../api/auth';
-import { googleLogin } from '../utils/authService';
+import { signInWithGoogle } from '../utils/authService';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
@@ -40,7 +40,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
   const handleLogin = async () => {
     try {
-      const firebaseToken = await googleLogin();
+      const firebaseToken = await signInWithGoogle();
       googleLoginMutate(firebaseToken);
     } catch (error) {
       console.error('❌ Google login error:', error);

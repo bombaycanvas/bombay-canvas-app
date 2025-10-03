@@ -1,18 +1,32 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import auth from '@react-native-firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithCredential,
+} from '@react-native-firebase/auth';
 
-export async function googleLogin() {
+export async function signInWithGoogle(): Promise<string> {
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-    const { data } = await GoogleSignin.signIn();
+    const result = await GoogleSignin.signIn();
 
-    const googleCredential = auth.GoogleAuthProvider.credential(data.idToken);
-    const userCredential = await auth().signInWithCredential(googleCredential);
+    if (result.type !== 'success' || !result.data?.idToken) {
+      throw new Error('No Google idToken received');
+    }
 
-    const firebaseToken = await userCredential.user.getIdToken();
+    const { idToken } = result.data;
 
-    return firebaseToken;
+    const authInstance = getAuth();
+    const googleCredential = GoogleAuthProvider.credential(idToken);
+
+    // Modular style
+    const userCredential = await signInWithCredential(
+      authInstance,
+      googleCredential,
+    );
+
+    return await userCredential.user.getIdToken();
   } catch (error) {
     console.error('Google login error:', error);
     throw error;
