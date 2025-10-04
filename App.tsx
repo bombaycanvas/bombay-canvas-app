@@ -19,10 +19,7 @@ export default function App() {
     }
     GoogleSignin.configure({
       webClientId: WEB_CLIENT_ID,
-
       iosClientId: IOS_CLIENT_ID,
-
-      offlineAccess: true,
     });
   }, [appsLength]);
 
