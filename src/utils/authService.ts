@@ -20,7 +20,6 @@ export async function signInWithGoogle(): Promise<string> {
     const authInstance = getAuth();
     const googleCredential = GoogleAuthProvider.credential(idToken);
 
-    // Modular style
     const userCredential = await signInWithCredential(
       authInstance,
       googleCredential,

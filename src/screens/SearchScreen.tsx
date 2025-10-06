@@ -47,7 +47,7 @@ const SearchScreen = () => {
   useEffect(() => {
     if (debouncedSearchQuery) {
       const filteredMovies =
-        movieData?.allMovies?.filter(movie =>
+        movieData?.series?.filter(movie =>
           movie.title
             .toLowerCase()
             .includes(debouncedSearchQuery.toLowerCase()),
@@ -61,7 +61,7 @@ const SearchScreen = () => {
   // Create genre-based structure
   const getMoviesByGenre = () => {
     const genreMap: Record<string, Movie[]> = {} as Record<string, Movie[]>;
-    movieData?.allMovies?.forEach(movie => {
+    movieData?.series?.forEach(movie => {
       movie.genres?.forEach(genre => {
         if (!genreMap[genre.name]) genreMap[genre.name] = [];
         genreMap[genre.name].push(movie);

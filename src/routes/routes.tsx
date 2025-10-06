@@ -70,10 +70,11 @@ const MainTabs = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen
-        name="Profile"
-        component={token ? ProfileScreen : LoginScreen}
-      />
+      {token != null ? (
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      ) : (
+        <Tab.Screen name="Profile" component={LoginScreen} />
+      )}
     </Tab.Navigator>
   );
 };

@@ -4,7 +4,7 @@ import { Movie, Category, CoverVideo } from '../types/movie';
 
 export const getMovies = async (): Promise<{ allMovies: Movie[] }> => {
   try {
-    const response = await api(`/api/Movie/movies/all`, {
+    const response = await api(`/api/all-series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -35,7 +35,7 @@ export const useMoviesData = () => {
 
 const getMoviesByCreator = async (id: string) => {
   try {
-    const response = await api(`/api/Movie/creator/${id}/${'all'}`, {
+    const response = await api(`/api/creator/${id}/series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -48,6 +48,8 @@ const getMoviesByCreator = async (id: string) => {
     } else {
       console.log('Movies Error', error);
     }
+
+    return { series: [] };
   }
 };
 
@@ -65,7 +67,7 @@ export const useMoviesDataByCreator = (id: string) => {
 
 const getMoviesById = async (id: string) => {
   try {
-    const response = await api(`/api/Movie/movie-id/${id}`, {
+    const response = await api(`/api/series/${id}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -95,7 +97,7 @@ export const useMoviesDataById = (id: string) => {
 
 const getCategories = async (): Promise<Category[] | any> => {
   try {
-    const response = await api(`/api/Movie/categories`, {
+    const response = await api(`/api/genres`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -124,7 +126,7 @@ export const useCategories = () => {
 
 const getCoverVideo = async (): Promise<CoverVideo | any> => {
   try {
-    const response = await api(`/api/Movie/cover-video`, {
+    const response = await api(`/api/cover-video`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',

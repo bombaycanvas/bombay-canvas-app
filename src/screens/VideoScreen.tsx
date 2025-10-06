@@ -137,7 +137,7 @@ const VideoScreen = () => {
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
-  const episodes = data?.movie?.episodes;
+  const episodes = data?.series?.episodes;
   const flatListRef = useRef<FlatList>(null);
   const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
 

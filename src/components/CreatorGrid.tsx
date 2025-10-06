@@ -14,7 +14,7 @@ import {
 import { FlatGrid } from 'react-native-super-grid';
 import { RootStackParamList } from '../types/navigation';
 
-type Movie = {
+type Series = {
   id: string;
   posterUrl?: string;
   uploaderId?: string;
@@ -25,7 +25,7 @@ type Movie = {
 };
 
 type CreatorGridsProps = {
-  data?: { allMovies?: Movie[] };
+  data?: { series?: Series[] };
   isLoading?: boolean;
   onNavigateVideo?: (id: string) => void;
   onNavigateCreator?: (id: string) => void;
@@ -63,7 +63,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
 
   return (
     <FlatGrid
-      data={data?.allMovies ?? []}
+      data={data?.series ?? []}
       spacing={12}
       itemDimension={110}
       keyExtractor={item => item.id}

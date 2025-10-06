@@ -29,7 +29,7 @@ const CreatorScreen = () => {
       }
     >
       <CreatorLanding data={data} />
-      {data?.allMovies?.length > 0 && (
+      {data?.series?.length > 0 && (
         <CreatorGrids data={data} isLoading={isLoading} />
       )}
     </ScrollView>

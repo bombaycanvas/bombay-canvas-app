@@ -22,9 +22,9 @@ const HomeScreen = () => {
       //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       // }
     >
-      <Landing movieData={data?.allMovies} isLoading={isLoading} />
-      <Explore latest movieData={data?.allMovies} isLoading={isLoading} />
-      <Explore movieData={data?.allMovies} isLoading={isLoading} />
+      <Landing movieData={data?.series} isLoading={isLoading} />
+      <Explore latest movieData={data?.series} isLoading={isLoading} />
+      <Explore movieData={data?.series} isLoading={isLoading} />
     </ScrollView>
   );
 };

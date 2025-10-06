@@ -104,7 +104,7 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
         showsHorizontalScrollIndicator={false}
         style={{ marginBottom: 10 }}
       >
-        {shuffleArray(movieData).map(renderCard)}
+        {shuffleArray(movieData || []).map(renderCard)}
       </ScrollView>
     </View>
   );

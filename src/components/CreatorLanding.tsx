@@ -7,21 +7,23 @@ const { height } = Dimensions.get('window');
 
 interface CreatorLandingProps {
   data: {
-    creator?: {
-      name?: string;
-      profiles?: {
+    series: {
+      uploader: {
         name: string;
-        description: string;
-        posterUrl: string;
-        instUrl?: string;
-        youtubeUrl?: string;
-      }[];
-    };
+        profiles: {
+          name: string;
+          description: string;
+          posterUrl: string;
+          instUrl?: string;
+          youtubeUrl?: string;
+        }[];
+      };
+    }[];
   };
 }
 
 const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
-  const profile = data?.creator?.profiles?.[0];
+  const profile = data?.series[0]?.uploader?.profiles[0];
   const bgImage = profile?.posterUrl;
 
   return (
@@ -36,7 +38,7 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
 
         <View style={styles.content}>
           <Text style={styles.mainTitle}>
-            {profile?.name || data?.creator?.name}
+            {profile?.name || data?.series[0]?.uploader?.name}
           </Text>
           <Text style={styles.para}>{profile?.description}</Text>
         </View>
