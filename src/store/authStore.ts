@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState } from '../types/auth';
+import { logoutGoogle } from '../utils/authService';
 
 export const useAuthStore = create<AuthState>(set => {
   const loadAuthState = async () => {
@@ -23,6 +24,7 @@ export const useAuthStore = create<AuthState>(set => {
     token: null,
     user: null,
     logout: async () => {
+      await logoutGoogle();
       await AsyncStorage.removeItem('isAuthenticated');
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('user');

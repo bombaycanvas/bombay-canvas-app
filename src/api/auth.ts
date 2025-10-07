@@ -129,6 +129,7 @@ export const fetchUserData = async () => {
       cache: 'no-store',
     });
 
+    if (!response) return null;
     const data = await response;
     return data;
   } catch (error) {
@@ -137,10 +138,11 @@ export const fetchUserData = async () => {
     } else {
       console.log('user Error', error);
     }
+    return null;
   }
 };
 
-export const useUserData = (token: any) => {
+export const useUserData = (token: string | null) => {
   return useQuery({
     queryKey: ['userData'],
     queryFn: fetchUserData,
@@ -149,5 +151,35 @@ export const useUserData = (token: any) => {
     refetchOnWindowFocus: true,
     retry: 1,
     enabled: !!token,
+  });
+};
+
+export const deleteAccount = async () => {
+  try {
+    const response = await api('/api/auth/delete/soft', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const data = await response;
+    return data;
+  } catch (error) {
+    console.error('Delete account error:', error);
+    throw error;
+  }
+};
+
+export const useDeleteUserAccount = () => {
+  const navigation = useNavigation();
+
+  return useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: async () => {
+      await useAuthStore.getState().logout();
+      navigation.navigate('MainTabs' as never);
+    },
+    onError: error => {
+      console.log('Account delete failed:', error.message);
+    },
   });
 };

@@ -23,8 +23,12 @@ interface CreatorLandingProps {
 }
 
 const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
-  const profile = data?.series[0]?.uploader?.profiles[0];
-  const bgImage = profile?.posterUrl;
+  const profile = data?.series?.[0]?.uploader?.profiles?.[0];
+  const bgImage =
+    profile?.posterUrl ||
+    'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1757661776404-Card Image.png';
+
+  const hasSeries = data?.series?.length > 0;
 
   return (
     <View style={styles.container}>
@@ -37,10 +41,16 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
         />
 
         <View style={styles.content}>
-          <Text style={styles.mainTitle}>
-            {profile?.name || data?.series[0]?.uploader?.name}
-          </Text>
-          <Text style={styles.para}>{profile?.description}</Text>
+          {hasSeries ? (
+            <>
+              <Text style={styles.mainTitle}>
+                {profile?.name || data?.series[0]?.uploader?.name}
+              </Text>
+              <Text style={styles.para}>{profile?.description}</Text>
+            </>
+          ) : (
+            <Text style={styles.mainTitle}>Creator</Text>
+          )}
         </View>
       </BackgroundWrapper>
     </View>

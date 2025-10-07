@@ -60,7 +60,7 @@ const Landing: React.FC<LandingProps> = ({ movieData }) => {
 
       <View style={styles.content}>
         <Image
-          source={require('../images/logo.png')}
+          source={require('../images/MainLogo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logo: {
-    width: 52,
+    width: 70,
     height: 20,
   },
   mainTitle: {

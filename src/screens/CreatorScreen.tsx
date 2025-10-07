@@ -4,6 +4,7 @@ import CreatorLanding from '../components/CreatorLanding';
 import { useMoviesDataByCreator } from '../api/video';
 import CreatorGrids from '../components/CreatorGrid';
 import { useCallback } from 'react';
+import { View, Text } from 'react-native';
 
 const CreatorScreen = () => {
   const route = useRoute();
@@ -15,6 +16,8 @@ const CreatorScreen = () => {
   const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const noSeries = !data?.series || data?.series?.length === 0;
 
   return (
     <ScrollView
@@ -29,7 +32,14 @@ const CreatorScreen = () => {
       }
     >
       <CreatorLanding data={data} />
-      {data?.series?.length > 0 && (
+
+      {noSeries ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>
+            This creator hasn’t uploaded any series yet.
+          </Text>
+        </View>
+      ) : (
         <CreatorGrids data={data} isLoading={isLoading} />
       )}
     </ScrollView>
@@ -42,5 +52,17 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     backgroundColor: 'black',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  emptyText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    textAlign: 'center',
   },
 });

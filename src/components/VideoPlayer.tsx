@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { StyleSheet, Dimensions, TouchableOpacity, View } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
 import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
@@ -139,22 +139,24 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
         />
       )}
 
-      {isBuffering && !error && isVisible && <BufferingIndicator />}
-      {error && isVisible && <ErrorOverlay error={error} />}
+      <View style={styles.overlayContainer}>
+        {isBuffering && !error && isVisible && <BufferingIndicator />}
+        {error && isVisible && <ErrorOverlay error={error} />}
 
-      {controlsVisible && !isBuffering && !error && isVisible && (
-        <PlayerControls onPressContainer={() => setControlsVisible(false)} />
-      )}
+        {controlsVisible && !isBuffering && !error && isVisible && (
+          <PlayerControls onPressContainer={() => setControlsVisible(false)} />
+        )}
 
-      {isVisible && (
-        <ProgressBar
-          progress={progress}
-          duration={duration}
-          currentTime={currentTime}
-          onSeek={onSeek}
-          formatTime={formatTime}
-        />
-      )}
+        {isVisible && (
+          <ProgressBar
+            progress={progress}
+            duration={duration}
+            currentTime={currentTime}
+            onSeek={onSeek}
+            formatTime={formatTime}
+          />
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -168,5 +170,12 @@ const styles = StyleSheet.create({
   },
   video: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

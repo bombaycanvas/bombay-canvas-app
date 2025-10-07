@@ -1,8 +1,10 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   getAuth,
+  getIdToken,
   GoogleAuthProvider,
   signInWithCredential,
+  signOut,
 } from '@react-native-firebase/auth';
 
 export async function signInWithGoogle(): Promise<string> {
@@ -25,9 +27,20 @@ export async function signInWithGoogle(): Promise<string> {
       googleCredential,
     );
 
-    return await userCredential.user.getIdToken();
+    return await getIdToken(userCredential.user);
   } catch (error) {
     console.error('Google login error:', error);
     throw error;
+  }
+}
+
+export async function logoutGoogle() {
+  try {
+    await GoogleSignin.revokeAccess();
+    await GoogleSignin.signOut();
+    const authInstance = getAuth();
+    await signOut(authInstance);
+  } catch (error) {
+    console.error('Google logout error:', error);
   }
 }

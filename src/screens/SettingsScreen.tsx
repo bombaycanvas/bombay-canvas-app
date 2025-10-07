@@ -8,10 +8,13 @@ import {
   Linking,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
+import { useDeleteUserAccount } from '../api/auth';
 
 const SettingsScreen = () => {
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
+  const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
 
   const handleOpenURL = async (url: string) => {
     try {
@@ -31,8 +34,22 @@ const SettingsScreen = () => {
   };
 
   const handleConfirmDeleteAccount = () => {
-    setIsDeleteAccountModal(false);
-    Alert.alert('Deleted', 'Your account has been deleted');
+    deleteAccount(undefined, {
+      onSuccess: () => {
+        setIsDeleteAccountModal(false);
+        Alert.alert(
+          'Account Deleted',
+          'Your account has been deleted successfully.',
+        );
+      },
+      onError: () => {
+        setIsDeleteAccountModal(false);
+        Alert.alert(
+          'Error',
+          'Something went wrong while deleting your account.',
+        );
+      },
+    });
   };
 
   return (
@@ -91,8 +108,13 @@ const SettingsScreen = () => {
               <TouchableOpacity
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleConfirmDeleteAccount}
+                disabled={isPending}
               >
-                <Text style={styles.deleteText}>Delete</Text>
+                {isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteText}>Delete</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>

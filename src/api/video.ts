@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import { Movie, Category, CoverVideo } from '../types/movie';
 
-export const getMovies = async (): Promise<{ allMovies: Movie[] }> => {
+export const getMovies = async (): Promise<{ series: Movie[] }> => {
   try {
     const response = await api(`/api/all-series`, {
       method: 'GET',
