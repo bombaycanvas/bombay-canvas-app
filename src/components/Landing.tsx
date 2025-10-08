@@ -155,8 +155,8 @@ const styles = StyleSheet.create({
   mainTitleBold: {
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: '700',
-    fontSize: 25,
-    lineHeight: 30,
+    fontSize: 20,
+    lineHeight: 28,
   },
   para: {
     fontFamily: 'HelveticaNowDisplay-Regular',

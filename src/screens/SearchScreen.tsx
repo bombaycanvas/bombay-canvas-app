@@ -18,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { SearchListDataImage } from '../api/const';
 import Drama from '../images/Drama.jpg';
+import { FlatGrid } from 'react-native-super-grid';
 
 type SearchScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -47,11 +48,9 @@ const SearchScreen = () => {
     if (debouncedSearchQuery) {
       const filteredMovies =
         movieData?.series?.filter(movie =>
-          movie.genres?.some(genre =>
-            genre.name
-              .toLowerCase()
-              .includes(debouncedSearchQuery.toLowerCase()),
-          ),
+          movie.title
+            .toLowerCase()
+            .includes(debouncedSearchQuery.toLowerCase()),
         ) || [];
       setSearchResults(filteredMovies);
     } else {
@@ -71,34 +70,16 @@ const SearchScreen = () => {
     return genreMap;
   };
 
-  const getMoviesByGenreSearch = (results: Movie[]) => {
-    const genreMap: Record<string, Movie[]> = {};
-    results.forEach(movie => {
-      movie.genres?.forEach(genre => {
-        if (!genreMap[genre.name]) genreMap[genre.name] = [];
-        genreMap[genre.name].push(movie);
-      });
-    });
-    return genreMap;
-  };
-
-  const genreSearchMap = getMoviesByGenreSearch(searchResults);
-
   const genreMap = getMoviesByGenre();
-  const renderMovieItem = ({ item }: { item: string }) => (
+  const renderMovieItem = ({ item }: { item: Movie }) => (
     <TouchableOpacity
-      style={styles.categoryBox}
-      onPress={() =>
-        navigation.navigate('CategoryMovies', {
-          category: item,
-          movies: genreSearchMap[item],
-        })
-      }
+      style={styles.movieItem}
+      onPress={() => navigation.navigate('Video', { id: item.id })}
     >
-      <ImageBackground source={getItemURL(item)} style={styles.coverPhoto} />
-      <View style={styles.text1}>
-        <Text style={styles.categoryAnotherText}>{item}</Text>
-      </View>
+      <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -129,19 +110,18 @@ const SearchScreen = () => {
         </View>
       </View>
       {searchQuery ? (
-        <FlatList
+        <FlatGrid
           key={'list-search'}
-          data={Object.keys(genreSearchMap)}
+          data={searchResults ?? []}
           renderItem={renderMovieItem}
-          keyExtractor={item => item}
-          numColumns={2}
-          columnWrapperStyle={{
-            justifyContent: 'space-between',
-          }}
-          contentContainerStyle={{ padding: 15 }}
+          spacing={12}
+          itemDimension={110}
+          scrollEnabled={false}
+          keyExtractor={item => item.id.toString()}
           ListEmptyComponent={
-            <Text style={styles.noResultsText}>No category found.</Text>
+            <Text style={styles.noResultsText}>No series found.</Text>
           }
+          contentContainerStyle={styles.wrapper}
         />
       ) : (
         <FlatList

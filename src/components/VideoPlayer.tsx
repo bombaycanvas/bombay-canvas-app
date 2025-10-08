@@ -6,6 +6,7 @@ import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
 import { ErrorOverlay } from './videoPlayer/ErrorOverlay';
 import { PlayerControls } from './videoPlayer/PlayerControls';
 import { ProgressBar } from './videoPlayer/ProgressBar';
+import { useIsFocused } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,13 +20,14 @@ type VideoPlayerProps = {
 export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { currentEpisodeId, isPaused } = useVideoStore();
+  const { currentEpisodeId, isPaused, setPaused } = useVideoStore();
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isFocused = useIsFocused();
 
   const isVisible = currentEpisodeId === episode.id;
   const isPlaying = isVisible && !isPaused;
@@ -48,6 +50,13 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
       setControlsVisible(false);
     }
   }, [isVisible]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      videoRef.current?.pause?.();
+      setPaused(true);
+    }
+  }, [isFocused, setPaused]);
 
   const handleBuffer = ({
     isBuffering: buffering,

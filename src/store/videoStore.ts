@@ -15,6 +15,7 @@ interface VideoState {
   setEpisodes: (episodes: Episode[]) => void;
   setCurrentEpisodeId: (episodeId: string | null) => void;
   setPaused: (paused: boolean) => void;
+  resetPlayer: () => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
@@ -25,4 +26,9 @@ export const useVideoStore = create<VideoState>(set => ({
   setCurrentEpisodeId: episodeId =>
     set({ currentEpisodeId: episodeId, isPaused: false }),
   setPaused: paused => set({ isPaused: paused }),
+  resetPlayer: () =>
+    set({
+      isPaused: true,
+      currentEpisodeId: null,
+    }),
 }));
