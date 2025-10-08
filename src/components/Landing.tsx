@@ -66,8 +66,10 @@ const Landing: React.FC<LandingProps> = ({ movieData }) => {
         />
 
         <Text style={styles.mainTitle}>
-          India’s first{'\n'}
-          <Text style={styles.mainTitleBold}>vertical OTT platform</Text>
+          World’s First{'\n'}
+          <Text style={styles.mainTitleBold}>
+            Creator-Led Vertical OTT Platform
+          </Text>
         </Text>
 
         <Text style={styles.para}>
@@ -153,8 +155,8 @@ const styles = StyleSheet.create({
   mainTitleBold: {
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: '700',
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 25,
+    lineHeight: 30,
   },
   para: {
     fontFamily: 'HelveticaNowDisplay-Regular',

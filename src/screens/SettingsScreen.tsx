@@ -60,9 +60,7 @@ const SettingsScreen = () => {
           <Text
             style={styles.rowLabel}
             onPress={() =>
-              handleOpenURL(
-                'https://bombay-canvas-fe.vercel.app/privacy-policy',
-              )
+              handleOpenURL('https://www.bombaycanvas.com/privacy-policy')
             }
           >
             Privacy Policy
@@ -71,9 +69,7 @@ const SettingsScreen = () => {
         <TouchableOpacity
           style={styles.row}
           onPress={() =>
-            handleOpenURL(
-              'https://bombay-canvas-fe.vercel.app/terms-and-condition',
-            )
+            handleOpenURL('https://www.bombaycanvas.com/terms-and-condition')
           }
         >
           <Text style={styles.rowLabel}>Terms of Service</Text>

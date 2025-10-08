@@ -24,7 +24,7 @@ const EpisodesBottomSheet = ({
   episodes,
   activeEpisode,
   onEpisodeSelect,
-}) => {
+}: any) => {
   return (
     <Modal
       animationType="slide"
@@ -177,11 +177,11 @@ const VideoScreen = () => {
     ({ item }: { item: any }) => (
       <VideoListItem
         item={item}
-        movie={data?.movie}
+        movie={data?.series}
         onEpisodesPress={() => setIsEpisodesVisible(true)}
       />
     ),
-    [data?.movie],
+    [data?.series],
   );
 
   if (isLoading) {
