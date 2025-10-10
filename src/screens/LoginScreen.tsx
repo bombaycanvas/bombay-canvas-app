@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Platform,
 } from 'react-native';
 import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
@@ -14,8 +15,9 @@ import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import { useGoogleLogin, useLogin, useRequest } from '../api/auth';
+import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { signInWithGoogle } from '../utils/authService';
-
+console.log('Apple Auth Supported:', appleAuth.isSupported);
 type LoginScreenProps = {
   fromSignup?: boolean;
 };
@@ -44,6 +46,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
       googleLoginMutate(firebaseToken);
     } catch (error) {
       console.error('❌ Google login error:', error);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    try {
+      const appleAuthRequestResponse = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
+
+      const { identityToken, email } = appleAuthRequestResponse;
+
+      if (!identityToken) {
+        console.error('❌ Apple Sign-In failed: No identity token returned');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Apple login error:', error);
     }
   };
 
@@ -180,6 +200,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
             {fromSignup ? 'Sign in' : 'Log in'} with Google
           </Text>
         </TouchableOpacity>
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity style={styles.appleBtn} onPress={handleAppleLogin}>
+            <Text style={styles.appleTxt}>
+              {fromSignup ? 'Sign in' : 'Log in'} with Apple
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.termsWrapper}>
           <Controller
@@ -395,5 +422,24 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     marginTop: 20,
     textAlign: 'center',
+  },
+  appleBtn: {
+    borderWidth: 1,
+    borderColor: '#414141',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#000',
+    marginTop: 10,
+  },
+  appleTxt: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: 700,
+    fontSize: 16,
+    color: '#fff',
+    marginLeft: 8,
   },
 });
