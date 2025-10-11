@@ -44,3 +44,12 @@ export async function logoutGoogle() {
     console.error('Google logout error:', error);
   }
 }
+
+export async function logoutApple() {
+  try {
+    const authInstance = getAuth();
+    await signOut(authInstance);
+  } catch (error) {
+    console.error('Apple logout error:', error);
+  }
+}

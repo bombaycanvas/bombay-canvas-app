@@ -14,10 +14,16 @@ import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
-import { useGoogleLogin, useLogin, useRequest } from '../api/auth';
+import {
+  useAppleLogin,
+  useGoogleLogin,
+  useLogin,
+  useRequest,
+} from '../api/auth';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { signInWithGoogle } from '../utils/authService';
-console.log('Apple Auth Supported:', appleAuth.isSupported);
+import AppleLogin from '../assets/AppleLogin';
+
 type LoginScreenProps = {
   fromSignup?: boolean;
 };
@@ -28,6 +34,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const { mutate: requestMutate } = useRequest();
   const { mutate: loginMutate } = useLogin();
   const { mutate: googleLoginMutate } = useGoogleLogin();
+  const { mutate: appleLoginMutate } = useAppleLogin();
   const {
     control,
     handleSubmit,
@@ -56,12 +63,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
         requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
       });
 
-      const { identityToken, email } = appleAuthRequestResponse;
+      const { identityToken } = appleAuthRequestResponse;
 
       if (!identityToken) {
         console.error('❌ Apple Sign-In failed: No identity token returned');
         return;
       }
+      appleLoginMutate(identityToken);
     } catch (error) {
       console.error('❌ Apple login error:', error);
     }
@@ -202,6 +210,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
         </TouchableOpacity>
         {Platform.OS === 'ios' && (
           <TouchableOpacity style={styles.appleBtn} onPress={handleAppleLogin}>
+            <AppleLogin />
             <Text style={styles.appleTxt}>
               {fromSignup ? 'Sign in' : 'Log in'} with Apple
             </Text>
@@ -432,7 +441,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#000',
     marginTop: 10,
   },
   appleTxt: {
