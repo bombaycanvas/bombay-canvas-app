@@ -21,22 +21,21 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { currentEpisodeId, isPaused, setPaused } = useVideoStore();
+
+  const isVisible = currentEpisodeId === episode.id;
+  const isFocused = useIsFocused();
+  const isPlaying = isVisible && !isPaused;
+
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isFocused = useIsFocused();
-
-  const isVisible = currentEpisodeId === episode.id;
-  const isPlaying = isVisible && !isPaused;
 
   useEffect(() => {
     return () => {
-      if (bufferTimeout.current) {
-        clearTimeout(bufferTimeout.current);
-      }
+      if (bufferTimeout.current) clearTimeout(bufferTimeout.current);
     };
   }, []);
 
@@ -63,13 +62,10 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
   }: {
     isBuffering: boolean;
   }) => {
-    if (bufferTimeout.current) {
-      clearTimeout(bufferTimeout.current);
-    }
+    if (bufferTimeout.current) clearTimeout(bufferTimeout.current);
+
     if (buffering) {
-      bufferTimeout.current = setTimeout(() => {
-        setIsBuffering(true);
-      }, 200);
+      bufferTimeout.current = setTimeout(() => setIsBuffering(true), 200);
     } else {
       setIsBuffering(false);
     }
@@ -78,7 +74,7 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
   const handleProgress = (data: OnProgressData) => {
     if (!isBuffering && isPlaying) {
       setCurrentTime(data.currentTime);
-      setProgress(data.currentTime / duration);
+      setProgress(duration ? data.currentTime / duration : 0);
     }
   };
 
@@ -103,16 +99,16 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
 
   const handleError = (e: any) => {
     if (isVisible) {
-      setError('An error occurred while playing the video.');
+      setError('Failed to load video.');
       setIsBuffering(false);
-      console.error('Video Error:', e);
+      console.log('Video Error:', e);
     }
   };
 
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    const m = Math.floor(time / 60);
+    const s = Math.floor(time % 60);
+    return `${m}:${s < 10 ? '0' + s : s}`;
   };
 
   const bufferConfig = {
@@ -122,13 +118,18 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
     bufferForPlaybackAfterRebufferMs: 5000,
   };
 
+  const hasValidVideoUrl =
+    episode?.videoUrl &&
+    typeof episode.videoUrl === 'string' &&
+    episode.videoUrl.trim().length > 0;
+
   return (
     <TouchableOpacity
       activeOpacity={1}
       style={styles.container}
       onPress={() => setControlsVisible(!controlsVisible)}
     >
-      {isVisible && (
+      {isVisible && hasValidVideoUrl ? (
         <Video
           ref={videoRef}
           source={{ uri: episode?.videoUrl }}
@@ -146,13 +147,20 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
           bufferConfig={bufferConfig}
           progressUpdateInterval={250}
         />
+      ) : (
+        isVisible && (
+          <View style={styles.missingVideoContainer}>
+            <ErrorOverlay error="Video URL missing or invalid." />
+          </View>
+        )
       )}
 
       <View style={styles.overlayContainer}>
-        {isBuffering && !error && isVisible && <BufferingIndicator />}
-        {error && isVisible && <ErrorOverlay error={error} />}
+        {isVisible && isBuffering && !error && <BufferingIndicator />}
 
-        {controlsVisible && !isBuffering && !error && isVisible && (
+        {isVisible && error && <ErrorOverlay error={error} />}
+
+        {isVisible && controlsVisible && !isBuffering && !error && (
           <PlayerControls onPressContainer={() => setControlsVisible(false)} />
         )}
 
@@ -186,5 +194,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  missingVideoContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'black',
   },
 });

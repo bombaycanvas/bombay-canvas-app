@@ -1,4 +1,9 @@
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Text,
@@ -15,6 +20,21 @@ import { useMoviesDataById } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
 import { X } from 'lucide-react-native';
+
+type RootStackParamList = {
+  Creator: { id: string };
+  VideoScreen: { id: string };
+};
+
+type Episode = {
+  id: string;
+  episodeNo: number;
+  title: string;
+  description: string;
+  duration: number;
+  thumbnail: string;
+  videoUrl: string;
+};
 
 const { height, width } = Dimensions.get('window');
 
@@ -80,7 +100,7 @@ const VideoListItem = React.memo(
     movie: any;
     onEpisodesPress: () => void;
   }) => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer episode={item} movie={movie} />
@@ -94,10 +114,9 @@ const VideoListItem = React.memo(
                 />
                 <Text
                   onPress={() =>
-                    navigation.navigate(
-                      'Creator' as never,
-                      { id: movie.uploader?.id } as never,
-                    )
+                    navigation.navigate('Creator', {
+                      id: movie?.uploader?.id,
+                    })
                   }
                   style={styles.username}
                 >
@@ -127,7 +146,7 @@ const VideoListItem = React.memo(
 );
 
 const VideoScreen = () => {
-  const route = useRoute();
+  const route = useRoute<RouteProp<RootStackParamList, 'VideoScreen'>>();
   const { id } = route.params ?? {};
 
   const { setEpisodes, setCurrentEpisodeId, currentEpisodeId } =
@@ -137,7 +156,7 @@ const VideoScreen = () => {
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
-  const episodes = data?.series?.episodes;
+  const episodes: Episode[] = data?.series?.episodes;
   const flatListRef = useRef<FlatList>(null);
   const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
 
@@ -153,12 +172,17 @@ const VideoScreen = () => {
 
   const handleEpisodeSelect = (episode: any, index: number) => {
     setCurrentEpisodeId(episode.id);
-    flatListRef.current?.scrollToIndex({ animated: true, index });
+
+    flatListRef.current?.scrollToIndex({
+      animated: true,
+      index,
+    });
+
     setIsEpisodesVisible(false);
   };
 
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }) => {
+    ({ viewableItems }: any) => {
       if (viewableItems.length > 0) {
         const visibleItem = viewableItems[0];
         if (visibleItem.isViewable) {
@@ -183,6 +207,21 @@ const VideoScreen = () => {
     ),
     [data?.series],
   );
+
+  const validIndex = episodes?.findIndex(ep => ep.id === currentEpisodeId) ?? 0;
+
+  const safeIndex = validIndex >= 0 ? validIndex : 0;
+
+  useEffect(() => {
+    if (!episodes || episodes.length === 0) return;
+
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index: safeIndex,
+        animated: false,
+      });
+    }, 0);
+  }, [episodes, currentEpisodeId, safeIndex]);
 
   if (isLoading) {
     return (
@@ -218,17 +257,15 @@ const VideoScreen = () => {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         pagingEnabled
+        showsVerticalScrollIndicator={false}
+        initialScrollIndex={safeIndex}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        showsVerticalScrollIndicator={false}
-        getItemLayout={(_data, index) => ({
+        getItemLayout={(_, index) => ({
           length: height,
           offset: height * index,
           index,
         })}
-        initialScrollIndex={episodes.findIndex(
-          item => item.id === currentEpisodeId,
-        )}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
         windowSize={3}
@@ -247,20 +284,14 @@ const VideoScreen = () => {
 export default VideoScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
   loaderContainer: {
     flex: 1,
     backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyText: {
-    color: 'white',
-    fontSize: 16,
-  },
+  emptyText: { color: 'white', fontSize: 16 },
   videoContainer: {
     height: height,
     width: width,
@@ -278,12 +309,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
   },
-  leftOverlay: {
-    flex: 1,
-  },
-  rightOverlay: {
-    marginLeft: 16,
-  },
+  leftOverlay: { flex: 1 },
+  rightOverlay: { marginLeft: 16 },
   textContainer: {},
   userInfo: {
     flexDirection: 'row',
@@ -294,40 +321,24 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8,
     borderWidth: 1,
     borderColor: 'white',
+    marginRight: 8,
   },
-  username: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  title: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  description: {
-    color: 'white',
-    fontSize: 14,
-  },
+  username: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  title: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  description: { color: 'white', fontSize: 14 },
   episodesButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  episodesButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  episodesButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
     backgroundColor: '#181818',
@@ -342,11 +353,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  modalTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   episodeItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,25 +361,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
-  activeEpisodeItem: {
-    backgroundColor: '#333',
-  },
-  thumbnail: {
-    width: 120,
-    height: 70,
-    borderRadius: 4,
-  },
-  episodeInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  episodeTitleText: {
-    color: 'white',
-    fontSize: 16,
-  },
-  episodeDuration: {
-    color: '#aaa',
-    fontSize: 12,
-    marginTop: 4,
-  },
+  activeEpisodeItem: { backgroundColor: '#333' },
+  thumbnail: { width: 120, height: 70, borderRadius: 4 },
+  episodeInfo: { marginLeft: 12, flex: 1 },
+  episodeTitleText: { color: 'white', fontSize: 16 },
+  episodeDuration: { color: '#aaa', fontSize: 12, marginTop: 4 },
 });
