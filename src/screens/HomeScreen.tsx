@@ -1,18 +1,20 @@
-import React, { useState, useCallback } from 'react';
-import { StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useMoviesData } from '../api/video';
+import React from 'react';
+import { StyleSheet, ScrollView } from 'react-native';
+import { useMoviesData, useRecommendedSeriesData } from '../api/video';
 import Landing from '../components/Landing';
 import Explore from '../components/Explore';
 
 const HomeScreen = () => {
-  const { data, isLoading, refetch } = useMoviesData();
-  const [refreshing, setRefreshing] = useState(false);
+  const { data, isLoading } = useMoviesData();
+  const { data: recommendedSeriesData, isLoading: isRecommendedLoading } =
+    useRecommendedSeriesData();
+  // const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  }, [refetch]);
+  // const onRefresh = useCallback(async () => {
+  //   setRefreshing(true);
+  //   await refetch();
+  //   setRefreshing(false);
+  // }, [refetch]);
 
   return (
     <ScrollView
@@ -24,7 +26,10 @@ const HomeScreen = () => {
     >
       <Landing movieData={data?.series} isLoading={isLoading} />
       <Explore latest movieData={data?.series ?? []} isLoading={isLoading} />
-      <Explore movieData={data?.series ?? []} isLoading={isLoading} />
+      <Explore
+        movieData={recommendedSeriesData?.series ?? []}
+        isLoading={isRecommendedLoading}
+      />
     </ScrollView>
   );
 };

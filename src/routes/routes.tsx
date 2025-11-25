@@ -16,6 +16,7 @@ import SearchScreen from '../screens/SearchScreen';
 import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import { Platform } from 'react-native';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
+import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -154,6 +155,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <AppStack />
+      <LockedOverlay />
     </NavigationContainer>
   );
 }

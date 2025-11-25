@@ -1,5 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Dimensions, TouchableOpacity, View } from 'react-native';
+import {
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+  View,
+  Image,
+} from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
 import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
@@ -11,16 +17,27 @@ import { useIsFocused } from '@react-navigation/native';
 const { width, height } = Dimensions.get('window');
 
 type VideoPlayerProps = {
-  episode: { id: string; videoUrl: string; title: string; description: string };
+  episode: {
+    id: string;
+    videoUrl: string;
+    title: string;
+    description: string;
+  };
   movie?: {
     posterUrl?: string;
   };
+  locked: boolean;
 };
 
-export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
+export default function VideoPlayer({
+  episode,
+  movie,
+  locked,
+}: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { currentEpisodeId, isPaused, setPaused } = useVideoStore();
+  const { currentEpisodeId, isPaused, setPaused, setIsLockedVisibleModal } =
+    useVideoStore();
 
   const isVisible = currentEpisodeId === episode.id;
   const isFocused = useIsFocused();
@@ -56,6 +73,14 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
       setPaused(true);
     }
   }, [isFocused, setPaused]);
+
+  useEffect(() => {
+    if (locked && isVisible) {
+      setIsLockedVisibleModal(true);
+    } else {
+      setIsLockedVisibleModal(false);
+    }
+  }, [locked, isVisible, setIsLockedVisibleModal]);
 
   const handleBuffer = ({
     isBuffering: buffering,
@@ -123,57 +148,77 @@ export default function VideoPlayer({ episode, movie }: VideoPlayerProps) {
     typeof episode.videoUrl === 'string' &&
     episode.videoUrl.trim().length > 0;
 
+  const onVideoTap = () => {
+    if (locked) {
+      setIsLockedVisibleModal(true);
+      return;
+    }
+    setControlsVisible(!controlsVisible);
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={1}
       style={styles.container}
-      onPress={() => setControlsVisible(!controlsVisible)}
+      onPress={onVideoTap}
     >
-      {isVisible && hasValidVideoUrl ? (
-        <Video
-          ref={videoRef}
-          source={{ uri: episode?.videoUrl }}
-          style={styles.video}
-          paused={!isPlaying}
-          resizeMode="contain"
-          onLoadStart={handleLoadStart}
-          onLoad={handleLoad}
-          onBuffer={handleBuffer}
-          onProgress={handleProgress}
-          onError={handleError}
-          poster={movie?.posterUrl}
-          posterResizeMode="cover"
-          repeat
-          bufferConfig={bufferConfig}
-          progressUpdateInterval={250}
+      {isVisible && locked ? (
+        <Image
+          source={{ uri: movie?.posterUrl }}
+          style={styles.poster}
+          resizeMode="cover"
         />
       ) : (
-        isVisible && (
-          <View style={styles.missingVideoContainer}>
-            <ErrorOverlay error="Video URL missing or invalid." />
+        <>
+          {!locked && isVisible && hasValidVideoUrl ? (
+            <Video
+              ref={videoRef}
+              source={{ uri: episode?.videoUrl }}
+              style={styles.video}
+              paused={!isPlaying}
+              resizeMode="contain"
+              onLoadStart={handleLoadStart}
+              onLoad={handleLoad}
+              onBuffer={handleBuffer}
+              onProgress={handleProgress}
+              onError={handleError}
+              poster={movie?.posterUrl}
+              posterResizeMode="cover"
+              repeat
+              bufferConfig={bufferConfig}
+              progressUpdateInterval={250}
+            />
+          ) : (
+            isVisible && (
+              <View style={styles.missingVideoContainer}>
+                <ErrorOverlay error="Video URL missing or invalid." />
+              </View>
+            )
+          )}
+
+          <View style={styles.overlayContainer}>
+            {isVisible && isBuffering && !error && <BufferingIndicator />}
+
+            {isVisible && error && <ErrorOverlay error={error} />}
+
+            {isVisible && controlsVisible && !isBuffering && !error && (
+              <PlayerControls
+                onPressContainer={() => setControlsVisible(false)}
+              />
+            )}
+
+            {isVisible && (
+              <ProgressBar
+                progress={progress}
+                duration={duration}
+                currentTime={currentTime}
+                onSeek={onSeek}
+                formatTime={formatTime}
+              />
+            )}
           </View>
-        )
+        </>
       )}
-
-      <View style={styles.overlayContainer}>
-        {isVisible && isBuffering && !error && <BufferingIndicator />}
-
-        {isVisible && error && <ErrorOverlay error={error} />}
-
-        {isVisible && controlsVisible && !isBuffering && !error && (
-          <PlayerControls onPressContainer={() => setControlsVisible(false)} />
-        )}
-
-        {isVisible && (
-          <ProgressBar
-            progress={progress}
-            duration={duration}
-            currentTime={currentTime}
-            onSeek={onSeek}
-            formatTime={formatTime}
-          />
-        )}
-      </View>
     </TouchableOpacity>
   );
 }
@@ -184,6 +229,11 @@ const styles = StyleSheet.create({
     height: height,
     backgroundColor: 'black',
     justifyContent: 'center',
+    maxHeight: height,
+  },
+  poster: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   video: {
     ...StyleSheet.absoluteFillObject,

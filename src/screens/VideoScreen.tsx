@@ -16,10 +16,12 @@ import {
   TouchableOpacity,
   Modal,
 } from 'react-native';
-import { useMoviesDataById } from '../api/video';
+import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
 import { X } from 'lucide-react-native';
+import LockOutlined from '../assets/LockOutlined';
+import { SkeletonEpisodeItem } from '../components/videoPlayer/SkeletonEpisodeItem';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -44,7 +46,10 @@ const EpisodesBottomSheet = ({
   episodes,
   activeEpisode,
   onEpisodeSelect,
+  isAuthenticated,
+  isPending,
 }: any) => {
+  const { setIsLockedVisibleModal } = useVideoStore();
   return (
     <Modal
       animationType="slide"
@@ -60,30 +65,65 @@ const EpisodesBottomSheet = ({
               <X color="white" size={24} />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={episodes}
-            keyExtractor={item => item.id}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity
-                style={[
-                  styles.episodeItem,
-                  activeEpisode?.id === item.id && styles.activeEpisodeItem,
-                ]}
-                onPress={() => onEpisodeSelect(item, index)}
-              >
-                <Image
-                  source={{ uri: item.thumbnail }}
-                  style={styles.thumbnail}
-                />
-                <View style={styles.episodeInfo}>
-                  <Text style={styles.episodeTitleText}>
-                    E{item.episodeNo}: {item.title}
-                  </Text>
-                  <Text style={styles.episodeDuration}>{item.duration}m</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          />
+          {isPending ? (
+            <FlatList
+              data={Array.from({ length: 8 })}
+              keyExtractor={(_, i) => i.toString()}
+              renderItem={() => <SkeletonEpisodeItem />}
+            />
+          ) : (
+            <FlatList
+              data={episodes}
+              keyExtractor={item => item.id}
+              renderItem={({ item, index }) => {
+                const locked = !item.isPublic && !isAuthenticated;
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.episodeItem,
+                      activeEpisode?.id === item.id && styles.activeEpisodeItem,
+                    ]}
+                    onPress={() => {
+                      onClose();
+
+                      setTimeout(() => {
+                        if (locked) {
+                          setIsLockedVisibleModal(true);
+                          return;
+                        }
+                        onEpisodeSelect(item, index);
+                      }, 200);
+                    }}
+                  >
+                    <View style={styles.thumbWrapper}>
+                      <Image
+                        source={{ uri: item.thumbnail }}
+                        style={styles.thumbnail}
+                      />
+
+                      {locked && (
+                        <View style={styles.lockOverlay}>
+                          <Text style={styles.lockIcon}>
+                            <LockOutlined />
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.episodeInfo}>
+                      <Text style={styles.episodeTitleText}>
+                        E{item.episodeNo}: {item.title}
+                      </Text>
+                      <Text style={styles.episodeDuration}>
+                        {item.duration}m
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -95,15 +135,26 @@ const VideoListItem = React.memo(
     item,
     movie,
     onEpisodesPress,
+    isAuthenticated,
   }: {
     item: any;
     movie: any;
     onEpisodesPress: () => void;
+    isAuthenticated: boolean;
   }) => {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+    const videoId = item?.id;
+    const locked = !item?.isPublic && !isAuthenticated;
+    const { data } = usePlayVideoWithId(!locked ? videoId : null);
+
     return (
       <View style={styles.videoContainer}>
-        <VideoPlayer episode={item} movie={movie} />
+        <VideoPlayer
+          episode={data?.episode ?? item}
+          movie={movie}
+          locked={locked}
+        />
         <View style={styles.overlay}>
           <View style={styles.leftOverlay}>
             <View style={styles.textContainer}>
@@ -156,6 +207,7 @@ const VideoScreen = () => {
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
+  const isAuthenticated = data?.isAuthenticated;
   const episodes: Episode[] = data?.series?.episodes;
   const flatListRef = useRef<FlatList>(null);
   const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
@@ -203,9 +255,10 @@ const VideoScreen = () => {
         item={item}
         movie={data?.series}
         onEpisodesPress={() => setIsEpisodesVisible(true)}
+        isAuthenticated={isAuthenticated}
       />
     ),
-    [data?.series],
+    [data?.series, isAuthenticated],
   );
 
   const validIndex = episodes?.findIndex(ep => ep.id === currentEpisodeId) ?? 0;
@@ -276,6 +329,8 @@ const VideoScreen = () => {
         episodes={episodes}
         activeEpisode={activeEpisode}
         onEpisodeSelect={handleEpisodeSelect}
+        isAuthenticated={isAuthenticated}
+        isPending={isLoading}
       />
     </View>
   );
@@ -362,7 +417,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activeEpisodeItem: { backgroundColor: '#333' },
+  thumbWrapper: {
+    width: 120,
+    height: 70,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
   thumbnail: { width: 120, height: 70, borderRadius: 4 },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockIcon: { fontSize: 22, color: '#fff' },
   episodeInfo: { marginLeft: 12, flex: 1 },
   episodeTitleText: { color: 'white', fontSize: 16 },
   episodeDuration: { color: '#aaa', fontSize: 12, marginTop: 4 },

@@ -16,6 +16,8 @@ interface VideoState {
   setCurrentEpisodeId: (episodeId: string | null) => void;
   setPaused: (paused: boolean) => void;
   resetPlayer: () => void;
+  isLockedVisibleModal: boolean;
+  setIsLockedVisibleModal: (isLockedVisibleModal: boolean) => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
@@ -31,4 +33,7 @@ export const useVideoStore = create<VideoState>(set => ({
       isPaused: true,
       currentEpisodeId: null,
     }),
+  isLockedVisibleModal: false,
+  setIsLockedVisibleModal: (value: boolean) =>
+    set({ isLockedVisibleModal: value }),
 }));
