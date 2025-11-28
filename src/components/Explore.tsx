@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   card: {
-    width: 115,
-    height: 175,
+    width: 145,
+    height: 210,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   videoOverlay: {
     position: 'absolute',
     left: 10,
-    height: 12,
+    height: 15,
     width: 'auto',
     bottom: 10,
     flexDirection: 'row',
@@ -150,13 +150,13 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   avatar: {
-    width: 13,
-    height: 13,
+    width: 15,
+    height: 15,
     borderRadius: 50,
     marginRight: 3,
   },
   name: {
-    fontSize: 5.5,
+    fontSize: 7.5,
     color: '#fff',
   },
 });
