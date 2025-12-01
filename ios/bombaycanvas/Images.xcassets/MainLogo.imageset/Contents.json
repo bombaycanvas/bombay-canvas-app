@@ -1,12 +1,12 @@
 {
-    "images": [
-        {
-            "size": "300x100",
-            "expected-size": "300",
-            "filename": "MainLogo.png",
-            "folder": "Assets.xcassets/MainLogo.imageset/",
-            "idiom": "iphone",
-            "scale": "1x"
-        }
-    ]
+  "images": [
+    {
+      "size": "300x100",
+      "expected-size": "300",
+      "filename": "MainLogo.png",
+      "folder": "Assets.xcassets/MainLogo.imageset/",
+      "idiom": "iphone",
+      "scale": "1x"
+    }
+  ]
 }

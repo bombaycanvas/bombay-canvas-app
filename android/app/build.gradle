@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply plugin: 'com.google.gms.google-services'
 
 react {
     autolinkLibrariesWithApp()
@@ -22,6 +21,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        manifestPlaceholders = [
+            appAuthRedirectScheme: "com.googleusercontent.apps.1018893063821-c6kngnvbkbhuul5at0hgmurr8dungf1e"
+        ]
     }
     signingConfigs {
         debug {

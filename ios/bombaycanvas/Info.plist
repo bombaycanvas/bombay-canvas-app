@@ -22,12 +22,12 @@
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</string>
-			</array>
-		</dict>
+  		<dict>
+    		<key>CFBundleURLSchemes</key>
+    		<array>
+      			<string>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</string>
+    		</array>
+  		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -67,7 +67,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</key>
-	<string>com.googleusercontent.apps.145295638585-dp5sicfb645783a8dggg3peee2450tf9</string>
+	<key>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</key>
+	<string>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</string>
 </dict>
 </plist>

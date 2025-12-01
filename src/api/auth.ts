@@ -93,6 +93,7 @@ export const useLogin = () => {
 };
 
 export const googleAuthApi = async (idToken: string) => {
+  console.log('idToken--final api token--->', idToken);
   const response = await api('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -106,6 +107,7 @@ export const useGoogleLogin = () => {
 
   return useMutation({
     mutationFn: async (data: any) => {
+      console.log('data', data);
       return await googleAuthApi(data);
     },
     onSuccess: async data => {

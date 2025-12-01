@@ -76,7 +76,7 @@ const EpisodesBottomSheet = ({
               data={episodes}
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => {
-                const locked = !item.isPublic && !isAuthenticated;
+                const locked = item && !item.isPublic && !isAuthenticated;
 
                 return (
                   <TouchableOpacity
@@ -85,15 +85,13 @@ const EpisodesBottomSheet = ({
                       activeEpisode?.id === item.id && styles.activeEpisodeItem,
                     ]}
                     onPress={() => {
-                      onClose();
+                      if (locked) {
+                        setIsLockedVisibleModal(true);
+                        return;
+                      }
 
-                      setTimeout(() => {
-                        if (locked) {
-                          setIsLockedVisibleModal(true);
-                          return;
-                        }
-                        onEpisodeSelect(item, index);
-                      }, 200);
+                      onEpisodeSelect(item, index);
+                      onClose();
                     }}
                   >
                     <View style={styles.thumbWrapper}>
@@ -144,8 +142,8 @@ const VideoListItem = React.memo(
   }) => {
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-    const videoId = item?.id;
-    const locked = !item?.isPublic && !isAuthenticated;
+    const videoId = item && item?.id;
+    const locked = item && !item?.isPublic && !isAuthenticated;
     const { data } = usePlayVideoWithId(!locked ? videoId : null);
 
     return (
@@ -222,12 +220,12 @@ const VideoScreen = () => {
     }
   }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
 
-  const handleEpisodeSelect = (episode: any, index: number) => {
+  const handleEpisodeSelect = (episode: Episode, index: number) => {
     setCurrentEpisodeId(episode.id);
 
     flatListRef.current?.scrollToIndex({
-      animated: true,
       index,
+      animated: true,
     });
 
     setIsEpisodesVisible(false);

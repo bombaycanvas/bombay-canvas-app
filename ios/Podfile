@@ -22,21 +22,10 @@ target 'bombaycanvas' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :app_path => "#{Pod::Config.instance.installation_root}/.."
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
   )
 
-  # ✅ Firebase pods with modular headers
-  pod 'Firebase/Auth', :modular_headers => true
-  pod 'Firebase/Core', :modular_headers => true
-  pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseCoreExtension', :modular_headers => true
-  pod 'FirebaseAppCheckInterop', :modular_headers => true
-  pod 'FirebaseAuthInterop', :modular_headers => true
-  pod 'RecaptchaInterop', :modular_headers => true
 
-  # ✅ Google dependencies
-  pod 'GoogleSignIn', :modular_headers => true
-  pod 'GoogleUtilities', :modular_headers => true
 
   post_install do |installer|
     react_native_post_install(

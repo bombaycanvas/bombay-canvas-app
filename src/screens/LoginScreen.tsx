@@ -49,8 +49,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
   const handleLogin = async () => {
     try {
-      const firebaseToken = await signInWithGoogle();
-      googleLoginMutate(firebaseToken);
+      const idToken = await signInWithGoogle();
+      console.log('idToken:', idToken);
+
+      googleLoginMutate(idToken);
     } catch (error) {
       console.error('❌ Google login error:', error);
     }
