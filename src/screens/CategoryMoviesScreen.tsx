@@ -61,7 +61,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  poster: { width: '100%', height: 160, borderRadius: 10 },
+  poster: {
+    width: '100%',
+    height: 160,
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(205,106,0,0.25)',
+  },
   title: {
     color: 'white',
     marginTop: 5,

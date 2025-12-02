@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Movie = any;
 
@@ -18,8 +19,15 @@ type ExploreProps = {
   isLoading?: boolean;
 };
 
+type RootStackParamList = {
+  Video: { id: string | number };
+  Creator: { id: string | number };
+};
+
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
+
 const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Navigation>();
 
   const shuffleArray = (array: Movie[]) => {
     if (latest) return array;
@@ -57,9 +65,7 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
     <TouchableOpacity
       key={movie.id}
       style={[styles.card, { backgroundColor: 'rgba(0, 0, 0, 0.36) ' }]}
-      onPress={() =>
-        navigation.navigate('Video' as never, { id: movie.id } as never)
-      }
+      onPress={() => navigation.navigate('Video', { id: movie.id })}
     >
       <Image
         source={{
@@ -71,10 +77,7 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
       <TouchableOpacity
         style={styles.videoOverlay}
         onPress={() =>
-          navigation.navigate(
-            'Creator' as never,
-            { id: movie.uploader?.id } as never,
-          )
+          navigation.navigate('Creator', { id: movie.uploader?.id })
         }
       >
         <FastImage
@@ -127,11 +130,13 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   card: {
-    width: 145,
-    height: 210,
+    width: 140,
+    height: 205,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: 'rgba(205,106,0,0.25)',
   },
   cardImage: {
     width: '100%',

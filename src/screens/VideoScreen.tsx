@@ -65,7 +65,7 @@ const EpisodesBottomSheet = ({
               <X color="white" size={24} />
             </TouchableOpacity>
           </View>
-          {isPending ? (
+          {!episodes && isPending ? (
             <FlatList
               data={Array.from({ length: 8 })}
               keyExtractor={(_, i) => i.toString()}
@@ -91,7 +91,6 @@ const EpisodesBottomSheet = ({
                       }
 
                       onEpisodeSelect(item, index);
-                      onClose();
                     }}
                   >
                     <View style={styles.thumbWrapper}>
@@ -421,6 +420,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
     marginRight: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(205,106,0,0.25)',
   },
   thumbnail: { width: 120, height: 70, borderRadius: 4 },
   lockOverlay: {

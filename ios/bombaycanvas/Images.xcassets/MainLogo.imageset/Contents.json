@@ -1,12 +1,21 @@
 {
-  "images": [
+  "images" : [
     {
-      "size": "300x100",
-      "expected-size": "300",
-      "filename": "MainLogo.png",
-      "folder": "Assets.xcassets/MainLogo.imageset/",
-      "idiom": "iphone",
-      "scale": "1x"
+      "filename" : "MainLogo.png",
+      "idiom" : "iphone",
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "iphone",
+      "scale" : "2x"
+    },
+    {
+      "idiom" : "iphone",
+      "scale" : "3x"
     }
-  ]
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
 }
