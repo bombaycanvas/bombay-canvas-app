@@ -22,7 +22,7 @@ android {
         versionCode 1
         versionName "1.0"
         manifestPlaceholders = [
-            appAuthRedirectScheme: "com.googleusercontent.apps.1018893063821-c6kngnvbkbhuul5at0hgmurr8dungf1e"
+            appAuthRedirectScheme: "com.googleusercontent.apps.1018893063821-etqnnkfq7f3jga4jluo3e6v75lq8mmlr.apps"
         ]
     }
     signingConfigs {

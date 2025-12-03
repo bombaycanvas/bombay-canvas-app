@@ -1,7 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NEXT_PUBLIC_BASE_URL } from '@env';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
-console.log('NEXT_PUBLIC_BASE_URL', NEXT_PUBLIC_BASE_URL);
 
 export const getToken = async (key: string): Promise<string | null> => {
   try {
