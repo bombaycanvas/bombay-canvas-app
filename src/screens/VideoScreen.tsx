@@ -85,11 +85,10 @@ const EpisodesBottomSheet = ({
                       activeEpisode?.id === item.id && styles.activeEpisodeItem,
                     ]}
                     onPress={() => {
-                      if (locked) {
+                      if (item && locked) {
                         setIsLockedVisibleModal(true);
                         return;
                       }
-
                       onEpisodeSelect(item, index);
                     }}
                   >
@@ -217,7 +216,13 @@ const VideoScreen = () => {
         setCurrentEpisodeId(episodes[0].id);
       }
     }
-  }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
+  }, [
+    episodes,
+    setEpisodes,
+    setCurrentEpisodeId,
+    currentEpisodeId,
+    isAuthenticated,
+  ]);
 
   const handleEpisodeSelect = (episode: Episode, index: number) => {
     setCurrentEpisodeId(episode.id);
@@ -345,8 +350,8 @@ const styles = StyleSheet.create({
   },
   emptyText: { color: 'white', fontSize: 16 },
   videoContainer: {
-    height: height,
-    width: width,
+    height,
+    width,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'black',
