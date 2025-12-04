@@ -22,6 +22,7 @@ import { useVideoStore } from '../store/videoStore';
 import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import { SkeletonEpisodeItem } from '../components/videoPlayer/SkeletonEpisodeItem';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -38,7 +39,7 @@ type Episode = {
   videoUrl: string;
 };
 
-const { height, width } = Dimensions.get('window');
+const { width, height: windowHeight } = Dimensions.get('window');
 
 const EpisodesBottomSheet = ({
   visible,
@@ -76,7 +77,7 @@ const EpisodesBottomSheet = ({
               data={episodes}
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => {
-                const locked = item && !item.isPublic && !isAuthenticated;
+                const locked = !item.isPublic && !isAuthenticated;
 
                 return (
                   <TouchableOpacity
@@ -85,7 +86,7 @@ const EpisodesBottomSheet = ({
                       activeEpisode?.id === item.id && styles.activeEpisodeItem,
                     ]}
                     onPress={() => {
-                      if (item && locked) {
+                      if (locked) {
                         setIsLockedVisibleModal(true);
                         return;
                       }
@@ -138,20 +139,32 @@ const VideoListItem = React.memo(
     onEpisodesPress: () => void;
     isAuthenticated: boolean;
   }) => {
+    const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-
     const videoId = item && item?.id;
-    const locked = item && !item?.isPublic && !isAuthenticated;
-    const { data } = usePlayVideoWithId(!locked ? videoId : null);
+    const locked = !item?.isPublic && !isAuthenticated;
+    const shouldFetch = !locked && !!videoId;
+    const { data } = usePlayVideoWithId(shouldFetch ? videoId : '');
+
+    const episodeData =
+      data?.episode && data.episode.videoUrl ? data.episode : item;
+
+    if (!episodeData?.videoUrl) {
+      return (
+        <View style={styles.videoContainer}>
+          <Image
+            source={{ uri: item.thumbnail }}
+            style={{ width, height: windowHeight }}
+            resizeMode="cover"
+          />
+        </View>
+      );
+    }
 
     return (
       <View style={styles.videoContainer}>
-        <VideoPlayer
-          episode={data?.episode ?? item}
-          movie={movie}
-          locked={locked}
-        />
-        <View style={styles.overlay}>
+        <VideoPlayer episode={episodeData} movie={movie} locked={locked} />
+        <View style={[styles.overlay, { paddingBottom: insets.bottom + 10 }]}>
           <View style={styles.leftOverlay}>
             <View style={styles.textContainer}>
               <View style={styles.userInfo}>
@@ -203,6 +216,9 @@ const VideoScreen = () => {
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
+  const insets = useSafeAreaInsets();
+  const ITEM_HEIGHT = windowHeight + insets.bottom;
+
   const isAuthenticated = data?.isAuthenticated;
   const episodes: Episode[] = data?.series?.episodes;
   const flatListRef = useRef<FlatList>(null);
@@ -216,22 +232,25 @@ const VideoScreen = () => {
         setCurrentEpisodeId(episodes[0].id);
       }
     }
-  }, [
-    episodes,
-    setEpisodes,
-    setCurrentEpisodeId,
-    currentEpisodeId,
-    isAuthenticated,
-  ]);
+  }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
+
+  const scrollToEpisode = useCallback(
+    (index: number) => {
+      try {
+        flatListRef.current?.scrollToIndex({ index, animated: false });
+      } catch (e) {
+        flatListRef.current?.scrollToOffset({
+          offset: ITEM_HEIGHT * index,
+          animated: false,
+        });
+      }
+    },
+    [ITEM_HEIGHT],
+  );
 
   const handleEpisodeSelect = (episode: Episode, index: number) => {
     setCurrentEpisodeId(episode.id);
-
-    flatListRef.current?.scrollToIndex({
-      index,
-      animated: true,
-    });
-
+    scrollToEpisode(index);
     setIsEpisodesVisible(false);
   };
 
@@ -264,19 +283,12 @@ const VideoScreen = () => {
   );
 
   const validIndex = episodes?.findIndex(ep => ep.id === currentEpisodeId) ?? 0;
-
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
   useEffect(() => {
     if (!episodes || episodes.length === 0) return;
-
-    setTimeout(() => {
-      flatListRef.current?.scrollToIndex({
-        index: safeIndex,
-        animated: false,
-      });
-    }, 0);
-  }, [episodes, currentEpisodeId, safeIndex]);
+    requestAnimationFrame(() => scrollToEpisode(safeIndex));
+  }, [episodes, currentEpisodeId, safeIndex, scrollToEpisode]);
 
   if (isLoading) {
     return (
@@ -305,7 +317,7 @@ const VideoScreen = () => {
   const activeEpisode = episodes.find(e => e.id === currentEpisodeId);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: ITEM_HEIGHT }]}>
       <FlatList
         ref={flatListRef}
         data={episodes}
@@ -317,13 +329,19 @@ const VideoScreen = () => {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, index) => ({
-          length: height,
-          offset: height * index,
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
           index,
         })}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
         windowSize={3}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="fast"
+        snapToAlignment="start"
+        disableIntervalMomentum
+        removeClippedSubviews
+        overScrollMode="never"
       />
       <EpisodesBottomSheet
         visible={isEpisodesVisible}
@@ -350,7 +368,6 @@ const styles = StyleSheet.create({
   },
   emptyText: { color: 'white', fontSize: 16 },
   videoContainer: {
-    height,
     width,
     justifyContent: 'center',
     alignItems: 'center',
@@ -418,7 +435,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
-  activeEpisodeItem: { backgroundColor: '#333' },
+  activeEpisodeItem: {
+    backgroundColor: '#333',
+    borderWidth: 1,
+    borderColor: 'rgba(205,106,0,0.25)',
+  },
   thumbWrapper: {
     width: 120,
     height: 70,

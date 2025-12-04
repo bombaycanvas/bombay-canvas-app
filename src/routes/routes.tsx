@@ -17,6 +17,7 @@ import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import { Platform } from 'react-native';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -34,8 +35,10 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+  const insets = useSafeAreaInsets();
   const { isKeyboardVisible } = useKeyboardHandler();
   const { token } = useAuthStore();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -46,17 +49,16 @@ const MainTabs = () => {
         tabBarStyle: {
           backgroundColor: '#000000',
           borderTopWidth: 0,
-          height: 70,
+          height: 70 + insets.bottom,
+          paddingBottom: insets.bottom,
           display: Platform.OS !== 'ios' && isKeyboardVisible ? 'none' : 'flex',
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
         },
-
         tabBarIcon: ({ color, focused }) => {
           let iconName = 'home-outline';
-
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Search') {
@@ -64,7 +66,6 @@ const MainTabs = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
-
           return <Ionicons name={iconName} size={24} color={color} />;
         },
       })}

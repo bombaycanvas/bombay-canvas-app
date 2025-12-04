@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ProgressBarProps {
   progress: number;
@@ -16,36 +17,47 @@ export const ProgressBar = ({
   currentTime,
   onSeek,
   formatTime,
-}: ProgressBarProps) => (
-  <View style={styles.bottomOverlay}>
-    <View style={styles.bottomControls}>
-      <View style={styles.sliderContainer}>
-        <Slider
-          style={{ flex: 1 }}
-          minimumValue={0}
-          maximumValue={1}
-          value={progress}
-          minimumTrackTintColor="#fff"
-          maximumTrackTintColor="#808080"
-          thumbTintColor="#fff"
-          onValueChange={onSeek}
-        />
-        <Text style={styles.timeText}>
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </Text>
+}: ProgressBarProps) => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.bottomOverlay,
+        {
+          paddingBottom:
+            Platform.OS === 'android' ? insets.bottom + 8 : insets.bottom,
+        },
+      ]}
+    >
+      <View style={styles.bottomControls}>
+        <View style={styles.sliderContainer}>
+          <Slider
+            style={{ flex: 1 }}
+            minimumValue={0}
+            maximumValue={1}
+            value={progress}
+            minimumTrackTintColor="#fff"
+            maximumTrackTintColor="#808080"
+            thumbTintColor="#fff"
+            onValueChange={onSeek}
+          />
+          <Text style={styles.timeText}>
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </Text>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   bottomOverlay: {
     position: 'absolute',
-    bottom: 10,
+    bottom: 7,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
   },
   bottomControls: {
     flexDirection: 'column',

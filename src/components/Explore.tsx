@@ -130,8 +130,8 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   card: {
-    width: 140,
-    height: 205,
+    width: 130,
+    height: 195,
     marginRight: 12,
     borderRadius: 12,
     overflow: 'hidden',
