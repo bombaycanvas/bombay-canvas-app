@@ -5,7 +5,6 @@ export async function signInWithGoogle() {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
     const result = await GoogleSignin.signIn();
-    console.log('result', result);
 
     if (result.type !== 'success' || !result.data?.idToken) {
       throw new Error('No Google idToken received');

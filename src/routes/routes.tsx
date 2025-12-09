@@ -18,6 +18,7 @@ import { Platform } from 'react-native';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -126,7 +127,7 @@ const AppStack = () => {
       <Stack.Screen
         name="CategoryMovies"
         component={CategoryMoviesScreen}
-        options={({ route }) => {
+        options={({ route }: any) => {
           const rawCategory = route?.params?.category;
           const title =
             rawCategory.charAt(0).toUpperCase() +
@@ -157,6 +158,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       <AppStack />
       <LockedOverlay />
+      <PurchaseModal />
     </NavigationContainer>
   );
 }

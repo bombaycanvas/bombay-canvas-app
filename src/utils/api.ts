@@ -29,6 +29,7 @@ export const api = async (endpoint: string, config: any = {}) => {
 
   const requestConfig: RequestInit = {
     method: config.method ?? 'GET',
+
     headers: {
       Accept: 'application/json, text/plain, */*',
       'Accept-Language': 'en-GB,en;q=0.9',

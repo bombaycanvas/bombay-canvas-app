@@ -27,17 +27,24 @@ type VideoPlayerProps = {
     posterUrl?: string;
   };
   locked: boolean;
+  isPaidEpisode: boolean;
 };
 
 export default function VideoPlayer({
   episode,
   movie,
   locked,
+  isPaidEpisode,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { currentEpisodeId, isPaused, setPaused, setIsLockedVisibleModal } =
-    useVideoStore();
+  const {
+    currentEpisodeId,
+    isPaused,
+    setPaused,
+    setIsLockedVisibleModal,
+    setIsPurchaseModal,
+  } = useVideoStore();
 
   const isVisible = currentEpisodeId === episode.id;
   const isFocused = useIsFocused();
@@ -81,6 +88,14 @@ export default function VideoPlayer({
       setIsLockedVisibleModal(false);
     }
   }, [locked, isVisible, setIsLockedVisibleModal]);
+
+  useEffect(() => {
+    if (!locked && isPaidEpisode && isVisible) {
+      setIsPurchaseModal(true);
+    } else {
+      setIsPurchaseModal(false);
+    }
+  }, [locked, isPaidEpisode, isVisible, setIsPurchaseModal]);
 
   const handleBuffer = ({
     isBuffering: buffering,

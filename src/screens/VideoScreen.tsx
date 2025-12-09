@@ -23,6 +23,7 @@ import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import { SkeletonEpisodeItem } from '../components/videoPlayer/SkeletonEpisodeItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SubscriptionOutlined from '../assets/SubscriptionOutlined';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -49,8 +50,11 @@ const EpisodesBottomSheet = ({
   onEpisodeSelect,
   isAuthenticated,
   isPending,
+  series,
 }: any) => {
-  const { setIsLockedVisibleModal } = useVideoStore();
+  const { setIsLockedVisibleModal, setIsPurchaseModal, setPurchaseSeries } =
+    useVideoStore();
+
   return (
     <Modal
       animationType="slide"
@@ -78,6 +82,8 @@ const EpisodesBottomSheet = ({
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => {
                 const locked = !item.isPublic && !isAuthenticated;
+                const isPaidEpisode =
+                  item.locked && series?.isPaidSeries && !series?.userPurchased;
 
                 return (
                   <TouchableOpacity
@@ -87,8 +93,24 @@ const EpisodesBottomSheet = ({
                     ]}
                     onPress={() => {
                       if (locked) {
-                        setIsLockedVisibleModal(true);
-                        return;
+                        onClose();
+                        setTimeout(() => {
+                          setIsLockedVisibleModal(true);
+                          return;
+                        }, 400);
+                      }
+                      if (
+                        !locked &&
+                        item.locked &&
+                        series?.isPaidSeries &&
+                        !series?.userPurchased
+                      ) {
+                        onClose();
+                        setTimeout(() => {
+                          setPurchaseSeries(series);
+                          setIsPurchaseModal(true);
+                          return;
+                        }, 400);
                       }
                       onEpisodeSelect(item, index);
                     }}
@@ -103,6 +125,14 @@ const EpisodesBottomSheet = ({
                         <View style={styles.lockOverlay}>
                           <Text style={styles.lockIcon}>
                             <LockOutlined />
+                          </Text>
+                        </View>
+                      )}
+
+                      {!locked && isPaidEpisode && (
+                        <View style={styles.lockOverlay}>
+                          <Text style={styles.lockIcon}>
+                            <SubscriptionOutlined />
                           </Text>
                         </View>
                       )}
@@ -143,7 +173,10 @@ const VideoListItem = React.memo(
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     const videoId = item && item?.id;
     const locked = !item?.isPublic && !isAuthenticated;
-    const shouldFetch = !locked && !!videoId;
+    const isPaidEpisode =
+      item.locked && movie?.isPaidSeries && !movie?.userPurchased;
+
+    const shouldFetch = !locked && !isPaidEpisode && !!videoId;
     const { data } = usePlayVideoWithId(shouldFetch ? videoId : '');
 
     const episodeData =
@@ -163,7 +196,12 @@ const VideoListItem = React.memo(
 
     return (
       <View style={styles.videoContainer}>
-        <VideoPlayer episode={episodeData} movie={movie} locked={locked} />
+        <VideoPlayer
+          episode={episodeData}
+          movie={movie}
+          locked={locked}
+          isPaidEpisode={isPaidEpisode}
+        />
         <View style={[styles.overlay, { paddingBottom: insets.bottom + 10 }]}>
           <View style={styles.leftOverlay}>
             <View style={styles.textContainer}>
@@ -216,12 +254,14 @@ const VideoScreen = () => {
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
 
+  const series = data?.series;
+  const episodes: Episode[] = series?.episodes;
+  const isAuthenticated = data?.isAuthenticated;
+
   const insets = useSafeAreaInsets();
   const ITEM_HEIGHT = windowHeight + insets.bottom;
-
-  const isAuthenticated = data?.isAuthenticated;
-  const episodes: Episode[] = data?.series?.episodes;
   const flatListRef = useRef<FlatList>(null);
+
   const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
 
   useEffect(() => {
@@ -274,12 +314,12 @@ const VideoScreen = () => {
     ({ item }: { item: any }) => (
       <VideoListItem
         item={item}
-        movie={data?.series}
+        movie={series}
         onEpisodesPress={() => setIsEpisodesVisible(true)}
         isAuthenticated={isAuthenticated}
       />
     ),
-    [data?.series, isAuthenticated],
+    [series, isAuthenticated],
   );
 
   const validIndex = episodes?.findIndex(ep => ep.id === currentEpisodeId) ?? 0;
@@ -324,8 +364,8 @@ const VideoScreen = () => {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         pagingEnabled
-        showsVerticalScrollIndicator={false}
         initialScrollIndex={safeIndex}
+        showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={(_, index) => ({
@@ -351,6 +391,7 @@ const VideoScreen = () => {
         onEpisodeSelect={handleEpisodeSelect}
         isAuthenticated={isAuthenticated}
         isPending={isLoading}
+        series={series}
       />
     </View>
   );
