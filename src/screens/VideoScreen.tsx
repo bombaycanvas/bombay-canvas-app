@@ -15,6 +15,7 @@ import {
   Image,
   TouchableOpacity,
   Modal,
+  Platform,
 } from 'react-native';
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
@@ -94,10 +95,17 @@ const EpisodesBottomSheet = ({
                     onPress={() => {
                       if (locked) {
                         onClose();
-                        setTimeout(() => {
-                          setIsLockedVisibleModal(true);
-                          return;
-                        }, 400);
+
+                        setTimeout(
+                          () => {
+                            requestAnimationFrame(() => {
+                              setIsLockedVisibleModal(true);
+                            });
+                          },
+                          Platform.OS === 'ios' ? 600 : 500,
+                        );
+
+                        return;
                       }
                       if (
                         !locked &&
@@ -106,11 +114,18 @@ const EpisodesBottomSheet = ({
                         !series?.userPurchased
                       ) {
                         onClose();
-                        setTimeout(() => {
-                          setPurchaseSeries(series);
-                          setIsPurchaseModal(true);
-                          return;
-                        }, 400);
+
+                        setTimeout(
+                          () => {
+                            requestAnimationFrame(() => {
+                              setPurchaseSeries(series);
+                              setIsPurchaseModal(true);
+                            });
+                          },
+                          Platform.OS === 'ios' ? 600 : 500,
+                        );
+
+                        return;
                       }
                       onEpisodeSelect(item, index);
                     }}
@@ -177,22 +192,10 @@ const VideoListItem = React.memo(
       item.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
     const shouldFetch = !locked && !isPaidEpisode && !!videoId;
-    const { data } = usePlayVideoWithId(shouldFetch ? videoId : '');
+    const { data } = usePlayVideoWithId(shouldFetch ? videoId : null);
 
     const episodeData =
       data?.episode && data.episode.videoUrl ? data.episode : item;
-
-    if (!episodeData?.videoUrl) {
-      return (
-        <View style={styles.videoContainer}>
-          <Image
-            source={{ uri: item.thumbnail }}
-            style={{ width, height: windowHeight }}
-            resizeMode="cover"
-          />
-        </View>
-      );
-    }
 
     return (
       <View style={styles.videoContainer}>

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
   Image,
+  Platform,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
@@ -44,6 +45,7 @@ export default function VideoPlayer({
     setPaused,
     setIsLockedVisibleModal,
     setIsPurchaseModal,
+    setPurchaseSeries,
   } = useVideoStore();
 
   const isVisible = currentEpisodeId === episode.id;
@@ -83,19 +85,48 @@ export default function VideoPlayer({
 
   useEffect(() => {
     if (locked && isVisible) {
-      setIsLockedVisibleModal(true);
+      setTimeout(
+        () => {
+          setIsLockedVisibleModal(true);
+        },
+        Platform.OS === 'ios' ? 100 : 100,
+      );
     } else {
-      setIsLockedVisibleModal(false);
+      setTimeout(
+        () => {
+          setIsLockedVisibleModal(false);
+        },
+        Platform.OS === 'ios' ? 100 : 100,
+      );
     }
   }, [locked, isVisible, setIsLockedVisibleModal]);
 
   useEffect(() => {
     if (!locked && isPaidEpisode && isVisible) {
-      setIsPurchaseModal(true);
+      setTimeout(
+        () => {
+          setIsPurchaseModal(true);
+          setPurchaseSeries(movie);
+        },
+        Platform.OS === 'ios' ? 100 : 100,
+      );
     } else {
-      setIsPurchaseModal(false);
+      setTimeout(
+        () => {
+          setIsPurchaseModal(false);
+          setPurchaseSeries(null);
+        },
+        Platform.OS === 'ios' ? 100 : 100,
+      );
     }
-  }, [locked, isPaidEpisode, isVisible, setIsPurchaseModal]);
+  }, [
+    locked,
+    isPaidEpisode,
+    isVisible,
+    setIsPurchaseModal,
+    movie,
+    setPurchaseSeries,
+  ]);
 
   const handleBuffer = ({
     isBuffering: buffering,
@@ -164,6 +195,11 @@ export default function VideoPlayer({
     episode.videoUrl.trim().length > 0;
 
   const onVideoTap = () => {
+    if (!locked && isPaidEpisode) {
+      setPurchaseSeries(movie);
+      setIsPurchaseModal(true);
+      return;
+    }
     if (locked) {
       setIsLockedVisibleModal(true);
       return;
@@ -177,7 +213,7 @@ export default function VideoPlayer({
       style={styles.container}
       onPress={onVideoTap}
     >
-      {isVisible && locked ? (
+      {isVisible && (locked || isPaidEpisode) ? (
         <Image
           source={{ uri: movie?.posterUrl }}
           style={styles.poster}

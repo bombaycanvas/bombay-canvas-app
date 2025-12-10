@@ -22,6 +22,7 @@ interface VideoState {
   setIsPurchaseModal: (isPurchaseModal: boolean) => void;
   purchaseSeries: any | null;
   setPurchaseSeries: (series: any | null) => void;
+  resetPurchaseState: () => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
@@ -44,4 +45,9 @@ export const useVideoStore = create<VideoState>(set => ({
   setIsPurchaseModal: (value: boolean) => set({ isPurchaseModal: value }),
   purchaseSeries: null,
   setPurchaseSeries: (series: any | null) => set({ purchaseSeries: series }),
+  resetPurchaseState: () =>
+    set({
+      purchaseSeries: null,
+      isPurchaseModal: false,
+    }),
 }));

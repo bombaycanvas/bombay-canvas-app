@@ -10,11 +10,11 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useApplyCoupon, useRazorpayPayment } from '../../api/video';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 export function PurchaseModal() {
-  const { isPurchaseModal, setIsPurchaseModal, purchaseSeries } =
+  const { isPurchaseModal, purchaseSeries, resetPurchaseState } =
     useVideoStore();
-  const close = () => setIsPurchaseModal(false);
 
   const [coupon, setCoupon] = useState('');
   const [couponId, setCouponId] = useState<string | null>(null);
@@ -34,8 +34,20 @@ export function PurchaseModal() {
           setFinalPrice(res.finalPrice);
           setCouponId(res.couponId);
         },
+        onError: () => {
+          setCoupon('');
+          setCouponId(null);
+          setFinalPrice(purchaseSeries?.price);
+        },
       },
     );
+  };
+
+  const close = () => {
+    setCoupon('');
+    setCouponId(null);
+    setFinalPrice(purchaseSeries?.price);
+    resetPurchaseState();
   };
 
   const handlePayNow = () => {
@@ -46,10 +58,22 @@ export function PurchaseModal() {
       { seriesId: purchaseSeries.id, couponId: couponId },
       {
         onSuccess: () => {
+          setCoupon('');
+          setCouponId(null);
+          setFinalPrice(purchaseSeries?.price);
           setLoading(false);
-          close();
+
+          setTimeout(() => {
+            resetPurchaseState();
+            close();
+          }, 1000);
         },
-        onError: () => setLoading(false),
+        onError: () => {
+          setCoupon('');
+          setCouponId(null);
+          setFinalPrice(purchaseSeries?.price);
+          setLoading(false);
+        },
       },
     );
   };
@@ -64,11 +88,15 @@ export function PurchaseModal() {
       statusBarTranslucent
     >
       <View style={styles.overlay}>
+        <Toast
+          config={{ BaseToast, ErrorToast }}
+          topOffset={60}
+          position="top"
+        />
         <View style={styles.modal}>
           <TouchableOpacity onPress={close} style={styles.closeBtn}>
             <Text style={styles.closeText}>×</Text>
           </TouchableOpacity>
-
           <Text style={styles.title}>Buy {purchaseSeries?.title}</Text>
           <Text style={styles.subText}>
             Original Price: ₹{purchaseSeries?.price}
@@ -105,7 +133,9 @@ export function PurchaseModal() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.payBtnText}>Pay ₹{finalPrice}</Text>
+              <Text style={styles.payBtnText}>
+                Pay ₹{finalPrice ?? purchaseSeries?.price}
+              </Text>
             )}
           </TouchableOpacity>
         </View>

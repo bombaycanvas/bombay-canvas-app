@@ -19,6 +19,7 @@ import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -159,6 +160,7 @@ export default function AppNavigator() {
       <AppStack />
       <LockedOverlay />
       <PurchaseModal />
+      <Toast config={{ BaseToast, ErrorToast }} topOffset={60} position="top" />
     </NavigationContainer>
   );
 }
