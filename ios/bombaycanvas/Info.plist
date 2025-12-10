@@ -69,5 +69,7 @@
 	<false/>
 	<key>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</key>
 	<string>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to your photo library to upload images.</string>
 </dict>
 </plist>
