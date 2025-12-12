@@ -73,7 +73,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
         <TouchableOpacity
           activeOpacity={0.9}
           style={[styles.card, { backgroundColor: '#222' }]}
-          onPress={() => navigation.navigate('Video', { id: item.id })}
+          onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
         >
           <FastImage
             source={{

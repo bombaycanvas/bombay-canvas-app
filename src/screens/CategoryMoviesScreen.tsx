@@ -27,7 +27,7 @@ const CategoryMoviesScreen = () => {
     <TouchableOpacity
       activeOpacity={0.9}
       style={styles.movieItem}
-      onPress={() => navigation.navigate('Video', { id: item.id })}
+      onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
     >
       <Image source={{ uri: item.posterUrl }} style={styles.poster} />
       <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">

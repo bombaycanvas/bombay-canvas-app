@@ -8,23 +8,25 @@ import {
   Dimensions,
 } from 'react-native';
 import Video from 'react-native-video';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import {
+  useNavigation,
+  useFocusEffect,
+  NavigationProp,
+} from '@react-navigation/native';
 import { useGetCoverVideo } from '../api/video';
 import LinearGradient from 'react-native-linear-gradient';
 import PlayButtonIcon from './assets/PlayButtonIcon';
-
 import { Pause } from 'lucide-react-native';
+
+type RootStackParamList = {
+  Creator: { id: string };
+};
 
 const { height } = Dimensions.get('window');
 
-interface LandingProps {
-  movieData?: any[];
-  isLoading?: boolean;
-}
-
-const Landing: React.FC<LandingProps> = ({ movieData }) => {
+const Landing = () => {
   const videoRef = useRef(null);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [isPlaying, setIsPlaying] = useState(true);
   const { data } = useGetCoverVideo();
 

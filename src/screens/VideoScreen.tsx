@@ -14,21 +14,16 @@ import {
   ActivityIndicator,
   Image,
   TouchableOpacity,
-  Modal,
-  Platform,
 } from 'react-native';
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
-import { X } from 'lucide-react-native';
-import LockOutlined from '../assets/LockOutlined';
-import { SkeletonEpisodeItem } from '../components/videoPlayer/SkeletonEpisodeItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SubscriptionOutlined from '../assets/SubscriptionOutlined';
+import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 
 type RootStackParamList = {
   Creator: { id: string };
-  VideoScreen: { id: string };
+  VideoScreen: { id: string; episodeId: string };
 };
 
 type Episode = {
@@ -42,135 +37,6 @@ type Episode = {
 };
 
 const { width, height: windowHeight } = Dimensions.get('window');
-
-const EpisodesBottomSheet = ({
-  visible,
-  onClose,
-  episodes,
-  activeEpisode,
-  onEpisodeSelect,
-  isAuthenticated,
-  isPending,
-  series,
-}: any) => {
-  const { setIsLockedVisibleModal, setIsPurchaseModal, setPurchaseSeries } =
-    useVideoStore();
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Episodes</Text>
-            <TouchableOpacity onPress={onClose}>
-              <X color="white" size={24} />
-            </TouchableOpacity>
-          </View>
-          {!episodes && isPending ? (
-            <FlatList
-              data={Array.from({ length: 8 })}
-              keyExtractor={(_, i) => i.toString()}
-              renderItem={() => <SkeletonEpisodeItem />}
-            />
-          ) : (
-            <FlatList
-              data={episodes}
-              keyExtractor={item => item.id}
-              renderItem={({ item, index }) => {
-                const locked = !item.isPublic && !isAuthenticated;
-                const isPaidEpisode =
-                  item.locked && series?.isPaidSeries && !series?.userPurchased;
-
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.episodeItem,
-                      activeEpisode?.id === item.id && styles.activeEpisodeItem,
-                    ]}
-                    onPress={() => {
-                      if (locked) {
-                        onClose();
-
-                        setTimeout(
-                          () => {
-                            requestAnimationFrame(() => {
-                              setIsLockedVisibleModal(true);
-                            });
-                          },
-                          Platform.OS === 'ios' ? 600 : 500,
-                        );
-
-                        return;
-                      }
-                      if (
-                        !locked &&
-                        item.locked &&
-                        series?.isPaidSeries &&
-                        !series?.userPurchased
-                      ) {
-                        onClose();
-
-                        setTimeout(
-                          () => {
-                            requestAnimationFrame(() => {
-                              setPurchaseSeries(series);
-                              setIsPurchaseModal(true);
-                            });
-                          },
-                          Platform.OS === 'ios' ? 600 : 500,
-                        );
-
-                        return;
-                      }
-                      onEpisodeSelect(item, index);
-                    }}
-                  >
-                    <View style={styles.thumbWrapper}>
-                      <Image
-                        source={{ uri: item.thumbnail }}
-                        style={styles.thumbnail}
-                      />
-
-                      {locked && (
-                        <View style={styles.lockOverlay}>
-                          <Text style={styles.lockIcon}>
-                            <LockOutlined />
-                          </Text>
-                        </View>
-                      )}
-
-                      {!locked && isPaidEpisode && (
-                        <View style={styles.lockOverlay}>
-                          <Text style={styles.lockIcon}>
-                            <SubscriptionOutlined />
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <View style={styles.episodeInfo}>
-                      <Text style={styles.episodeTitleText}>
-                        E{item.episodeNo}: {item.title}
-                      </Text>
-                      <Text style={styles.episodeDuration}>
-                        {item.duration}m
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-};
 
 const VideoListItem = React.memo(
   ({
@@ -187,7 +53,7 @@ const VideoListItem = React.memo(
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     const videoId = item && item?.id;
-    const locked = !item?.isPublic && !isAuthenticated;
+    const locked = item && !item?.isPublic && !isAuthenticated;
     const isPaidEpisode =
       item.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
@@ -248,7 +114,7 @@ const VideoListItem = React.memo(
 
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'VideoScreen'>>();
-  const { id } = route.params ?? {};
+  const { id, episodeId } = route.params ?? {};
 
   const { setEpisodes, setCurrentEpisodeId, currentEpisodeId } =
     useVideoStore();
@@ -270,12 +136,10 @@ const VideoScreen = () => {
   useEffect(() => {
     if (episodes?.length > 0) {
       setEpisodes(episodes);
-
-      if (!currentEpisodeId) {
-        setCurrentEpisodeId(episodes[0].id);
-      }
+      const defaultEpisodeId = episodeId || episodes[0].id;
+      setCurrentEpisodeId(defaultEpisodeId);
     }
-  }, [episodes, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
+  }, [episodes, episodeId, setEpisodes, setCurrentEpisodeId]);
 
   const scrollToEpisode = useCallback(
     (index: number) => {
@@ -325,13 +189,14 @@ const VideoScreen = () => {
     [series, isAuthenticated],
   );
 
-  const validIndex = episodes?.findIndex(ep => ep.id === currentEpisodeId) ?? 0;
+  const validIndex =
+    episodes?.findIndex(ep => ep.id === (currentEpisodeId || episodeId)) ?? 0;
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
   useEffect(() => {
     if (!episodes || episodes.length === 0) return;
     requestAnimationFrame(() => scrollToEpisode(safeIndex));
-  }, [episodes, currentEpisodeId, safeIndex, scrollToEpisode]);
+  }, [episodes, currentEpisodeId, episodeId, safeIndex, scrollToEpisode]);
 
   if (isLoading) {
     return (
@@ -395,6 +260,7 @@ const VideoScreen = () => {
         isAuthenticated={isAuthenticated}
         isPending={isLoading}
         series={series}
+        screenType="videoScreen"
       />
     </View>
   );
@@ -480,9 +346,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activeEpisodeItem: {
-    backgroundColor: '#333',
     borderWidth: 1,
-    borderColor: 'rgba(205,106,0,0.25)',
+    borderColor: 'rgba(255,106,0,0.25)',
   },
   thumbWrapper: {
     width: 120,
@@ -491,7 +356,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(205,106,0,0.25)',
+    borderColor: 'rgba(255,106,0,0.25)',
   },
   thumbnail: { width: 120, height: 70, borderRadius: 4 },
   lockOverlay: {

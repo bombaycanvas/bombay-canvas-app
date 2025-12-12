@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -14,37 +13,25 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type Movie = any;
 
 type ExploreProps = {
-  latest?: boolean;
+  heading: string;
   movieData: Movie[];
   isLoading?: boolean;
 };
 
 type RootStackParamList = {
-  Video: { id: string | number };
+  SeriesDetail: { id: string | number };
   Creator: { id: string | number };
 };
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
+const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
   const navigation = useNavigation<Navigation>();
-
-  const shuffleArray = (array: Movie[]) => {
-    if (latest) return array;
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
 
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.header}>
-          {latest ? 'New On Canvas' : 'Recommended for You'}
-        </Text>
+        <Text style={styles.header}>{heading ? heading : 'New On Canvas'}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -65,14 +52,16 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
     <TouchableOpacity
       key={movie.id}
       style={[styles.card, { backgroundColor: 'rgba(0, 0, 0, 0.36) ' }]}
-      onPress={() => navigation.navigate('Video', { id: movie.id })}
+      onPress={() => navigation.navigate('SeriesDetail', { id: movie.id })}
     >
-      <Image
+      <FastImage
         source={{
           uri: movie.posterUrl || 'https://via.placeholder.com/300x400',
+          priority: FastImage.priority.high,
+          cache: FastImage.cacheControl.immutable,
         }}
         style={styles.cardImage}
-        resizeMode="cover"
+        resizeMode={FastImage.resizeMode.cover}
       />
       <TouchableOpacity
         style={styles.videoOverlay}
@@ -99,7 +88,9 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>
-        {latest ? 'New On Canvas' : 'Recommended for You'}
+        <Text style={styles.header}>
+          {heading.charAt(0).toUpperCase() + heading.slice(1).toLowerCase()}
+        </Text>
       </Text>
 
       <ScrollView
@@ -107,7 +98,7 @@ const Explore: React.FC<ExploreProps> = ({ latest, movieData, isLoading }) => {
         showsHorizontalScrollIndicator={false}
         style={{ marginBottom: 10 }}
       >
-        {shuffleArray(movieData || []).map(renderCard)}
+        {(movieData || []).map(renderCard)}
       </ScrollView>
     </View>
   );
@@ -136,7 +127,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: 'rgba(205,106,0,0.25)',
+    borderColor: 'rgba(255,106,0,0.25)',
   },
   cardImage: {
     width: '100%',

@@ -84,33 +84,25 @@ export default function VideoPlayer({
   }, [isFocused, setPaused]);
 
   useEffect(() => {
-    if (locked && isVisible) {
-      setTimeout(
-        () => {
-          setIsLockedVisibleModal(true);
-        },
-        Platform.OS === 'ios' ? 100 : 100,
-      );
-    } else {
+    if (episode && !locked && isVisible) {
       setTimeout(
         () => {
           setIsLockedVisibleModal(false);
         },
         Platform.OS === 'ios' ? 100 : 100,
       );
-    }
-  }, [locked, isVisible, setIsLockedVisibleModal]);
-
-  useEffect(() => {
-    if (!locked && isPaidEpisode && isVisible) {
+    } else if (episode && locked && isVisible) {
       setTimeout(
         () => {
-          setIsPurchaseModal(true);
-          setPurchaseSeries(movie);
+          setIsLockedVisibleModal(true);
         },
         Platform.OS === 'ios' ? 100 : 100,
       );
-    } else {
+    }
+  }, [episode, locked, isVisible, setIsLockedVisibleModal]);
+
+  useEffect(() => {
+    if (episode && !locked && !isPaidEpisode && isVisible) {
       setTimeout(
         () => {
           setIsPurchaseModal(false);
@@ -118,8 +110,17 @@ export default function VideoPlayer({
         },
         Platform.OS === 'ios' ? 100 : 100,
       );
+    } else if (episode && !locked && isPaidEpisode && isVisible) {
+      setTimeout(
+        () => {
+          setIsPurchaseModal(true);
+          setPurchaseSeries(movie);
+        },
+        Platform.OS === 'ios' ? 100 : 100,
+      );
     }
   }, [
+    episode,
     locked,
     isPaidEpisode,
     isVisible,

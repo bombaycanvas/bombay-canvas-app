@@ -74,7 +74,7 @@ const SearchScreen = () => {
   const renderMovieItem = ({ item }: { item: Movie }) => (
     <TouchableOpacity
       style={styles.movieItem}
-      onPress={() => navigation.navigate('Video', { id: item.id })}
+      onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
     >
       <Image source={{ uri: item.posterUrl }} style={styles.poster} />
       <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
@@ -116,7 +116,7 @@ const SearchScreen = () => {
           renderItem={renderMovieItem}
           spacing={12}
           itemDimension={110}
-          scrollEnabled={false}
+          scrollEnabled={true}
           keyExtractor={item => item.id.toString()}
           ListEmptyComponent={
             <Text style={styles.noResultsText}>No series found.</Text>

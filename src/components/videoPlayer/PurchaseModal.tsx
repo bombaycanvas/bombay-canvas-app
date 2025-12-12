@@ -25,7 +25,14 @@ export function PurchaseModal() {
   const { mutate: payNow } = useRazorpayPayment();
 
   const handleApplyCoupon = () => {
-    if (!coupon) return console.log('Enter a coupon code!', 'error');
+    if (!coupon) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid coupon',
+        text2: 'Please Enter a coupon code!',
+      });
+      return;
+    }
 
     applyCoupon(
       { seriesId: purchaseSeries?.id, couponCode: coupon },

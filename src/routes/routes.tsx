@@ -20,6 +20,7 @@ import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import SeriesDetailScreen from '../screens/SeriesDetailScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -94,6 +95,11 @@ const AppStack = () => {
       <Stack.Screen
         name="Signup"
         children={props => <LoginScreen {...props} fromSignup={true} />}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SeriesDetail"
+        children={() => <SeriesDetailScreen />}
         options={{ headerShown: false }}
       />
       <Stack.Screen

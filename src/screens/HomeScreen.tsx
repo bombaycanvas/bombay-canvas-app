@@ -16,6 +16,19 @@ const HomeScreen = () => {
   //   setRefreshing(false);
   // }, [refetch]);
 
+  const getMoviesByGenre = () => {
+    const genreMap: Record<string, any[]> = {};
+    data?.series?.forEach(movie => {
+      movie.genres?.forEach(genre => {
+        if (!genreMap[genre.name]) genreMap[genre.name] = [];
+        genreMap[genre.name].push(movie);
+      });
+    });
+    return genreMap;
+  };
+
+  const genreMap = getMoviesByGenre();
+
   return (
     <ScrollView
       style={styles.container}
@@ -24,12 +37,25 @@ const HomeScreen = () => {
       //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       // }
     >
-      <Landing movieData={data?.series} isLoading={isLoading} />
-      <Explore latest movieData={data?.series ?? []} isLoading={isLoading} />
+      <Landing />
       <Explore
+        heading={'New on canvas'}
+        movieData={data?.series ?? []}
+        isLoading={isLoading}
+      />
+      <Explore
+        heading={'Recommended for you'}
         movieData={recommendedSeriesData?.series ?? []}
         isLoading={isRecommendedLoading}
       />
+      {Object.entries(genreMap)?.map(([genreName, movies]) => (
+        <Explore
+          key={genreName}
+          heading={genreName}
+          movieData={movies}
+          isLoading={isLoading}
+        />
+      ))}
     </ScrollView>
   );
 };
