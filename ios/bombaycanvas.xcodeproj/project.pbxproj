@@ -291,7 +291,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = bombaycanvas/bombaycanvas.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = UKWJKZWBXY;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = bombaycanvas/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -305,7 +305,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.partbombaycanvas.app1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bombaycanvas.app1;
 				PRODUCT_NAME = bombaycanvas;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -321,7 +321,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = bombaycanvas/bombaycanvas.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = UKWJKZWBXY;
 				INFOPLIST_FILE = bombaycanvas/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -334,7 +334,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.partbombaycanvas.app1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bombaycanvas.app1;
 				PRODUCT_NAME = bombaycanvas;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
