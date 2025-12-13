@@ -136,7 +136,7 @@ export const EpisodesBottomSheet = ({
                       {locked && (
                         <View style={styles.lockOverlay}>
                           <View style={styles.lockBackground}>
-                            <LockOutlined />
+                            <LockOutlined width={26} height={26} />
                           </View>
                         </View>
                       )}

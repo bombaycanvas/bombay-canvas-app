@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useVideoStore } from '../../store/videoStore';
 import {
   View,
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useApplyCoupon, useRazorpayPayment } from '../../api/video';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import LockOutlined from '../../assets/LockOutlined';
+import RefundIcon from '../../assets/RefundIcon';
 
 export function PurchaseModal() {
   const { isPurchaseModal, purchaseSeries, resetPurchaseState } =
@@ -18,11 +20,20 @@ export function PurchaseModal() {
 
   const [coupon, setCoupon] = useState('');
   const [couponId, setCouponId] = useState<string | null>(null);
-  const [finalPrice, setFinalPrice] = useState<number>(purchaseSeries?.price);
+  const [finalPrice, setFinalPrice] = useState<number | null>(
+    purchaseSeries?.price,
+  );
   const [loading, setLoading] = useState(false);
-
   const { mutate: applyCoupon } = useApplyCoupon();
   const { mutate: payNow } = useRazorpayPayment();
+
+  const { firstLine, secondLine } = useMemo(() => {
+    const words = purchaseSeries?.title?.split(' ') || [];
+    return {
+      firstLine: words.slice(0, 1).join(' '),
+      secondLine: words.slice(1).join(' '),
+    };
+  }, [purchaseSeries?.title]);
 
   const handleApplyCoupon = () => {
     if (!coupon) {
@@ -53,7 +64,7 @@ export function PurchaseModal() {
   const close = () => {
     setCoupon('');
     setCouponId(null);
-    setFinalPrice(purchaseSeries?.price);
+    setFinalPrice(null);
     resetPurchaseState();
   };
 
@@ -67,7 +78,7 @@ export function PurchaseModal() {
         onSuccess: () => {
           setCoupon('');
           setCouponId(null);
-          setFinalPrice(purchaseSeries?.price);
+          setFinalPrice(null);
           setLoading(false);
 
           setTimeout(() => {
@@ -104,33 +115,47 @@ export function PurchaseModal() {
           <TouchableOpacity onPress={close} style={styles.closeBtn}>
             <Text style={styles.closeText}>×</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Buy {purchaseSeries?.title}</Text>
-          <Text style={styles.subText}>
-            Original Price: ₹{purchaseSeries?.price}
+          <Text style={styles.mainTitle}>Unlock {firstLine}</Text>
+          {secondLine.length > 0 && (
+            <Text style={styles.mainTitle}>{secondLine}</Text>
+          )}
+          <Text style={styles.subTitle}>Watch instantly in HD</Text>
+
+          <Text style={styles.price}>₹{purchaseSeries?.price}</Text>
+          <Text style={styles.priceSub}>
+            All taxes included • One-time payment
           </Text>
 
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter Coupon"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={coupon}
-              onChangeText={setCoupon}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={styles.applyBtn}
-              onPress={handleApplyCoupon}
-            >
-              <Text style={styles.applyBtnText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.inputDetailWrapper}>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Have a coupon?"
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                value={coupon}
+                onChangeText={setCoupon}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={handleApplyCoupon}
+              >
+                <Text style={styles.applyBtnText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
 
-          {couponId && (
-            <Text style={styles.success}>
-              Coupon Applied ✔ Final: ₹{finalPrice}
-            </Text>
-          )}
+            {couponId && (
+              <Text style={styles.success}>
+                Coupon Applied ✔ Final: ₹{finalPrice}
+              </Text>
+            )}
+
+            <View style={styles.checkList}>
+              <Text style={styles.check}>✓ Instant access</Text>
+              <Text style={styles.check}>✓ No ads · No subscription</Text>
+              <Text style={styles.check}>✓ Secure payment</Text>
+            </View>
+          </View>
 
           <TouchableOpacity
             style={styles.payBtn}
@@ -141,10 +166,26 @@ export function PurchaseModal() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.payBtnText}>
-                Pay ₹{finalPrice ?? purchaseSeries?.price}
+                Unlock Now for ₹ {finalPrice ?? purchaseSeries?.price}
               </Text>
             )}
           </TouchableOpacity>
+
+          <Text style={styles.footer}>
+            Safe & secure payment · Instant access
+          </Text>
+          <View style={styles.paymentInfoWrapper}>
+            <View style={styles.paymentRow}>
+              <LockOutlined width={18} height={18} color="#888" />
+              <Text style={styles.paymentInfo}>
+                Payments secured by Razorpay / UPI / Cards
+              </Text>
+            </View>
+            <View style={styles.refundRow}>
+              <RefundIcon width={16} height={16} />
+              <Text style={styles.refund}>7-day refund if playback issues</Text>
+            </View>
+          </View>
         </View>
       </View>
     </Modal>
@@ -159,12 +200,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modal: {
-    backgroundColor: '#1a1a1a',
-    padding: 25,
+    backgroundColor: '#121212',
+    paddingVertical: 30,
+    paddingHorizontal: 25,
     borderRadius: 12,
-    width: '85%',
-    maxWidth: 380,
+    width: '88%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  mainTitle: {
     color: '#fff',
+    fontSize: 25,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  subTitle: {
+    color: '#ccc',
+    marginTop: 8,
+    marginBottom: 5,
+    textAlign: 'center',
+    fontSize: 16,
   },
   closeBtn: {
     position: 'absolute',
@@ -176,44 +231,63 @@ const styles = StyleSheet.create({
     fontSize: 26,
     color: '#fff',
   },
-  title: {
+  price: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 5,
+    fontSize: 42,
+    fontWeight: '800',
     textAlign: 'center',
   },
-  subText: {
-    color: '#ccc',
+  priceSub: {
+    color: '#aaa',
+    fontSize: 15,
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 15,
+  },
+  inputDetailWrapper: {
+    width: '85%',
+    marginTop: 4,
   },
   inputRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
     marginBottom: 10,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
-    marginRight: 4,
-    backgroundColor: '#353535',
+    backgroundColor: '#1E1E1E',
     color: '#fff',
-    padding: 10,
-    borderRadius: 6,
-    height: 45,
+    paddingHorizontal: 14,
+    height: 46,
     fontSize: 14,
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
   },
   applyBtn: {
-    backgroundColor: '#ff9500',
-    paddingHorizontal: 14,
+    backgroundColor: '#1E1E1E',
+    paddingHorizontal: 18,
+    height: 46,
     justifyContent: 'center',
-    borderRadius: 6,
+    borderLeftWidth: 1,
+    borderColor: '#333',
   },
   applyBtnText: {
     fontWeight: '700',
     color: '#fff',
+    fontSize: 15,
+  },
+  checkList: {
+    marginTop: 10,
+    width: '100%',
+  },
+  check: {
+    color: '#fff',
+    fontSize: 15,
+    marginBottom: 6,
   },
   success: {
     color: '#00ff95',
@@ -227,10 +301,41 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 12,
     alignItems: 'center',
+    width: '100%',
   },
   payBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  footer: {
+    color: '#bbb',
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  paymentInfoWrapper: {
+    width: '100%',
+    marginTop: 20,
+  },
+  paymentInfo: {
+    color: '#aaa',
+    fontSize: 13,
+  },
+  refund: {
+    color: '#aaa',
+    fontSize: 13,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 5,
+  },
+  refundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 5,
   },
 });
