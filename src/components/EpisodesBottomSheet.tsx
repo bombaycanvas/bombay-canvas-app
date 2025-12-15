@@ -45,7 +45,6 @@ export const EpisodesBottomSheet = ({
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
-      presentationStyle="overFullScreen"
       statusBarTranslucent
     >
       <View style={styles.modalContainer}>
@@ -173,7 +172,6 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
     backgroundColor: '#181818',

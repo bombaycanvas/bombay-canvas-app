@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
 export const requestOtp = async (data: any) => {
   try {
@@ -19,9 +20,19 @@ export const requestOtp = async (data: any) => {
     return resp;
   } catch (error) {
     if (error instanceof Error) {
-      console.log('Sign up Error', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Signup Failed',
+        text2: `${error.message || 'Please check your details and try again.'}`,
+      });
     } else {
-      console.log('login Error', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: `${
+          error || 'Please verify your email and password, then try again'
+        }`,
+      });
     }
   }
 };
@@ -45,7 +56,11 @@ export const useRequest = () => {
       }
     },
     onError: error => {
-      console.log('Signup Failed', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Signup Failed',
+        text2: `${error.message || 'Please check your details and try again.'}`,
+      });
     },
   });
 };
@@ -67,6 +82,13 @@ export const login = async (data: any) => {
     if (error instanceof Error) {
     } else {
       console.log('login Error', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: `${
+          error || 'Please verify your email and password, then try again'
+        }`,
+      });
     }
   }
 };
@@ -86,8 +108,12 @@ export const useLogin = () => {
         navigation.navigate('MainTabs' as never);
       }
     },
-    onError: error => {
-      console.log('Login Failed', error.message);
+    onError: () => {
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2: 'Please verify your email and password, then try again.',
+      });
     },
   });
 };
@@ -106,7 +132,6 @@ export const useGoogleLogin = () => {
 
   return useMutation({
     mutationFn: async (data: any) => {
-      console.log('data', data);
       return await googleAuthApi(data);
     },
     onSuccess: async data => {
@@ -195,7 +220,13 @@ export const appleAuthApi = async (idToken: string) => {
 
     return response;
   } catch (error: any) {
-    console.error('❌ Apple login failed:', error.message || error);
+    Toast.show({
+      type: 'error',
+      text1: 'Apple login failed',
+      text2: `${
+        error.message || 'Please verify your account, then try again.'
+      }`,
+    });
     throw error;
   }
 };
@@ -215,7 +246,13 @@ export const useAppleLogin = () => {
       }
     },
     onError: (error: any) => {
-      console.log('Apple Login Failed:', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Apple login failed',
+        text2: `${
+          error.message || 'Please verify your account, then try again.'
+        }`,
+      });
     },
   });
 };

@@ -73,7 +73,7 @@ const VideoListItem = React.memo(
         />
         <View style={[styles.overlay, { paddingBottom: insets.bottom + 10 }]}>
           <View style={styles.leftOverlay}>
-            <View style={styles.textContainer}>
+            <View>
               <View style={styles.userInfo}>
                 <Image
                   source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
@@ -295,7 +295,6 @@ const styles = StyleSheet.create({
   },
   leftOverlay: { flex: 1 },
   rightOverlay: { marginLeft: 16 },
-  textContainer: {},
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -319,54 +318,4 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   episodesButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#181818',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    height: '60%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  episodeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  activeEpisodeItem: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.25)',
-  },
-  thumbWrapper: {
-    width: 120,
-    height: 70,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginRight: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,106,0,0.25)',
-  },
-  thumbnail: { width: 120, height: 70, borderRadius: 4 },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lockIcon: { fontSize: 22, color: '#fff' },
-  episodeInfo: { marginLeft: 12, flex: 1 },
-  episodeTitleText: { color: 'white', fontSize: 16 },
-  episodeDuration: { color: '#aaa', fontSize: 12, marginTop: 4 },
 });

@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   videoWrapper: {
     width: width,
-    height: height * 0.55,
+    height: height * 0.5,
     backgroundColor: '#111',
     shadowColor: '#000',
     shadowOpacity: 0.4,

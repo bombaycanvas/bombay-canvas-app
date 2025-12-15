@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useApplyCoupon, useRazorpayPayment } from '../../api/video';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 import LockOutlined from '../../assets/LockOutlined';
 import RefundIcon from '../../assets/RefundIcon';
 
@@ -26,14 +26,6 @@ export function PurchaseModal() {
   const [loading, setLoading] = useState(false);
   const { mutate: applyCoupon } = useApplyCoupon();
   const { mutate: payNow } = useRazorpayPayment();
-
-  const { firstLine, secondLine } = useMemo(() => {
-    const words = purchaseSeries?.title?.split(' ') || [];
-    return {
-      firstLine: words.slice(0, 1).join(' '),
-      secondLine: words.slice(1).join(' '),
-    };
-  }, [purchaseSeries?.title]);
 
   const handleApplyCoupon = () => {
     if (!coupon) {
@@ -96,6 +88,14 @@ export function PurchaseModal() {
     );
   };
 
+  const { firstLine, secondLine } = useMemo(() => {
+    const words = purchaseSeries?.title?.split(' ') || [];
+    return {
+      firstLine: words?.slice(0, 1).join(' '),
+      secondLine: words?.slice(1).join(' '),
+    };
+  }, [purchaseSeries?.title]);
+
   return (
     <Modal
       visible={isPurchaseModal}
@@ -106,11 +106,7 @@ export function PurchaseModal() {
       statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <Toast
-          config={{ BaseToast, ErrorToast }}
-          topOffset={60}
-          position="top"
-        />
+        <Toast topOffset={60} position="top" />
         <View style={styles.modal}>
           <TouchableOpacity onPress={close} style={styles.closeBtn}>
             <Text style={styles.closeText}>×</Text>
@@ -256,21 +252,20 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: '#1E1E1E',
   },
   input: {
     flex: 1,
     backgroundColor: '#1E1E1E',
     color: '#fff',
-    paddingHorizontal: 14,
-    height: 46,
+    padding: 14,
     fontSize: 14,
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontWeight: 400,
   },
   applyBtn: {
     backgroundColor: '#1E1E1E',
-    paddingHorizontal: 18,
-    height: 46,
+    padding: 14,
     justifyContent: 'center',
     borderLeftWidth: 1,
     borderColor: '#333',

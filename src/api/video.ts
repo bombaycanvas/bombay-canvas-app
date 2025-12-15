@@ -165,11 +165,11 @@ export const getPlayVideoWithID = async (id: string) => {
   }
 };
 
-export const usePlayVideoWithId = (id: string) => {
+export const usePlayVideoWithId = (id?: string) => {
   return useQuery({
     queryKey: ['playEpisode', id],
-    queryFn: () => getPlayVideoWithID(id),
-    enabled: !!id,
+    queryFn: () => getPlayVideoWithID(id!),
+    enabled: Boolean(id),
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

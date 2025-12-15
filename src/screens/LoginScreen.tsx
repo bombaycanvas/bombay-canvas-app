@@ -23,6 +23,7 @@ import {
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { signInWithGoogle } from '../utils/authService';
 import AppleLogin from '../assets/AppleLogin';
+import Toast from 'react-native-toast-message';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
@@ -52,7 +53,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
       const idToken = await signInWithGoogle();
       googleLoginMutate(idToken);
     } catch (error) {
-      console.error('❌ Google login error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Google login',
+        text2: 'Something went wrong, Please try again!',
+      });
     }
   };
 
