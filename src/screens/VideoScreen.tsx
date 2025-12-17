@@ -14,12 +14,15 @@ import {
   ActivityIndicator,
   Image,
   TouchableOpacity,
+  Platform,
+  Animated,
 } from 'react-native';
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
+import { ChevronLeft } from 'lucide-react-native';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -52,6 +55,17 @@ const VideoListItem = React.memo(
   }) => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const { controlsVisible } = useVideoStore();
+
+    useEffect(() => {
+      Animated.timing(fadeAnim, {
+        toValue: controlsVisible ? 1 : 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }, [controlsVisible, fadeAnim]);
+
     const videoId = item && item?.id;
     const locked = item && !item?.isPublic && !isAuthenticated;
     const isPaidEpisode =
@@ -71,7 +85,15 @@ const VideoListItem = React.memo(
           locked={locked}
           isPaidEpisode={isPaidEpisode}
         />
-        <View style={[styles.overlay, { paddingBottom: insets.bottom + 10 }]}>
+        <Animated.View
+          style={[
+            styles.overlay,
+            {
+              paddingBottom: insets.bottom + 10,
+              opacity: locked || isPaidEpisode ? 1 : fadeAnim,
+            },
+          ]}
+        >
           <View style={styles.leftOverlay}>
             <View>
               <View style={styles.userInfo}>
@@ -93,9 +115,11 @@ const VideoListItem = React.memo(
               <Text style={styles.title}>
                 E{item.episodeNo}: {item.title}
               </Text>
-              <Text style={styles.description} numberOfLines={2}>
-                {item.description}
-              </Text>
+              {item.description && (
+                <Text style={styles.description} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.rightOverlay}>
@@ -106,7 +130,7 @@ const VideoListItem = React.memo(
               <Text style={styles.episodesButtonText}>Episodes</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </View>
     );
   },
@@ -114,21 +138,20 @@ const VideoListItem = React.memo(
 
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'VideoScreen'>>();
+  const navigation = useNavigation();
   const { id, episodeId } = route.params ?? {};
-
   const { setEpisodes, setCurrentEpisodeId, currentEpisodeId } =
     useVideoStore();
 
   const { data, isLoading, isError } = useMoviesDataById(
     id ?? 'cmff99fyf0005s60esh5ndrws',
   );
-
   const series = data?.series;
   const episodes: Episode[] = series?.episodes;
   const isAuthenticated = data?.isAuthenticated;
 
   const insets = useSafeAreaInsets();
-  const ITEM_HEIGHT = windowHeight + insets.bottom;
+  const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
 
   const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
@@ -226,6 +249,11 @@ const VideoScreen = () => {
 
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
+      <View style={[styles.backButtonContainer, { marginTop: insets.top }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <ChevronLeft color="white" size={28} />
+        </TouchableOpacity>
+      </View>
       <FlatList
         ref={flatListRef}
         data={episodes}
@@ -270,6 +298,14 @@ export default VideoScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  backButtonContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? -10 : 15,
+    left: 0,
+    zIndex: 999,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
   loaderContainer: {
     flex: 1,
     backgroundColor: '#000',
@@ -285,7 +321,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     position: 'absolute',
-    bottom: 80,
+    bottom: Platform.OS === 'ios' ? 60 : 90,
     left: 0,
     right: 0,
     flexDirection: 'row',

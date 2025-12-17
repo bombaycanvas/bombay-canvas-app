@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -17,7 +18,7 @@ import {
   NavigationProp,
 } from '@react-navigation/native';
 import { useMoviesDataById } from '../api/video';
-import { Pause, Play } from 'lucide-react-native';
+import { ChevronLeft, Pause, Play } from 'lucide-react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
@@ -81,6 +82,11 @@ const SeriesDetailScreen = () => {
 
   return (
     <View style={styles.container}>
+      <View style={[styles.backButtonContainer, { marginTop: insets.top }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <ChevronLeft color="#ff6a00" size={28} />
+        </TouchableOpacity>
+      </View>
       <View style={styles.videoWrapper}>
         <Video
           ref={videoRef}
@@ -218,6 +224,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,106,0,0.25)',
   },
   container: { flex: 1, backgroundColor: '#000' },
+  backButtonContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? -10 : 15,
+    left: 0,
+    zIndex: 999,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
   videoWrapper: {
     width: width,
     height: height * 0.5,

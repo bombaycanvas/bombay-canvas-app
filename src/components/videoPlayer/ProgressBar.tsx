@@ -26,7 +26,7 @@ export const ProgressBar = ({
         styles.bottomOverlay,
         {
           paddingBottom:
-            Platform.OS === 'android' ? insets.bottom + 8 : insets.bottom,
+            Platform.OS === 'android' ? insets.bottom + 30 : insets.bottom,
         },
       ]}
     >
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   timeText: {
     color: 'white',

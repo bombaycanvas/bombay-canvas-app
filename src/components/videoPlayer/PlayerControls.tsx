@@ -19,10 +19,10 @@ export const PlayerControls = ({ onPressContainer }: PlayerControlsProps) => {
           setPaused(!isPaused);
         }}
       >
-        {!isPaused ? (
-          <Pause color="white" size={60} />
+        {isPaused ? (
+          <Play color="white" size={40} />
         ) : (
-          <Play color="white" size={60} />
+          <Pause color="white" size={40} />
         )}
       </TouchableOpacity>
     </Pressable>
@@ -34,7 +34,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
   },
-  playPauseButton: {},
+  playPauseButton: {
+    padding: 10,
+    backgroundColor: 'rgba(255,106,0,0.5)',
+    borderRadius: 50,
+  },
 });

@@ -1,10 +1,11 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
   View,
   Image,
+  Animated,
   Platform,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
@@ -34,11 +35,14 @@ type VideoPlayerProps = {
 export default function VideoPlayer({
   episode,
   movie,
-  locked,
-  isPaidEpisode,
+  locked = false,
+  isPaidEpisode = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
+  const hideTimerRef = useRef<any>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const {
     currentEpisodeId,
     isPaused,
@@ -46,6 +50,8 @@ export default function VideoPlayer({
     setIsLockedVisibleModal,
     setIsPurchaseModal,
     setPurchaseSeries,
+    controlsVisible,
+    setControlsVisible,
   } = useVideoStore();
 
   const isVisible = currentEpisodeId === episode.id;
@@ -55,7 +61,6 @@ export default function VideoPlayer({
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [controlsVisible, setControlsVisible] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +71,24 @@ export default function VideoPlayer({
   }, []);
 
   useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: controlsVisible ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [controlsVisible, fadeAnim]);
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+  }, [setControlsVisible]);
+
+  useEffect(() => {
     if (!isVisible) {
       setProgress(0);
       setCurrentTime(0);
@@ -74,7 +97,7 @@ export default function VideoPlayer({
       setError(null);
       setControlsVisible(false);
     }
-  }, [isVisible]);
+  }, [isVisible, setControlsVisible]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -167,6 +190,7 @@ export default function VideoPlayer({
     const newTime = value * duration;
     videoRef.current?.seek(newTime);
     setCurrentTime(newTime);
+    showControls();
   };
 
   const handleError = (e: any) => {
@@ -190,12 +214,12 @@ export default function VideoPlayer({
     bufferForPlaybackAfterRebufferMs: 5000,
   };
 
-  const hasValidVideoUrl =
-    episode?.videoUrl &&
-    typeof episode.videoUrl === 'string' &&
-    episode.videoUrl.trim().length > 0;
-
   const onVideoTap = () => {
+    if (!controlsVisible) {
+      showControls();
+    } else {
+      setControlsVisible(false);
+    }
     if (!locked && isPaidEpisode) {
       setPurchaseSeries(movie);
       setIsPurchaseModal(true);
@@ -205,8 +229,16 @@ export default function VideoPlayer({
       setIsLockedVisibleModal(true);
       return;
     }
-    setControlsVisible(!controlsVisible);
   };
+
+  useEffect(() => {
+    if (episode && isVisible && !isBuffering) showControls();
+  }, [episode, isVisible, showControls, isBuffering]);
+
+  const hasValidVideoUrl =
+    episode?.videoUrl &&
+    typeof episode.videoUrl === 'string' &&
+    episode.videoUrl.trim().length > 0;
 
   return (
     <TouchableOpacity
@@ -248,7 +280,9 @@ export default function VideoPlayer({
             )
           )}
 
-          <View style={styles.overlayContainer}>
+          <Animated.View
+            style={[styles.overlayContainer, { opacity: fadeAnim }]}
+          >
             {isVisible && isBuffering && !error && <BufferingIndicator />}
 
             {isVisible && error && <ErrorOverlay error={error} />}
@@ -268,7 +302,7 @@ export default function VideoPlayer({
                 formatTime={formatTime}
               />
             )}
-          </View>
+          </Animated.View>
         </>
       )}
     </TouchableOpacity>

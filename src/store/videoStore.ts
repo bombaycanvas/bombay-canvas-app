@@ -23,16 +23,20 @@ interface VideoState {
   purchaseSeries: any | null;
   setPurchaseSeries: (series: any | null) => void;
   resetPurchaseState: () => void;
+  controlsVisible: boolean;
+  setControlsVisible: (value: boolean) => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
   episodes: [],
   currentEpisodeId: null,
   isPaused: true,
+  controlsVisible: true,
   setEpisodes: episodes => set({ episodes }),
   setCurrentEpisodeId: episodeId =>
     set({ currentEpisodeId: episodeId, isPaused: false }),
   setPaused: paused => set({ isPaused: paused }),
+  setControlsVisible: value => set({ controlsVisible: value }),
   resetPlayer: () =>
     set({
       isPaused: true,
