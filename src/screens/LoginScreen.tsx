@@ -3,10 +3,10 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
@@ -176,12 +176,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
                 value={value}
                 onChangeText={onChange}
               />
-              <TouchableOpacity
-                style={styles.eyeIcon}
+              <TouchableWithoutFeedback
                 onPress={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-              </TouchableOpacity>
+                <View style={styles.eyeIcon}>
+                  {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                </View>
+              </TouchableWithoutFeedback>
               {errors.password && (
                 <Text style={styles.error}>
                   {errors.password?.message as string}
@@ -191,15 +192,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           )}
         />
 
-        <TouchableOpacity
-          style={styles.continueBtn}
-          onPress={handleSubmit(onSubmit)}
-        >
-          <Text style={styles.continueTxt}>
-            {fromSignup ? 'Sign Up' : 'Log In'}
-          </Text>
-          <ButtonIcon />
-        </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={handleSubmit(onSubmit)}>
+          <View style={styles.continueBtn}>
+            <Text style={styles.continueTxt}>
+              {fromSignup ? 'Sign Up' : 'Log In'}
+            </Text>
+            <ButtonIcon />
+          </View>
+        </TouchableWithoutFeedback>
 
         <View style={styles.orSection}>
           <View style={styles.line} />
@@ -207,19 +207,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           <View style={styles.line} />
         </View>
 
-        <TouchableOpacity style={styles.googleBtn} onPress={handleLogin}>
-          <GoogleLogin />
-          <Text style={styles.googleTxt}>
-            {fromSignup ? 'Sign in' : 'Log in'} with Google
-          </Text>
-        </TouchableOpacity>
-        {Platform.OS === 'ios' && (
-          <TouchableOpacity style={styles.appleBtn} onPress={handleAppleLogin}>
-            <AppleLogin />
-            <Text style={styles.appleTxt}>
-              {fromSignup ? 'Sign in' : 'Log in'} with Apple
+        <TouchableWithoutFeedback onPress={handleLogin}>
+          <View style={styles.googleBtn}>
+            <GoogleLogin />
+            <Text style={styles.googleTxt}>
+              {fromSignup ? 'Sign in' : 'Log in'} with Google
             </Text>
-          </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+        {Platform.OS === 'ios' && (
+          <TouchableWithoutFeedback onPress={handleAppleLogin}>
+            <View style={styles.appleBtn}>
+              <AppleLogin />
+              <Text style={styles.appleTxt}>
+                {fromSignup ? 'Sign in' : 'Log in'} with Apple
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
         )}
 
         <View style={styles.termsWrapper}>
@@ -228,15 +232,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
             name="terms"
             render={({ field: { value, onChange } }) => (
               <View style={styles.termsWrapper}>
-                <TouchableOpacity
-                  style={[
-                    styles.checkbox,
-                    value && { backgroundColor: '#ef8a4c' },
-                  ]}
-                  onPress={() => onChange(!value)}
-                >
-                  {value && <Text style={styles.checkmark}>✓</Text>}
-                </TouchableOpacity>
+                <TouchableWithoutFeedback onPress={() => onChange(!value)}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      value && { backgroundColor: '#ef8a4c' },
+                    ]}
+                  >
+                    {value && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                </TouchableWithoutFeedback>
                 <Text style={styles.termsText}>
                   I agree to the{' '}
                   <Text style={styles.bold}>Terms of Service</Text> and{' '}
@@ -344,7 +349,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: 'absolute',
     right: 16,
-    top: '35%',
+    top: '30%',
   },
   error: {
     color: 'red',

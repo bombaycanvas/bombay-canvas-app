@@ -1,7 +1,12 @@
 import FastImage from '@d11/react-native-fast-image';
-import { useNavigation } from '@react-navigation/native';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableWithoutFeedback,
+} from 'react-native';
 
 type Movie = {
   id: string;
@@ -13,8 +18,12 @@ type UserVideosProps = {
   isLoading?: boolean;
 };
 
+type RootStackParamList = {
+  Video: { id: string };
+};
+
 const UserVideos: React.FC<UserVideosProps> = ({ data, isLoading }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   if (isLoading) {
     return (
@@ -41,23 +50,21 @@ const UserVideos: React.FC<UserVideosProps> = ({ data, isLoading }) => {
       columnWrapperStyle={{ justifyContent: 'space-between' }}
       keyExtractor={item => item.id}
       renderItem={({ item }) => (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[styles.card, { backgroundColor: '#222' }]}
-          onPress={() =>
-            navigation.navigate('Video' as never, { id: item.id } as never)
-          }
+        <TouchableWithoutFeedback
+          onPress={() => navigation.navigate('Video', { id: item.id })}
         >
-          <FastImage
-            source={{
-              uri: item.posterUrl,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={styles.poster}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-        </TouchableOpacity>
+          <View style={[styles.card, { backgroundColor: '#222' }]}>
+            <FastImage
+              source={{
+                uri: item.posterUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.poster}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          </View>
+        </TouchableWithoutFeedback>
       )}
     />
   );

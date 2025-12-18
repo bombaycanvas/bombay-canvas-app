@@ -13,16 +13,15 @@ import {
   Dimensions,
   ActivityIndicator,
   Image,
-  TouchableOpacity,
   Platform,
   Animated,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
-import { ChevronLeft } from 'lucide-react-native';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -123,12 +122,11 @@ const VideoListItem = React.memo(
             </View>
           </View>
           <View style={styles.rightOverlay}>
-            <TouchableOpacity
-              onPress={onEpisodesPress}
-              style={styles.episodesButton}
-            >
-              <Text style={styles.episodesButtonText}>Episodes</Text>
-            </TouchableOpacity>
+            <TouchableWithoutFeedback onPress={onEpisodesPress}>
+              <View style={styles.episodesButton}>
+                <Text style={styles.episodesButtonText}>Episodes</Text>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
         </Animated.View>
       </View>
@@ -138,19 +136,16 @@ const VideoListItem = React.memo(
 
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'VideoScreen'>>();
-  const navigation = useNavigation();
+
   const { id, episodeId } = route.params ?? {};
-  const { setEpisodes, setCurrentEpisodeId, currentEpisodeId } =
+  const { setEpisodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
 
-  const { data, isLoading, isError } = useMoviesDataById(
-    id ?? 'cmff99fyf0005s60esh5ndrws',
-  );
+  const { data, isLoading, isError } = useMoviesDataById(id);
   const series = data?.series;
   const episodes: Episode[] = series?.episodes;
   const isAuthenticated = data?.isAuthenticated;
 
-  const insets = useSafeAreaInsets();
   const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
 
@@ -184,6 +179,16 @@ const VideoScreen = () => {
     setIsEpisodesVisible(false);
   };
 
+  const handleCloseEpisodeBottomSheet = () => {
+    setPaused(false);
+    setIsEpisodesVisible(false);
+  };
+
+  const handlePressOnEpisodes = useCallback(() => {
+    setPaused(true);
+    setIsEpisodesVisible(true);
+  }, [setPaused, setIsEpisodesVisible]);
+
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: any) => {
       if (viewableItems.length > 0) {
@@ -205,11 +210,11 @@ const VideoScreen = () => {
       <VideoListItem
         item={item}
         movie={series}
-        onEpisodesPress={() => setIsEpisodesVisible(true)}
+        onEpisodesPress={handlePressOnEpisodes}
         isAuthenticated={isAuthenticated}
       />
     ),
-    [series, isAuthenticated],
+    [series, isAuthenticated, handlePressOnEpisodes],
   );
 
   const validIndex =
@@ -249,11 +254,6 @@ const VideoScreen = () => {
 
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
-      <View style={[styles.backButtonContainer, { marginTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft color="white" size={28} />
-        </TouchableOpacity>
-      </View>
       <FlatList
         ref={flatListRef}
         data={episodes}
@@ -275,13 +275,13 @@ const VideoScreen = () => {
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         snapToAlignment="start"
-        disableIntervalMomentum
+        disableIntervalMomentum={true}
         removeClippedSubviews
         overScrollMode="never"
       />
       <EpisodesBottomSheet
         visible={isEpisodesVisible}
-        onClose={() => setIsEpisodesVisible(false)}
+        onClose={handleCloseEpisodeBottomSheet}
         episodes={episodes}
         activeEpisode={activeEpisode}
         onEpisodeSelect={handleEpisodeSelect}
@@ -298,14 +298,6 @@ export default VideoScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  backButtonContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? -10 : 15,
-    left: 0,
-    zIndex: 999,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
   loaderContainer: {
     flex: 1,
     backgroundColor: '#000',

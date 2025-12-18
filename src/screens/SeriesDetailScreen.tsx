@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Dimensions,
   ScrollView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -72,6 +72,11 @@ const SeriesDetailScreen = () => {
     setIsPlaying(prev => !prev);
   };
 
+  const handleViewEpisodes = () => {
+    setIsPlaying(false);
+    setIsEpisodesVisible(true);
+  };
+
   if (isLoading || !series) {
     return (
       <View style={styles.loader}>
@@ -83,9 +88,9 @@ const SeriesDetailScreen = () => {
   return (
     <View style={styles.container}>
       <View style={[styles.backButtonContainer, { marginTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableWithoutFeedback onPress={() => navigation.goBack()}>
           <ChevronLeft color="#ff6a00" size={28} />
-        </TouchableOpacity>
+        </TouchableWithoutFeedback>
       </View>
       <View style={styles.videoWrapper}>
         <Video
@@ -111,40 +116,45 @@ const SeriesDetailScreen = () => {
 
         <View style={styles.actionsRow}>
           {locked ? (
-            <TouchableOpacity
-              style={styles.watchButton}
+            <TouchableWithoutFeedback
               onPress={() => setIsLockedVisibleModal(true)}
             >
-              <Text style={styles.watchText}>Unlock Episodes</Text>
-            </TouchableOpacity>
+              <View style={styles.watchButton}>
+                <Text style={styles.watchText}>Unlock Episodes</Text>
+              </View>
+            </TouchableWithoutFeedback>
           ) : locked ? (
-            <TouchableOpacity
-              style={styles.watchButton}
+            <TouchableWithoutFeedback
               onPress={() => {
                 setPurchaseSeries(series);
                 setIsPurchaseModal(true);
               }}
             >
-              <Text style={styles.watchText}>Purchase Episodes</Text>
-            </TouchableOpacity>
+              <View style={styles.watchButton}>
+                <Text style={styles.watchText}>Purchase Episodes</Text>
+              </View>
+            </TouchableWithoutFeedback>
           ) : (
             shouldFetch && (
-              <TouchableOpacity
-                style={styles.watchButton}
+              <TouchableWithoutFeedback
                 onPress={() => navigation.navigate('Video', { id })}
               >
-                <Text style={styles.watchText}>Watch Now</Text>
-              </TouchableOpacity>
+                <View style={styles.watchButton}>
+                  <Text style={styles.watchText}>Watch Now</Text>
+                </View>
+              </TouchableWithoutFeedback>
             )
           )}
 
-          <TouchableOpacity style={styles.playPauseButton} onPress={togglePlay}>
-            {isPlaying ? (
-              <Pause color="#ff6a00" size={22} />
-            ) : (
-              <Play color="#ff6a00" size={22} />
-            )}
-          </TouchableOpacity>
+          <TouchableWithoutFeedback onPress={togglePlay}>
+            <View style={styles.playPauseButton}>
+              {isPlaying ? (
+                <Pause color="#ff6a00" size={22} />
+              ) : (
+                <Play color="#ff6a00" size={22} />
+              )}
+            </View>
+          </TouchableWithoutFeedback>
         </View>
 
         <Text style={styles.metaText}>
@@ -155,43 +165,43 @@ const SeriesDetailScreen = () => {
         </Text>
 
         {series.uploader && (
-          <TouchableOpacity
-            style={styles.creatorRow}
+          <TouchableWithoutFeedback
             onPress={() =>
               navigation.navigate('Creator', { id: series.uploader?.id })
             }
           >
-            <FastImage
-              source={{
-                uri:
-                  series.uploader?.profiles?.[0]?.avatarUrl ||
-                  'https://via.placeholder.com/40',
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={styles.avatar}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-            <Text
-              style={styles.creatorName}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {series.uploader?.name}
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.creatorRow}>
+              <FastImage
+                source={{
+                  uri:
+                    series.uploader?.profiles?.[0]?.avatarUrl ||
+                    'https://via.placeholder.com/40',
+                  priority: FastImage.priority.normal,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={styles.avatar}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+              <Text
+                style={styles.creatorName}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {series.uploader?.name}
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
         )}
         <Text style={styles.description} numberOfLines={5} ellipsizeMode="tail">
           {series.description}
         </Text>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-        <TouchableOpacity
-          style={styles.episodesButton}
-          onPress={() => setIsEpisodesVisible(true)}
-        >
-          <Text style={styles.episodesButtonText}>View Episodes</Text>
-        </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={handleViewEpisodes}>
+          <View style={styles.episodesButton}>
+            <Text style={styles.episodesButtonText}>View Episodes</Text>
+          </View>
+        </TouchableWithoutFeedback>
       </View>
 
       <EpisodesBottomSheet
@@ -226,7 +236,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? -10 : 15,
+    top: Platform.OS === 'ios' ? 5 : 30,
     left: 0,
     zIndex: 999,
     justifyContent: 'center',

@@ -2,11 +2,11 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
   View,
   Image,
   Animated,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
@@ -14,7 +14,8 @@ import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
 import { ErrorOverlay } from './videoPlayer/ErrorOverlay';
 import { PlayerControls } from './videoPlayer/PlayerControls';
 import { ProgressBar } from './videoPlayer/ProgressBar';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,9 +40,12 @@ export default function VideoPlayer({
   isPaidEpisode = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
+  const isSeeking = useRef(false);
+  const resumeAfterSeek = useRef(false);
   const hideTimerRef = useRef<any>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation();
 
   const {
     currentEpisodeId,
@@ -167,10 +171,9 @@ export default function VideoPlayer({
   };
 
   const handleProgress = (data: OnProgressData) => {
-    if (!isBuffering && isPlaying) {
-      setCurrentTime(data.currentTime);
-      setProgress(duration ? data.currentTime / duration : 0);
-    }
+    if (isSeeking.current) return;
+    setCurrentTime(data.currentTime);
+    setProgress(duration ? data.currentTime / duration : 0);
   };
 
   const handleLoad = (data: OnLoadData) => {
@@ -186,12 +189,20 @@ export default function VideoPlayer({
     }
   };
 
-  const onSeek = (value: number) => {
-    const newTime = value * duration;
-    videoRef.current?.seek(newTime);
-    setCurrentTime(newTime);
-    showControls();
-  };
+  const onSeek = useCallback(
+    (value: number) => {
+      if (!duration) return;
+      const newTime = value * duration;
+      isSeeking.current = true;
+      if (!isPlaying) {
+        resumeAfterSeek.current = true;
+      }
+      videoRef.current?.seek(newTime);
+      setCurrentTime(newTime);
+      showControls();
+    },
+    [duration, isPlaying, showControls],
+  );
 
   const handleError = (e: any) => {
     if (isVisible) {
@@ -241,71 +252,89 @@ export default function VideoPlayer({
     episode.videoUrl.trim().length > 0;
 
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      style={styles.container}
-      onPress={onVideoTap}
-    >
-      {isVisible && (locked || isPaidEpisode) ? (
-        <Image
-          source={{ uri: movie?.posterUrl }}
-          style={styles.poster}
-          resizeMode="cover"
-        />
-      ) : (
-        <>
-          {!locked && isVisible && hasValidVideoUrl ? (
-            <Video
-              ref={videoRef}
-              source={{ uri: episode?.videoUrl }}
-              style={styles.video}
-              paused={!isPlaying}
-              resizeMode="contain"
-              onLoadStart={handleLoadStart}
-              onLoad={handleLoad}
-              onBuffer={handleBuffer}
-              onProgress={handleProgress}
-              onError={handleError}
-              poster={movie?.posterUrl}
-              posterResizeMode="cover"
-              repeat
-              bufferConfig={bufferConfig}
-              progressUpdateInterval={250}
-            />
-          ) : (
-            isVisible && (
-              <View style={styles.missingVideoContainer}>
-                <ErrorOverlay error="Video URL missing or invalid." />
-              </View>
-            )
-          )}
+    <TouchableWithoutFeedback onPress={onVideoTap}>
+      <View style={styles.container}>
+        {isVisible && (locked || isPaidEpisode) ? (
+          <Image
+            source={{ uri: movie?.posterUrl }}
+            style={styles.poster}
+            resizeMode="cover"
+          />
+        ) : (
+          <>
+            {!locked && isVisible && hasValidVideoUrl ? (
+              <Video
+                ref={videoRef}
+                source={{ uri: episode?.videoUrl }}
+                style={styles.video}
+                paused={!isPlaying}
+                resizeMode="cover"
+                onLoadStart={handleLoadStart}
+                onLoad={handleLoad}
+                onBuffer={handleBuffer}
+                onProgress={handleProgress}
+                onError={handleError}
+                poster={movie?.posterUrl}
+                posterResizeMode="cover"
+                repeat
+                bufferConfig={bufferConfig}
+                progressUpdateInterval={250}
+                onSeek={() => {
+                  requestAnimationFrame(() => {
+                    if (resumeAfterSeek.current) {
+                      setTimeout(() => {
+                        setPaused(false);
+                        resumeAfterSeek.current = false;
+                      }, 50);
+                    }
 
-          <Animated.View
-            style={[styles.overlayContainer, { opacity: fadeAnim }]}
-          >
+                    setTimeout(() => {
+                      isSeeking.current = false;
+                    }, 30);
+                  });
+                }}
+              />
+            ) : (
+              isVisible && (
+                <View style={styles.missingVideoContainer}>
+                  <ErrorOverlay error="Video URL missing or invalid." />
+                </View>
+              )
+            )}
+
             {isVisible && isBuffering && !error && <BufferingIndicator />}
+            <Animated.View
+              style={[styles.overlayContainer, { opacity: fadeAnim }]}
+            >
+              {controlsVisible && (
+                <TouchableWithoutFeedback onPress={() => navigation.goBack()}>
+                  <View style={styles.backButton}>
+                    <ChevronLeft size={28} color="white" />
+                  </View>
+                </TouchableWithoutFeedback>
+              )}
 
-            {isVisible && error && <ErrorOverlay error={error} />}
+              {isVisible && error && <ErrorOverlay error={error} />}
+              {isVisible && controlsVisible && !isBuffering && !error && (
+                <PlayerControls
+                  onPressContainer={() => setControlsVisible(false)}
+                />
+              )}
 
-            {isVisible && controlsVisible && !isBuffering && !error && (
-              <PlayerControls
-                onPressContainer={() => setControlsVisible(false)}
-              />
-            )}
-
-            {isVisible && (
-              <ProgressBar
-                progress={progress}
-                duration={duration}
-                currentTime={currentTime}
-                onSeek={onSeek}
-                formatTime={formatTime}
-              />
-            )}
-          </Animated.View>
-        </>
-      )}
-    </TouchableOpacity>
+              {isVisible && (
+                <ProgressBar
+                  progress={progress}
+                  duration={duration}
+                  currentTime={currentTime}
+                  onSeek={onSeek}
+                  formatTime={formatTime}
+                />
+              )}
+            </Animated.View>
+          </>
+        )}
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -337,5 +366,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'black',
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 48 : 45,
+    left: 0,
+    zIndex: 20,
+    padding: 8,
   },
 });

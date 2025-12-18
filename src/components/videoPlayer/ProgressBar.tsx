@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,8 @@ export const ProgressBar = ({
   formatTime,
 }: ProgressBarProps) => {
   const insets = useSafeAreaInsets();
+  const [dragValue, setDragValue] = useState(progress);
+  const [dragging, setDragging] = useState(false);
 
   return (
     <View
@@ -26,26 +28,29 @@ export const ProgressBar = ({
         styles.bottomOverlay,
         {
           paddingBottom:
-            Platform.OS === 'android' ? insets.bottom + 30 : insets.bottom,
+            Platform.OS === 'ios' ? insets.bottom : insets.bottom + 30,
         },
       ]}
     >
-      <View style={styles.bottomControls}>
-        <View style={styles.sliderContainer}>
-          <Slider
-            style={{ flex: 1 }}
-            minimumValue={0}
-            maximumValue={1}
-            value={progress}
-            minimumTrackTintColor="#fff"
-            maximumTrackTintColor="#808080"
-            thumbTintColor="#fff"
-            onValueChange={onSeek}
-          />
-          <Text style={styles.timeText}>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </Text>
-        </View>
+      <View style={styles.sliderContainer}>
+        <Slider
+          style={{ flex: 1 }}
+          value={dragging ? dragValue : progress}
+          minimumValue={0}
+          maximumValue={1}
+          onSlidingStart={() => setDragging(true)}
+          onValueChange={val => setDragValue(val)}
+          onSlidingComplete={val => {
+            setDragging(false);
+            onSeek(val);
+          }}
+          minimumTrackTintColor="#ff6a00"
+          maximumTrackTintColor="#999"
+          thumbTintColor="#fff"
+        />
+        <Text style={styles.timeText}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </Text>
       </View>
     </View>
   );
@@ -58,9 +63,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-  },
-  bottomControls: {
-    flexDirection: 'column',
   },
   sliderContainer: {
     flexDirection: 'row',

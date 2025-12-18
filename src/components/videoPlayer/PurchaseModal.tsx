@@ -4,10 +4,10 @@ import {
   View,
   Text,
   Modal,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   StyleSheet,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useApplyCoupon, useRazorpayPayment } from '../../api/video';
 import Toast from 'react-native-toast-message';
@@ -106,11 +106,13 @@ export function PurchaseModal() {
       statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <Toast topOffset={60} position="top" />
+        <Toast topOffset={30} position="top" />
         <View style={styles.modal}>
-          <TouchableOpacity onPress={close} style={styles.closeBtn}>
-            <Text style={styles.closeText}>×</Text>
-          </TouchableOpacity>
+          <TouchableWithoutFeedback onPress={close}>
+            <View style={styles.closeBtn}>
+              <Text style={styles.closeText}>×</Text>
+            </View>
+          </TouchableWithoutFeedback>
           <Text style={styles.mainTitle}>Unlock {firstLine}</Text>
           {secondLine.length > 0 && (
             <Text style={styles.mainTitle}>{secondLine}</Text>
@@ -132,12 +134,11 @@ export function PurchaseModal() {
                 onChangeText={setCoupon}
                 autoCapitalize="none"
               />
-              <TouchableOpacity
-                style={styles.applyBtn}
-                onPress={handleApplyCoupon}
-              >
-                <Text style={styles.applyBtnText}>Apply</Text>
-              </TouchableOpacity>
+              <TouchableWithoutFeedback onPress={handleApplyCoupon}>
+                <View style={styles.applyBtn}>
+                  <Text style={styles.applyBtnText}>Apply</Text>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
 
             {couponId && (
@@ -153,19 +154,17 @@ export function PurchaseModal() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.payBtn}
-            onPress={handlePayNow}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.payBtnText}>
-                Unlock Now for ₹ {finalPrice ?? purchaseSeries?.price}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <TouchableWithoutFeedback onPress={handlePayNow} disabled={loading}>
+            <View style={styles.payBtn}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.payBtnText}>
+                  Unlock Now for ₹ {finalPrice ?? purchaseSeries?.price}
+                </Text>
+              )}
+            </View>
+          </TouchableWithoutFeedback>
 
           <Text style={styles.footer}>
             Safe & secure payment · Instant access

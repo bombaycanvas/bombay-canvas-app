@@ -3,8 +3,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -38,10 +38,7 @@ const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
           style={{ marginBottom: 10 }}
         >
           {Array.from({ length: 5 }).map((_, index) => (
-            <View
-              key={`skeleton-${index}`}
-              style={[styles.card, { backgroundColor: '#333' }]}
-            />
+            <View key={`skeleton-${index}`} style={styles.card} />
           ))}
         </ScrollView>
       </View>
@@ -49,40 +46,42 @@ const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
   }
 
   const renderCard = (movie: Movie) => (
-    <TouchableOpacity
-      key={movie.id}
-      style={[styles.card, { backgroundColor: 'rgba(0, 0, 0, 0.36) ' }]}
-      onPress={() => navigation.navigate('SeriesDetail', { id: movie.id })}
+    <TouchableWithoutFeedback
+      key={movie?.id}
+      onPress={() => navigation.navigate('SeriesDetail', { id: movie?.id })}
     >
-      <FastImage
-        source={{
-          uri: movie.posterUrl || 'https://via.placeholder.com/300x400',
-          priority: FastImage.priority.high,
-          cache: FastImage.cacheControl.immutable,
-        }}
-        style={styles.cardImage}
-        resizeMode={FastImage.resizeMode.cover}
-      />
-      <TouchableOpacity
-        style={styles.videoOverlay}
-        onPress={() =>
-          navigation.navigate('Creator', { id: movie.uploader?.id })
-        }
-      >
+      <View style={styles.card}>
         <FastImage
           source={{
-            uri:
-              movie.uploader?.profiles?.[0]?.avatarUrl ||
-              'https://via.placeholder.com/50',
-            priority: FastImage.priority.normal,
+            uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
+            priority: FastImage.priority.high,
             cache: FastImage.cacheControl.immutable,
           }}
-          style={styles.avatar}
+          style={styles.cardImage}
           resizeMode={FastImage.resizeMode.cover}
         />
-        <Text style={styles.name}>{movie.uploader?.name}</Text>
-      </TouchableOpacity>
-    </TouchableOpacity>
+        <TouchableWithoutFeedback
+          onPress={() =>
+            navigation.navigate('Creator', { id: movie?.uploader?.id })
+          }
+        >
+          <View style={styles.videoOverlay}>
+            <FastImage
+              source={{
+                uri:
+                  movie?.uploader?.profiles?.[0]?.avatarUrl ||
+                  'https://via.placeholder.com/50',
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.avatar}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+            <Text style={styles.name}>{movie?.uploader?.name}</Text>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
   );
 
   return (
@@ -128,6 +127,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 0.5,
     borderColor: 'rgba(255,106,0,0.25)',
+    backgroundColor: 'rgba(0, 0, 0, 0.36) ',
   },
   cardImage: {
     width: '100%',

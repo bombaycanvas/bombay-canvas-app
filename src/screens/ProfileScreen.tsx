@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   ImageBackground,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useAuthStore } from '../store/authStore';
@@ -97,19 +97,19 @@ const ProfileScreen = () => {
             )}
 
             <View style={styles.ctaWrapper}>
-              <TouchableOpacity
-                style={[styles.button, styles.ctaButton]}
+              <TouchableWithoutFeedback
                 onPress={() => navigation.navigate('Settings' as never)}
               >
-                <Text style={styles.buttonText}>Settings</Text>
-              </TouchableOpacity>
+                <View style={[styles.button, styles.ctaButton]}>
+                  <Text style={styles.buttonText}>Settings</Text>
+                </View>
+              </TouchableWithoutFeedback>
 
-              <TouchableOpacity
-                style={[styles.button, styles.ctaButton]}
-                onPress={handleLogout}
-              >
-                <Text style={styles.buttonText}>Logout</Text>
-              </TouchableOpacity>
+              <TouchableWithoutFeedback onPress={handleLogout}>
+                <View style={[styles.button, styles.ctaButton]}>
+                  <Text style={styles.buttonText}>Logout</Text>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
           </View>
 

@@ -3,10 +3,10 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   Modal,
   Platform,
   StyleSheet,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
@@ -51,9 +51,9 @@ export const EpisodesBottomSheet = ({
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Episodes</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableWithoutFeedback onPress={onClose}>
               <X color="white" size={24} />
-            </TouchableOpacity>
+            </TouchableWithoutFeedback>
           </View>
           {!episodes && isPending ? (
             <FlatList
@@ -71,11 +71,7 @@ export const EpisodesBottomSheet = ({
                   item.locked && series?.isPaidSeries && !series?.userPurchased;
 
                 return (
-                  <TouchableOpacity
-                    style={[
-                      styles.episodeItem,
-                      activeEpisode?.id === item.id && styles.activeEpisodeItem,
-                    ]}
+                  <TouchableWithoutFeedback
                     onPress={() => {
                       onClose();
                       if (locked) {
@@ -121,43 +117,51 @@ export const EpisodesBottomSheet = ({
                       }
                     }}
                   >
-                    <View style={styles.thumbWrapper}>
-                      <FastImage
-                        source={{
-                          uri: item.thumbnail,
-                          priority: FastImage.priority.high,
-                          cache: FastImage.cacheControl.immutable,
-                        }}
-                        style={styles.thumbnail}
-                        resizeMode={FastImage.resizeMode.cover}
-                      />
+                    <View
+                      style={[
+                        styles.episodeItem,
+                        activeEpisode?.id === item.id &&
+                          styles.activeEpisodeItem,
+                      ]}
+                    >
+                      <View style={styles.thumbWrapper}>
+                        <FastImage
+                          source={{
+                            uri: item.thumbnail,
+                            priority: FastImage.priority.high,
+                            cache: FastImage.cacheControl.immutable,
+                          }}
+                          style={styles.thumbnail}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
 
-                      {locked && (
-                        <View style={styles.lockOverlay}>
-                          <View style={styles.lockBackground}>
-                            <LockOutlined width={26} height={26} />
+                        {locked && (
+                          <View style={styles.lockOverlay}>
+                            <View style={styles.lockBackground}>
+                              <LockOutlined width={26} height={26} />
+                            </View>
                           </View>
-                        </View>
-                      )}
+                        )}
 
-                      {!locked && isPaidEpisode && (
-                        <View style={styles.lockOverlay}>
-                          <View style={styles.purchaseBackground}>
-                            <SubscriptionOutlined />
+                        {!locked && isPaidEpisode && (
+                          <View style={styles.lockOverlay}>
+                            <View style={styles.purchaseBackground}>
+                              <SubscriptionOutlined />
+                            </View>
                           </View>
-                        </View>
-                      )}
-                    </View>
+                        )}
+                      </View>
 
-                    <View style={styles.episodeInfo}>
-                      <Text style={styles.episodeTitleText}>
-                        E{item.episodeNo}: {item.title}
-                      </Text>
-                      <Text style={styles.episodeDuration}>
-                        {item.duration}m
-                      </Text>
+                      <View style={styles.episodeInfo}>
+                        <Text style={styles.episodeTitleText}>
+                          E{item.episodeNo}: {item.title}
+                        </Text>
+                        <Text style={styles.episodeDuration}>
+                          {item.duration}m
+                        </Text>
+                      </View>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableWithoutFeedback>
                 );
               }}
             />

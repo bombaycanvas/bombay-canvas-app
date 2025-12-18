@@ -5,9 +5,9 @@ import {
   TextInput,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
   Image,
   ImageBackground,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMoviesData } from '../api/video';
@@ -72,15 +72,16 @@ const SearchScreen = () => {
 
   const genreMap = getMoviesByGenre();
   const renderMovieItem = ({ item }: { item: Movie }) => (
-    <TouchableOpacity
-      style={styles.movieItem}
+    <TouchableWithoutFeedback
       onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
     >
-      <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-        {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
-      </Text>
-    </TouchableOpacity>
+      <View style={styles.movieItem}>
+        <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+        </Text>
+      </View>
+    </TouchableWithoutFeedback>
   );
 
   const getItemURL = (item: string) => {
@@ -128,8 +129,7 @@ const SearchScreen = () => {
           key={'list-categories'}
           data={Object.keys(genreMap)}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.categoryBox}
+            <TouchableWithoutFeedback
               onPress={() =>
                 navigation.navigate('CategoryMovies', {
                   category: item,
@@ -137,14 +137,16 @@ const SearchScreen = () => {
                 })
               }
             >
-              <ImageBackground
-                source={getItemURL(item)}
-                style={styles.coverPhoto}
-              />
-              <View style={styles.text1}>
-                <Text style={styles.categoryAnotherText}>{item}</Text>
+              <View style={styles.categoryBox}>
+                <ImageBackground
+                  source={getItemURL(item)}
+                  style={styles.coverPhoto}
+                />
+                <View style={styles.text1}>
+                  <Text style={styles.categoryAnotherText}>{item}</Text>
+                </View>
               </View>
-            </TouchableOpacity>
+            </TouchableWithoutFeedback>
           )}
           keyExtractor={item => item}
           numColumns={2}

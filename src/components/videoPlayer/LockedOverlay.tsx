@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Modal,
+  StyleSheet,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import { useVideoStore } from '../../store/videoStore';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
@@ -26,29 +32,33 @@ export function LockedOverlay() {
             You need to create an account or log in to continue.
           </Text>
 
-          <TouchableOpacity
-            style={[styles.button, styles.signUpButton]}
+          <TouchableWithoutFeedback
             onPress={() => {
               close();
               navigation.navigate('Signup');
             }}
           >
-            <Text style={styles.signUpText}>Sign Up</Text>
-          </TouchableOpacity>
+            <View style={[styles.button, styles.signUpButton]}>
+              <Text style={styles.signUpText}>Sign Up</Text>
+            </View>
+          </TouchableWithoutFeedback>
 
-          <TouchableOpacity
-            style={[styles.button, styles.loginButton]}
+          <TouchableWithoutFeedback
             onPress={() => {
               close();
               navigation.navigate('Login');
             }}
           >
-            <Text style={styles.loginText}>Log In</Text>
-          </TouchableOpacity>
+            <View style={[styles.button, styles.loginButton]}>
+              <Text style={styles.loginText}>Log In</Text>
+            </View>
+          </TouchableWithoutFeedback>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={close}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+          <TouchableWithoutFeedback onPress={close}>
+            <View style={styles.cancelButton}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
       </View>
     </Modal>

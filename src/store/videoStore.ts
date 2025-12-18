@@ -31,7 +31,7 @@ export const useVideoStore = create<VideoState>(set => ({
   episodes: [],
   currentEpisodeId: null,
   isPaused: true,
-  controlsVisible: true,
+  controlsVisible: false,
   setEpisodes: episodes => set({ episodes }),
   setCurrentEpisodeId: episodeId =>
     set({ currentEpisodeId: episodeId, isPaused: false }),

@@ -166,7 +166,7 @@ export default function AppNavigator() {
       <AppStack />
       <LockedOverlay />
       <PurchaseModal />
-      <Toast config={{ BaseToast, ErrorToast }} topOffset={60} position="top" />
+      <Toast config={{ BaseToast, ErrorToast }} topOffset={30} position="top" />
     </NavigationContainer>
   );
 }

@@ -3,9 +3,9 @@ import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import Video from 'react-native-video';
 import {
@@ -80,31 +80,34 @@ const Landing = () => {
         </Text>
 
         <View style={styles.ctaWrapper}>
-          <TouchableOpacity
-            style={styles.infoCta}
+          <TouchableWithoutFeedback
             onPress={() =>
               navigation.navigate('Creator', { id: data?.admin?.id })
             }
           >
-            <Image
-              source={{
-                uri:
-                  data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
-              }}
-              style={styles.avatar}
-            />
-            <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
-            {isPlaying ? (
-              <Pause fill={'#ffffff'} color="white" height={19} width={17} />
-            ) : (
-              <PlayButtonIcon />
-            )}
-            <Text style={styles.playText}>
-              {isPlaying ? ' Pause' : ' Play'}
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.infoCta}>
+              <Image
+                source={{
+                  uri:
+                    data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
+                }}
+                style={styles.avatar}
+              />
+              <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
+            </View>
+          </TouchableWithoutFeedback>
+          <TouchableWithoutFeedback onPress={togglePlay}>
+            <View style={styles.playButton}>
+              {isPlaying ? (
+                <Pause fill={'#ffffff'} color="white" height={19} width={17} />
+              ) : (
+                <PlayButtonIcon />
+              )}
+              <Text style={styles.playText}>
+                {isPlaying ? ' Pause' : ' Play'}
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
       </View>
     </View>
