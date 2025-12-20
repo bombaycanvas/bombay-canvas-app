@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import SubscriptionOutlined from '../assets/SubscriptionOutlined';
@@ -70,6 +71,49 @@ export const EpisodesBottomSheet = ({
                 const isPaidEpisode =
                   item.locked && series?.isPaidSeries && !series?.userPurchased;
 
+                const isActive = activeEpisode?.id === item.id;
+
+                const episodeContent = (
+                  <>
+                    <View style={styles.thumbWrapper}>
+                      <FastImage
+                        source={{
+                          uri: item.thumbnail,
+                          priority: FastImage.priority.high,
+                          cache: FastImage.cacheControl.immutable,
+                        }}
+                        style={styles.thumbnail}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+
+                      {locked && (
+                        <View style={styles.lockOverlay}>
+                          <View style={styles.lockBackground}>
+                            <LockOutlined width={26} height={26} />
+                          </View>
+                        </View>
+                      )}
+
+                      {!locked && isPaidEpisode && (
+                        <View style={styles.lockOverlay}>
+                          <View style={styles.purchaseBackground}>
+                            <SubscriptionOutlined />
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.episodeInfo}>
+                      <Text style={styles.episodeTitleText}>
+                        E{item.episodeNo}: {item.title}
+                      </Text>
+                      <Text style={styles.episodeDuration}>
+                        {item.duration}m
+                      </Text>
+                    </View>
+                  </>
+                );
+
                 return (
                   <TouchableWithoutFeedback
                     onPress={() => {
@@ -120,46 +164,18 @@ export const EpisodesBottomSheet = ({
                     <View
                       style={[
                         styles.episodeItem,
-                        activeEpisode?.id === item.id &&
-                          styles.activeEpisodeItem,
+                        isActive && styles.activeEpisodeItem,
                       ]}
                     >
-                      <View style={styles.thumbWrapper}>
-                        <FastImage
-                          source={{
-                            uri: item.thumbnail,
-                            priority: FastImage.priority.high,
-                            cache: FastImage.cacheControl.immutable,
-                          }}
-                          style={styles.thumbnail}
-                          resizeMode={FastImage.resizeMode.cover}
+                      {isActive && (
+                        <LinearGradient
+                          colors={['#2d1910', '#181818']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={StyleSheet.absoluteFill}
                         />
-
-                        {locked && (
-                          <View style={styles.lockOverlay}>
-                            <View style={styles.lockBackground}>
-                              <LockOutlined width={26} height={26} />
-                            </View>
-                          </View>
-                        )}
-
-                        {!locked && isPaidEpisode && (
-                          <View style={styles.lockOverlay}>
-                            <View style={styles.purchaseBackground}>
-                              <SubscriptionOutlined />
-                            </View>
-                          </View>
-                        )}
-                      </View>
-
-                      <View style={styles.episodeInfo}>
-                        <Text style={styles.episodeTitleText}>
-                          E{item.episodeNo}: {item.title}
-                        </Text>
-                        <Text style={styles.episodeDuration}>
-                          {item.duration}m
-                        </Text>
-                      </View>
+                      )}
+                      {episodeContent}
                     </View>
                   </TouchableWithoutFeedback>
                 );
@@ -200,8 +216,9 @@ const styles = StyleSheet.create({
   },
   activeEpisodeItem: {
     borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.25)',
-    backgroundColor: 'rgba(255,106,0,0.05)',
+    borderColor: 'rgba(255,106,0,0.4)',
+    overflow: 'hidden',
+    backgroundColor: '#181818',
   },
   thumbnail: { width: 120, height: 70, borderRadius: 4 },
   info: { flex: 1 },

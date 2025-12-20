@@ -11,7 +11,6 @@ import {
   StyleSheet,
   FlatList,
   Dimensions,
-  ActivityIndicator,
   Image,
   Platform,
   Animated,
@@ -20,12 +19,13 @@ import {
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
+import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 
 type RootStackParamList = {
   Creator: { id: string };
-  VideoScreen: { id: string; episodeId: string };
+  Video: { id: string; episodeId: string };
 };
 
 type Episode = {
@@ -55,7 +55,7 @@ const VideoListItem = React.memo(
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const { controlsVisible } = useVideoStore();
+    const [controlsVisible, setControlsVisible] = useState(false);
 
     useEffect(() => {
       Animated.timing(fadeAnim, {
@@ -68,10 +68,12 @@ const VideoListItem = React.memo(
     const videoId = item && item?.id;
     const locked = item && !item?.isPublic && !isAuthenticated;
     const isPaidEpisode =
-      item.locked && movie?.isPaidSeries && !movie?.userPurchased;
+      !locked && item?.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
     const shouldFetch = !locked && !isPaidEpisode && !!videoId;
-    const { data } = usePlayVideoWithId(shouldFetch ? videoId : null);
+    const { data, isLoading: isPlaybackLoading } = usePlayVideoWithId(
+      shouldFetch ? videoId : null,
+    );
 
     const episodeData =
       data?.episode && data.episode.videoUrl ? data.episode : item;
@@ -83,6 +85,9 @@ const VideoListItem = React.memo(
           movie={movie}
           locked={locked}
           isPaidEpisode={isPaidEpisode}
+          controlsVisible={controlsVisible}
+          setControlsVisible={setControlsVisible}
+          isPlaybackLoading={isPlaybackLoading}
         />
         <Animated.View
           style={[
@@ -134,30 +139,42 @@ const VideoListItem = React.memo(
   },
 );
 
+import { LoadingLogo } from '../components/LoadingLogo';
+
 const VideoScreen = () => {
-  const route = useRoute<RouteProp<RootStackParamList, 'VideoScreen'>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
   const { id, episodeId } = route.params ?? {};
   const { setEpisodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
+  const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowIntro(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const { data, isLoading, isError } = useMoviesDataById(id);
+  const { isAuthenticated: globalAuth } = useAuthStore();
   const series = data?.series;
   const episodes: Episode[] = series?.episodes;
-  const isAuthenticated = data?.isAuthenticated;
+  const isAuthenticated = data?.isAuthenticated || globalAuth;
 
   const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
 
-  const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
-
   useEffect(() => {
     if (episodes?.length > 0) {
       setEpisodes(episodes);
-      const defaultEpisodeId = episodeId || episodes[0].id;
-      setCurrentEpisodeId(defaultEpisodeId);
+      if (!currentEpisodeId) {
+        const defaultEpisodeId = episodeId || episodes[0].id;
+        setCurrentEpisodeId(defaultEpisodeId);
+      }
     }
-  }, [episodes, episodeId, setEpisodes, setCurrentEpisodeId]);
+  }, [episodes, episodeId, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
 
   const scrollToEpisode = useCallback(
     (index: number) => {
@@ -176,18 +193,18 @@ const VideoScreen = () => {
   const handleEpisodeSelect = (episode: Episode, index: number) => {
     setCurrentEpisodeId(episode.id);
     scrollToEpisode(index);
-    setIsEpisodesVisible(false);
+    setIsEpisodesSheetOpen(false);
   };
 
   const handleCloseEpisodeBottomSheet = () => {
     setPaused(false);
-    setIsEpisodesVisible(false);
+    setIsEpisodesSheetOpen(false);
   };
 
   const handlePressOnEpisodes = useCallback(() => {
     setPaused(true);
-    setIsEpisodesVisible(true);
-  }, [setPaused, setIsEpisodesVisible]);
+    setIsEpisodesSheetOpen(true);
+  }, [setPaused]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: any) => {
@@ -205,6 +222,10 @@ const VideoScreen = () => {
     itemVisiblePercentThreshold: 50,
   }).current;
 
+  const validIndex =
+    episodes?.findIndex(ep => ep.id === (currentEpisodeId || episodeId)) ?? 0;
+  const safeIndex = validIndex >= 0 ? validIndex : 0;
+
   const renderItem = useCallback(
     ({ item }: { item: any }) => (
       <VideoListItem
@@ -217,22 +238,15 @@ const VideoScreen = () => {
     [series, isAuthenticated, handlePressOnEpisodes],
   );
 
-  const validIndex =
-    episodes?.findIndex(ep => ep.id === (currentEpisodeId || episodeId)) ?? 0;
-  const safeIndex = validIndex >= 0 ? validIndex : 0;
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     if (!episodes || episodes.length === 0) return;
-    requestAnimationFrame(() => scrollToEpisode(safeIndex));
-  }, [episodes, currentEpisodeId, episodeId, safeIndex, scrollToEpisode]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="white" />
-      </View>
-    );
-  }
+    if (isInitialMount.current) {
+      requestAnimationFrame(() => scrollToEpisode(safeIndex));
+      isInitialMount.current = false;
+    }
+  }, [episodes, safeIndex, scrollToEpisode]);
 
   if (isError) {
     return (
@@ -270,17 +284,17 @@ const VideoScreen = () => {
           index,
         })}
         initialNumToRender={1}
-        maxToRenderPerBatch={1}
+        maxToRenderPerBatch={2}
         windowSize={3}
         snapToInterval={ITEM_HEIGHT}
-        decelerationRate="fast"
+        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.99}
         snapToAlignment="start"
-        disableIntervalMomentum={true}
-        removeClippedSubviews
+        disableIntervalMomentum={Platform.OS === 'ios'}
+        removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
       />
       <EpisodesBottomSheet
-        visible={isEpisodesVisible}
+        visible={isEpisodesSheetOpen}
         onClose={handleCloseEpisodeBottomSheet}
         episodes={episodes}
         activeEpisode={activeEpisode}
@@ -290,6 +304,11 @@ const VideoScreen = () => {
         series={series}
         screenType="videoScreen"
       />
+      {(showIntro || (isLoading && !data)) && (
+        <View style={styles.loaderOverlay}>
+          <LoadingLogo fullScreen />
+        </View>
+      )}
     </View>
   );
 };
@@ -304,9 +323,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    backgroundColor: '#000',
+  },
   emptyText: { color: 'white', fontSize: 16 },
   videoContainer: {
     width,
+    height: windowHeight,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'black',

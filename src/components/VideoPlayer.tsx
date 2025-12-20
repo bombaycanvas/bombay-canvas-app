@@ -5,7 +5,6 @@ import {
   View,
   Image,
   Animated,
-  Platform,
   TouchableWithoutFeedback,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
@@ -16,6 +15,7 @@ import { PlayerControls } from './videoPlayer/PlayerControls';
 import { ProgressBar } from './videoPlayer/ProgressBar';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,10 +27,14 @@ type VideoPlayerProps = {
     description: string;
   };
   movie?: {
+    id?: string | number;
     posterUrl?: string;
   };
   locked: boolean;
   isPaidEpisode: boolean;
+  controlsVisible?: boolean;
+  setControlsVisible?: (visible: boolean) => void;
+  isPlaybackLoading?: boolean;
 };
 
 export default function VideoPlayer({
@@ -38,14 +42,19 @@ export default function VideoPlayer({
   movie,
   locked = false,
   isPaidEpisode = false,
+  controlsVisible: externalControlsVisible,
+  setControlsVisible: externalSetControlsVisible,
+  isPlaybackLoading = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const isSeeking = useRef(false);
   const resumeAfterSeek = useRef(false);
   const hideTimerRef = useRef<any>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraggingProgressBar = useRef(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const {
     currentEpisodeId,
@@ -54,9 +63,14 @@ export default function VideoPlayer({
     setIsLockedVisibleModal,
     setIsPurchaseModal,
     setPurchaseSeries,
-    controlsVisible,
-    setControlsVisible,
+    setAuthRedirect,
   } = useVideoStore();
+
+  const [internalControlsVisible, setInternalControlsVisible] = useState(false);
+
+  const controlsVisible = externalControlsVisible ?? internalControlsVisible;
+  const setControlsVisible =
+    externalSetControlsVisible ?? setInternalControlsVisible;
 
   const isVisible = currentEpisodeId === episode.id;
   const isFocused = useIsFocused();
@@ -66,11 +80,13 @@ export default function VideoPlayer({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
       if (bufferTimeout.current) clearTimeout(bufferTimeout.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
   }, []);
 
@@ -87,9 +103,11 @@ export default function VideoPlayer({
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
 
-    hideTimerRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
+    if (!isDraggingProgressBar.current) {
+      hideTimerRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 3000);
+    }
   }, [setControlsVisible]);
 
   useEffect(() => {
@@ -98,6 +116,7 @@ export default function VideoPlayer({
       setCurrentTime(0);
       setDuration(0);
       setIsBuffering(false);
+      setIsReady(false);
       setError(null);
       setControlsVisible(false);
     }
@@ -111,49 +130,37 @@ export default function VideoPlayer({
   }, [isFocused, setPaused]);
 
   useEffect(() => {
-    if (episode && !locked && isVisible) {
-      setTimeout(
-        () => {
-          setIsLockedVisibleModal(false);
-        },
-        Platform.OS === 'ios' ? 100 : 100,
-      );
-    } else if (episode && locked && isVisible) {
-      setTimeout(
-        () => {
-          setIsLockedVisibleModal(true);
-        },
-        Platform.OS === 'ios' ? 100 : 100,
-      );
-    }
-  }, [episode, locked, isVisible, setIsLockedVisibleModal]);
+    if (!isVisible) return;
 
-  useEffect(() => {
-    if (episode && !locked && !isPaidEpisode && isVisible) {
-      setTimeout(
-        () => {
-          setIsPurchaseModal(false);
-          setPurchaseSeries(null);
-        },
-        Platform.OS === 'ios' ? 100 : 100,
-      );
-    } else if (episode && !locked && isPaidEpisode && isVisible) {
-      setTimeout(
-        () => {
-          setIsPurchaseModal(true);
-          setPurchaseSeries(movie);
-        },
-        Platform.OS === 'ios' ? 100 : 100,
-      );
-    }
+    const timer = setTimeout(() => {
+      if (!locked && !isPaidEpisode) {
+        setIsLockedVisibleModal(false);
+        setIsPurchaseModal(false);
+        setPurchaseSeries(null);
+        setAuthRedirect(null);
+      } else if (locked) {
+        setIsLockedVisibleModal(true);
+        setAuthRedirect({
+          screen: 'Video',
+          params: { id: movie?.id, episodeId: episode?.id },
+        });
+      } else if (isPaidEpisode) {
+        setIsPurchaseModal(true);
+        setPurchaseSeries(movie);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [
     episode,
+    isVisible,
     locked,
     isPaidEpisode,
-    isVisible,
-    setIsPurchaseModal,
     movie,
+    setIsLockedVisibleModal,
+    setIsPurchaseModal,
     setPurchaseSeries,
+    setAuthRedirect,
   ]);
 
   const handleBuffer = ({
@@ -171,9 +178,12 @@ export default function VideoPlayer({
   };
 
   const handleProgress = (data: OnProgressData) => {
-    if (isSeeking.current) return;
-    setCurrentTime(data.currentTime);
-    setProgress(duration ? data.currentTime / duration : 0);
+    if (isSeeking.current || !isVisible) return;
+    const current = data.currentTime;
+    setCurrentTime(current);
+    if (duration > 0) {
+      setProgress(current / duration);
+    }
   };
 
   const handleLoad = (data: OnLoadData) => {
@@ -199,6 +209,7 @@ export default function VideoPlayer({
       }
       videoRef.current?.seek(newTime);
       setCurrentTime(newTime);
+      setProgress(value);
       showControls();
     },
     [duration, isPlaying, showControls],
@@ -254,16 +265,24 @@ export default function VideoPlayer({
   return (
     <TouchableWithoutFeedback onPress={onVideoTap}>
       <View style={styles.container}>
-        {isVisible && (locked || isPaidEpisode) ? (
-          <Image
-            source={{ uri: movie?.posterUrl }}
-            style={styles.poster}
-            resizeMode="cover"
-          />
+        {isVisible && (locked || isPaidEpisode || isPlaybackLoading) ? (
+          <View style={styles.posterContainer}>
+            <Image
+              source={{ uri: movie?.posterUrl }}
+              style={styles.poster}
+              resizeMode="cover"
+            />
+            {isPlaybackLoading && (
+              <View style={styles.loaderOverlay}>
+                <BufferingIndicator />
+              </View>
+            )}
+          </View>
         ) : (
           <>
             {!locked && isVisible && hasValidVideoUrl ? (
               <Video
+                key={episode?.videoUrl}
                 ref={videoRef}
                 source={{ uri: episode?.videoUrl }}
                 style={styles.video}
@@ -274,6 +293,7 @@ export default function VideoPlayer({
                 onBuffer={handleBuffer}
                 onProgress={handleProgress}
                 onError={handleError}
+                onReadyForDisplay={() => setIsReady(true)}
                 poster={movie?.posterUrl}
                 posterResizeMode="cover"
                 repeat
@@ -295,42 +315,59 @@ export default function VideoPlayer({
                 }}
               />
             ) : (
-              isVisible && (
+              isVisible &&
+              !isPlaybackLoading && (
                 <View style={styles.missingVideoContainer}>
                   <ErrorOverlay error="Video URL missing or invalid." />
                 </View>
               )
             )}
 
-            {isVisible && isBuffering && !error && <BufferingIndicator />}
-            <Animated.View
-              style={[styles.overlayContainer, { opacity: fadeAnim }]}
-            >
-              {controlsVisible && (
-                <TouchableWithoutFeedback onPress={() => navigation.goBack()}>
-                  <View style={styles.backButton}>
-                    <ChevronLeft size={28} color="white" />
-                  </View>
-                </TouchableWithoutFeedback>
-              )}
+            {isVisible && (
+              <>
+                {(isBuffering || !isReady || isPlaybackLoading) && !error && (
+                  <BufferingIndicator />
+                )}
+                <Animated.View
+                  style={[styles.overlayContainer, { opacity: fadeAnim }]}
+                >
+                  {controlsVisible && (
+                    <TouchableWithoutFeedback
+                      onPress={() => navigation.goBack()}
+                    >
+                      <View
+                        style={[styles.backButton, { top: insets.top + 10 }]}
+                      >
+                        <ChevronLeft size={28} color="white" />
+                      </View>
+                    </TouchableWithoutFeedback>
+                  )}
 
-              {isVisible && error && <ErrorOverlay error={error} />}
-              {isVisible && controlsVisible && !isBuffering && !error && (
-                <PlayerControls
-                  onPressContainer={() => setControlsVisible(false)}
-                />
-              )}
+                  {error && <ErrorOverlay error={error} />}
+                  {controlsVisible && !isBuffering && !error && (
+                    <PlayerControls
+                      onPressContainer={() => setControlsVisible(false)}
+                    />
+                  )}
 
-              {isVisible && (
-                <ProgressBar
-                  progress={progress}
-                  duration={duration}
-                  currentTime={currentTime}
-                  onSeek={onSeek}
-                  formatTime={formatTime}
-                />
-              )}
-            </Animated.View>
+                  <ProgressBar
+                    progress={progress}
+                    duration={duration}
+                    currentTime={currentTime}
+                    onSeek={onSeek}
+                    formatTime={formatTime}
+                    onToggleDragging={dragging => {
+                      isDraggingProgressBar.current = dragging;
+                      if (!dragging) {
+                        showControls();
+                      } else if (hideTimerRef.current) {
+                        clearTimeout(hideTimerRef.current);
+                      }
+                    }}
+                  />
+                </Animated.View>
+              </>
+            )}
           </>
         )}
       </View>
@@ -349,6 +386,18 @@ const styles = StyleSheet.create({
   poster: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 0,
+  },
+  posterContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 5,
   },
   video: {
     ...StyleSheet.absoluteFillObject,
@@ -369,9 +418,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 48 : 45,
     left: 0,
     zIndex: 20,
-    padding: 8,
+    padding: 12,
   },
 });

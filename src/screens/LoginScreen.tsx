@@ -13,7 +13,7 @@ import GoogleLogin from '../assets/GoogleLogin';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import {
   useAppleLogin,
   useGoogleLogin,
@@ -32,10 +32,13 @@ type LoginScreenProps = {
 const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const navigation = useNavigation();
-  const { mutate: requestMutate } = useRequest();
-  const { mutate: loginMutate } = useLogin();
-  const { mutate: googleLoginMutate } = useGoogleLogin();
-  const { mutate: appleLoginMutate } = useAppleLogin();
+  const route = useRoute<RouteProp<any>>();
+  const redirect = route.params?.redirect;
+
+  const { mutate: requestMutate } = useRequest(redirect);
+  const { mutate: loginMutate } = useLogin(redirect);
+  const { mutate: googleLoginMutate } = useGoogleLogin(redirect);
+  const { mutate: appleLoginMutate } = useAppleLogin(redirect);
   const {
     control,
     handleSubmit,

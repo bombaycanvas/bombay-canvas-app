@@ -12,7 +12,7 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 export function LockedOverlay() {
   const navigation = useNavigation<NavigationProp<any>>();
 
-  const { isLockedVisibleModal, setIsLockedVisibleModal } = useVideoStore();
+  const { isLockedVisibleModal, setIsLockedVisibleModal, authRedirect } = useVideoStore();
 
   const close = () => setIsLockedVisibleModal(false);
 
@@ -35,7 +35,7 @@ export function LockedOverlay() {
           <TouchableWithoutFeedback
             onPress={() => {
               close();
-              navigation.navigate('Signup');
+              navigation.navigate('Signup', { redirect: authRedirect });
             }}
           >
             <View style={[styles.button, styles.signUpButton]}>
@@ -46,7 +46,7 @@ export function LockedOverlay() {
           <TouchableWithoutFeedback
             onPress={() => {
               close();
-              navigation.navigate('Login');
+              navigation.navigate('Login', { redirect: authRedirect });
             }}
           >
             <View style={[styles.button, styles.loginButton]}>

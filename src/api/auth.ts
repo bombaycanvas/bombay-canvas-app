@@ -29,15 +29,35 @@ export const requestOtp = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${
-          error || 'Please verify your email and password, then try again'
-        }`,
+        text2: `${error || 'Please verify your email and password, then try again'
+          }`,
       });
     }
   }
 };
 
-export const useRequest = () => {
+const handleAuthRedirect = (navigation: any, redirect: { screen: string; params?: any }) => {
+  if (redirect.screen === 'Video') {
+    navigation.reset({
+      index: 2,
+      routes: [
+        { name: 'MainTabs' },
+        { name: 'SeriesDetail', params: { id: redirect.params?.id } },
+        { name: 'Video', params: redirect.params },
+      ],
+    });
+  } else {
+    navigation.reset({
+      index: 1,
+      routes: [
+        { name: 'MainTabs' },
+        { name: redirect.screen, params: redirect.params },
+      ],
+    });
+  }
+};
+
+export const useRequest = (redirect?: { screen: string; params?: any }) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -47,12 +67,12 @@ export const useRequest = () => {
     },
     onSuccess: async data => {
       if (data.token) {
-        await useAuthStore
-          .getState()
-          .saveToken(data.token)
-          .then(() => {
-            navigation.navigate('MainTabs' as never);
-          });
+        await useAuthStore.getState().saveToken(data.token);
+        if (redirect) {
+          handleAuthRedirect(navigation, redirect);
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
       }
     },
     onError: error => {
@@ -85,15 +105,14 @@ export const login = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${
-          error || 'Please verify your email and password, then try again'
-        }`,
+        text2: `${error || 'Please verify your email and password, then try again'
+          }`,
       });
     }
   }
 };
 
-export const useLogin = () => {
+export const useLogin = (redirect?: { screen: string; params?: any }) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -105,7 +124,11 @@ export const useLogin = () => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
-        navigation.navigate('MainTabs' as never);
+        if (redirect) {
+          handleAuthRedirect(navigation, redirect);
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
       }
     },
     onError: () => {
@@ -127,7 +150,7 @@ export const googleAuthApi = async (idToken: string) => {
   return response;
 };
 
-export const useGoogleLogin = () => {
+export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -138,7 +161,11 @@ export const useGoogleLogin = () => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
-        navigation.navigate('MainTabs' as never);
+        if (redirect) {
+          handleAuthRedirect(navigation, redirect);
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
       }
     },
     onError: error => {
@@ -223,15 +250,14 @@ export const appleAuthApi = async (idToken: string) => {
     Toast.show({
       type: 'error',
       text1: 'Apple login failed',
-      text2: `${
-        error.message || 'Please verify your account, then try again.'
-      }`,
+      text2: `${error.message || 'Please verify your account, then try again.'
+        }`,
     });
     throw error;
   }
 };
 
-export const useAppleLogin = () => {
+export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -242,16 +268,19 @@ export const useAppleLogin = () => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
-        navigation.navigate('MainTabs' as never);
+        if (redirect) {
+          handleAuthRedirect(navigation, redirect);
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
       }
     },
     onError: (error: any) => {
       Toast.show({
         type: 'error',
         text1: 'Apple login failed',
-        text2: `${
-          error.message || 'Please verify your account, then try again.'
-        }`,
+        text2: `${error.message || 'Please verify your account, then try again.'
+          }`,
       });
     },
   });

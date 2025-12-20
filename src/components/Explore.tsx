@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableWithoutFeedback,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -25,41 +27,35 @@ type RootStackParamList = {
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
-  const navigation = useNavigation<Navigation>();
+const ExploreCard = React.memo(({ movie, navigation }: { movie: Movie; navigation: Navigation }) => {
+  const opacity = React.useRef(new Animated.Value(0.5)).current;
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.header}>{heading ? heading : 'New On Canvas'}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 10 }}
-        >
-          {Array.from({ length: 5 }).map((_, index) => (
-            <View key={`skeleton-${index}`} style={styles.card} />
-          ))}
-        </ScrollView>
-      </View>
-    );
-  }
+  const handleLoad = () => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
 
-  const renderCard = (movie: Movie) => (
+  return (
     <TouchableWithoutFeedback
-      key={movie?.id}
       onPress={() => navigation.navigate('SeriesDetail', { id: movie?.id })}
     >
       <View style={styles.card}>
-        <FastImage
-          source={{
-            uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
-            priority: FastImage.priority.high,
-            cache: FastImage.cacheControl.immutable,
-          }}
-          style={styles.cardImage}
-          resizeMode={FastImage.resizeMode.cover}
-        />
+        <Animated.View style={{ flex: 1, opacity }}>
+          <FastImage
+            source={{
+              uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.cardImage}
+            resizeMode={FastImage.resizeMode.cover}
+            onLoad={handleLoad}
+          />
+        </Animated.View>
         <TouchableWithoutFeedback
           onPress={() =>
             navigation.navigate('Creator', { id: movie?.uploader?.id })
@@ -83,6 +79,27 @@ const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
       </View>
     </TouchableWithoutFeedback>
   );
+});
+
+const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
+  const navigation = useNavigation<Navigation>();
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>{heading ? heading : 'New On Canvas'}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginBottom: 10 }}
+        >
+          {Array.from({ length: 5 }).map((_, index) => (
+            <View key={`skeleton-${index}`} style={styles.card} />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -97,7 +114,9 @@ const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
         showsHorizontalScrollIndicator={false}
         style={{ marginBottom: 10 }}
       >
-        {(movieData || []).map(renderCard)}
+        {(movieData || []).map(movie => (
+          <ExploreCard key={movie?.id} movie={movie} navigation={navigation} />
+        ))}
       </ScrollView>
     </View>
   );

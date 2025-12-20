@@ -23,35 +23,25 @@ interface VideoState {
   purchaseSeries: any | null;
   setPurchaseSeries: (series: any | null) => void;
   resetPurchaseState: () => void;
-  controlsVisible: boolean;
-  setControlsVisible: (value: boolean) => void;
+  authRedirect: { screen: string; params?: any } | null;
+  setAuthRedirect: (redirect: { screen: string; params?: any } | null) => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
   episodes: [],
   currentEpisodeId: null,
   isPaused: true,
-  controlsVisible: false,
   setEpisodes: episodes => set({ episodes }),
-  setCurrentEpisodeId: episodeId =>
-    set({ currentEpisodeId: episodeId, isPaused: false }),
+  setCurrentEpisodeId: episodeId => set({ currentEpisodeId: episodeId, isPaused: false }),
   setPaused: paused => set({ isPaused: paused }),
-  setControlsVisible: value => set({ controlsVisible: value }),
-  resetPlayer: () =>
-    set({
-      isPaused: true,
-      currentEpisodeId: null,
-    }),
+  resetPlayer: () => set({ isPaused: true, currentEpisodeId: null }),
   isLockedVisibleModal: false,
-  setIsLockedVisibleModal: (value: boolean) =>
-    set({ isLockedVisibleModal: value }),
+  setIsLockedVisibleModal: (value: boolean) => set({ isLockedVisibleModal: value }),
   isPurchaseModal: false,
   setIsPurchaseModal: (value: boolean) => set({ isPurchaseModal: value }),
   purchaseSeries: null,
   setPurchaseSeries: (series: any | null) => set({ purchaseSeries: series }),
-  resetPurchaseState: () =>
-    set({
-      purchaseSeries: null,
-      isPurchaseModal: false,
-    }),
+  resetPurchaseState: () => set({ purchaseSeries: null, isPurchaseModal: false }),
+  authRedirect: null,
+  setAuthRedirect: redirect => set({ authRedirect: redirect }),
 }));

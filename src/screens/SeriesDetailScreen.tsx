@@ -1,11 +1,11 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { useAuthStore } from '../store/authStore';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   ScrollView,
-  Platform,
   TouchableWithoutFeedback,
 } from 'react-native';
 import Video from 'react-native-video';
@@ -23,6 +23,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { useVideoStore } from '../store/videoStore';
+import { LoadingLogo } from '../components/LoadingLogo';
 
 const { height, width } = Dimensions.get('window');
 
@@ -42,20 +43,35 @@ const SeriesDetailScreen = () => {
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const route = useRoute<RouteProp<RootStackParamList, 'SeriesDetail'>>();
   const { id } = route.params;
-  const { data, isLoading } = useMoviesDataById(id);
+  const { data, isLoading, isError } = useMoviesDataById(id);
 
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isEpisodesVisible, setIsEpisodesVisible] = useState(false);
-  const { setIsLockedVisibleModal, setIsPurchaseModal, setPurchaseSeries } =
-    useVideoStore();
+  const [isReady, setIsReady] = useState(false);
+  const {
+    setIsLockedVisibleModal,
+    setIsPurchaseModal,
+    setPurchaseSeries,
+    setAuthRedirect,
+  } = useVideoStore();
+  const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowIntro(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const series = data?.series;
   const firstEpisode = series?.episodes?.[0];
-  const isAuthenticated = data?.isAuthenticated;
+  const { isAuthenticated: globalAuth } = useAuthStore();
+  const isAuthenticated = data?.isAuthenticated || globalAuth;
   const locked = firstEpisode && !firstEpisode?.isPublic && !isAuthenticated;
   const isPaidEpisode =
+    !locked &&
     firstEpisode?.locked &&
-    firstEpisode?.isPaidSeries &&
+    series?.isPaidSeries &&
     !series?.userPurchased;
   const shouldFetch = !locked && !isPaidEpisode;
 
@@ -74,147 +90,178 @@ const SeriesDetailScreen = () => {
 
   const handleViewEpisodes = () => {
     setIsPlaying(false);
-    setIsEpisodesVisible(true);
+    setIsEpisodesSheetOpen(true);
   };
 
-  if (isLoading || !series) {
+  if (isError) {
     return (
       <View style={styles.loader}>
-        <Text style={{ color: '#fff' }}>Loading...</Text>
+        <Text style={{ color: 'white' }}>Error loading series.</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.backButtonContainer, { marginTop: insets.top }]}>
+      <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
         <TouchableWithoutFeedback onPress={() => navigation.goBack()}>
           <ChevronLeft color="#ff6a00" size={28} />
         </TouchableWithoutFeedback>
       </View>
-      <View style={styles.videoWrapper}>
-        <Video
-          ref={videoRef}
-          source={{ uri: firstEpisode?.videoUrl }}
-          style={styles.video}
-          paused={!isPlaying}
-          resizeMode="cover"
-          poster={firstEpisode?.thumbnail}
-          posterResizeMode="cover"
-          repeat
-        />
-        <LinearGradient
-          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
-          style={styles.gradient}
-          start={{ x: 0.5, y: 1 }}
-          end={{ x: 0.5, y: 0 }}
-        />
-      </View>
-
-      <ScrollView style={styles.details}>
-        <Text style={styles.title}>{series.title}</Text>
-
-        <View style={styles.actionsRow}>
-          {locked ? (
-            <TouchableWithoutFeedback
-              onPress={() => setIsLockedVisibleModal(true)}
-            >
-              <View style={styles.watchButton}>
-                <Text style={styles.watchText}>Unlock Episodes</Text>
-              </View>
-            </TouchableWithoutFeedback>
-          ) : locked ? (
-            <TouchableWithoutFeedback
-              onPress={() => {
-                setPurchaseSeries(series);
-                setIsPurchaseModal(true);
-              }}
-            >
-              <View style={styles.watchButton}>
-                <Text style={styles.watchText}>Purchase Episodes</Text>
-              </View>
-            </TouchableWithoutFeedback>
-          ) : (
-            shouldFetch && (
-              <TouchableWithoutFeedback
-                onPress={() => navigation.navigate('Video', { id })}
-              >
-                <View style={styles.watchButton}>
-                  <Text style={styles.watchText}>Watch Now</Text>
-                </View>
-              </TouchableWithoutFeedback>
-            )
-          )}
-
-          <TouchableWithoutFeedback onPress={togglePlay}>
-            <View style={styles.playPauseButton}>
-              {isPlaying ? (
-                <Pause color="#ff6a00" size={22} />
-              ) : (
-                <Play color="#ff6a00" size={22} />
-              )}
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-
-        <Text style={styles.metaText}>
-          {new Date(series.releaseDate).getFullYear()} •{' '}
-          {series.genres?.[0]?.name.charAt(0).toUpperCase() +
-            series.genres?.[0]?.name.slice(1).toLowerCase()}{' '}
-          • {series.episodes?.length} Episodes
-        </Text>
-
-        {series.uploader && (
-          <TouchableWithoutFeedback
-            onPress={() =>
-              navigation.navigate('Creator', { id: series.uploader?.id })
-            }
-          >
-            <View style={styles.creatorRow}>
+      {series && (
+        <>
+          <View style={styles.videoWrapper}>
+            <Video
+              key={firstEpisode?.videoUrl}
+              ref={videoRef}
+              source={{ uri: firstEpisode?.videoUrl }}
+              style={styles.video}
+              paused={!isPlaying}
+              resizeMode="cover"
+              onReadyForDisplay={() => setIsReady(true)}
+              poster={firstEpisode?.thumbnail}
+              posterResizeMode="cover"
+              repeat
+            />
+            {!isReady && (
               <FastImage
                 source={{
-                  uri:
-                    series.uploader?.profiles?.[0]?.avatarUrl ||
-                    'https://via.placeholder.com/40',
-                  priority: FastImage.priority.normal,
-                  cache: FastImage.cacheControl.immutable,
+                  uri: firstEpisode?.thumbnail,
+                  priority: FastImage.priority.high,
                 }}
-                style={styles.avatar}
+                style={StyleSheet.absoluteFill}
                 resizeMode={FastImage.resizeMode.cover}
               />
-              <Text
-                style={styles.creatorName}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {series.uploader?.name}
-              </Text>
-            </View>
-          </TouchableWithoutFeedback>
-        )}
-        <Text style={styles.description} numberOfLines={5} ellipsizeMode="tail">
-          {series.description}
-        </Text>
-      </ScrollView>
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-        <TouchableWithoutFeedback onPress={handleViewEpisodes}>
-          <View style={styles.episodesButton}>
-            <Text style={styles.episodesButtonText}>View Episodes</Text>
+            )}
+            <LinearGradient
+              colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
+              style={styles.gradient}
+              start={{ x: 0.5, y: 1 }}
+              end={{ x: 0.5, y: 0 }}
+            />
           </View>
-        </TouchableWithoutFeedback>
-      </View>
 
-      <EpisodesBottomSheet
-        visible={isEpisodesVisible}
-        onClose={() => setIsEpisodesVisible(false)}
-        episodes={series.episodes}
-        activeEpisode={firstEpisode}
-        onEpisodeSelect={() => {}}
-        isAuthenticated={data?.isAuthenticated}
-        isPending={isLoading}
-        series={series}
-        screenType="seriesDetail"
-      />
+          <ScrollView style={styles.details}>
+            <Text style={styles.title}>{series.title}</Text>
+
+            <View style={styles.actionsRow}>
+              {locked ? (
+                <TouchableWithoutFeedback
+                  onPress={() => {
+                    setIsLockedVisibleModal(true);
+                    setAuthRedirect({ screen: 'SeriesDetail', params: { id } });
+                  }}
+                >
+                  <View style={styles.watchButton}>
+                    <Text style={styles.watchText}>Unlock Episodes</Text>
+                  </View>
+                </TouchableWithoutFeedback>
+              ) : isPaidEpisode ? (
+                <TouchableWithoutFeedback
+                  onPress={() => {
+                    setPurchaseSeries(series);
+                    setIsPurchaseModal(true);
+                  }}
+                >
+                  <View style={styles.watchButton}>
+                    <Text style={styles.watchText}>Purchase Episodes</Text>
+                  </View>
+                </TouchableWithoutFeedback>
+              ) : (
+                shouldFetch && (
+                  <TouchableWithoutFeedback
+                    onPress={() => navigation.navigate('Video', { id })}
+                  >
+                    <View style={styles.watchButton}>
+                      <Text style={styles.watchText}>Watch Now</Text>
+                    </View>
+                  </TouchableWithoutFeedback>
+                )
+              )}
+
+              <TouchableWithoutFeedback onPress={togglePlay}>
+                <View style={styles.playPauseButton}>
+                  {isPlaying ? (
+                    <Pause color="#ff6a00" size={22} />
+                  ) : (
+                    <Play color="#ff6a00" size={22} />
+                  )}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+
+            <Text style={styles.metaText}>
+              {new Date(series.releaseDate).getFullYear()} •{' '}
+              {series.genres?.[0]?.name.charAt(0).toUpperCase() +
+                series.genres?.[0]?.name.slice(1).toLowerCase()}{' '}
+              • {series.episodes?.length} Episodes
+            </Text>
+
+            {series.uploader && (
+              <TouchableWithoutFeedback
+                onPress={() =>
+                  navigation.navigate('Creator', { id: series.uploader?.id })
+                }
+              >
+                <View style={styles.creatorRow}>
+                  <FastImage
+                    source={{
+                      uri:
+                        series.uploader?.profiles?.[0]?.avatarUrl ||
+                        'https://via.placeholder.com/40',
+                      priority: FastImage.priority.normal,
+                      cache: FastImage.cacheControl.immutable,
+                    }}
+                    style={styles.avatar}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                  <Text
+                    style={styles.creatorName}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {series.uploader?.name}
+                  </Text>
+                </View>
+              </TouchableWithoutFeedback>
+            )}
+            <Text
+              style={styles.description}
+              numberOfLines={5}
+              ellipsizeMode="tail"
+            >
+              {series.description}
+            </Text>
+          </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
+            <TouchableWithoutFeedback onPress={handleViewEpisodes}>
+              <View style={styles.episodesButton}>
+                <Text style={styles.episodesButtonText}>View Episodes</Text>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </>
+      )}
+
+      {series && (
+        <EpisodesBottomSheet
+          visible={isEpisodesSheetOpen}
+          onClose={() => setIsEpisodesSheetOpen(false)}
+          episodes={series.episodes}
+          activeEpisode={firstEpisode}
+          onEpisodeSelect={() => {}}
+          isAuthenticated={isAuthenticated}
+          isPending={isLoading}
+          series={series}
+          screenType="seriesDetail"
+        />
+      )}
+      {(showIntro || isLoading || !series) && (
+        <View style={styles.loaderOverlay}>
+          <LoadingLogo fullScreen />
+        </View>
+      )}
     </View>
   );
 };
@@ -236,11 +283,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 5 : 30,
     left: 0,
     zIndex: 999,
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    padding: 12,
   },
   videoWrapper: {
     width: width,
@@ -282,6 +328,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
     gap: 10,
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    backgroundColor: '#000',
   },
   watchButton: {
     flex: 1,

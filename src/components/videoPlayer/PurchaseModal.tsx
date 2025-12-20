@@ -15,7 +15,7 @@ import LockOutlined from '../../assets/LockOutlined';
 import RefundIcon from '../../assets/RefundIcon';
 
 export function PurchaseModal() {
-  const { isPurchaseModal, purchaseSeries, resetPurchaseState } =
+  const { isPurchaseModal, purchaseSeries, resetPurchaseState, setPaused } =
     useVideoStore();
 
   const [coupon, setCoupon] = useState('');
@@ -75,6 +75,7 @@ export function PurchaseModal() {
 
           setTimeout(() => {
             resetPurchaseState();
+            setPaused(false);
             close();
           }, 1000);
         },

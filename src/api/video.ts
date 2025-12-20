@@ -349,6 +349,7 @@ export const useRazorpayPayment = () => {
         text2: 'Your purchase has been verified 🎉',
       });
       queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
+      queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
     },
 
     onError: error => {
