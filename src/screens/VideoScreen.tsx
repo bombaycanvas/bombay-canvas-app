@@ -14,7 +14,7 @@ import {
   Image,
   Platform,
   Animated,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
 import VideoPlayer from '../components/VideoPlayer';
@@ -127,19 +127,19 @@ const VideoListItem = React.memo(
             </View>
           </View>
           <View style={styles.rightOverlay}>
-            <TouchableWithoutFeedback onPress={onEpisodesPress}>
-              <View style={styles.episodesButton}>
-                <Text style={styles.episodesButtonText}>Episodes</Text>
-              </View>
-            </TouchableWithoutFeedback>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.episodesButton}
+              onPress={onEpisodesPress}
+            >
+              <Text style={styles.episodesButtonText}>Episodes</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
       </View>
     );
   },
 );
-
-import { LoadingLogo } from '../components/LoadingLogo';
 
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
@@ -148,14 +148,6 @@ const VideoScreen = () => {
   const { setEpisodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIntro(false);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
 
   const { data, isLoading, isError } = useMoviesDataById(id);
   const { isAuthenticated: globalAuth } = useAuthStore();
@@ -304,11 +296,6 @@ const VideoScreen = () => {
         series={series}
         screenType="videoScreen"
       />
-      {(showIntro || (isLoading && !data)) && (
-        <View style={styles.loaderOverlay}>
-          <LoadingLogo fullScreen />
-        </View>
-      )}
     </View>
   );
 };

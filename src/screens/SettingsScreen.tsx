@@ -8,7 +8,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
 
@@ -56,29 +56,31 @@ const SettingsScreen = () => {
     <ScrollView style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
-        <TouchableWithoutFeedback
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.row}
           onPress={() =>
             handleOpenURL('https://www.bombaycanvas.com/privacy-policy')
           }
         >
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Privacy Policy</Text>
-          </View>
-        </TouchableWithoutFeedback>
-        <TouchableWithoutFeedback
+          <Text style={styles.rowLabel}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.row}
           onPress={() =>
             handleOpenURL('https://www.bombaycanvas.com/terms-and-condition')
           }
         >
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Terms of Service</Text>
-          </View>
-        </TouchableWithoutFeedback>
-        <TouchableWithoutFeedback onPress={handleOpenModal}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Delete Account</Text>
-          </View>
-        </TouchableWithoutFeedback>
+          <Text style={styles.rowLabel}>Terms of Service</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.row}
+          onPress={handleOpenModal}
+        >
+          <Text style={styles.rowLabel}>Delete Account</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Use Account delete Modal */}
@@ -96,24 +98,26 @@ const SettingsScreen = () => {
             </Text>
 
             <View style={styles.modalButtons}>
-              <TouchableWithoutFeedback onPress={handleCloseModal}>
-                <View style={[styles.modalButton, styles.cancelButton]}>
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </View>
-              </TouchableWithoutFeedback>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCloseModal}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
 
-              <TouchableWithoutFeedback
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleConfirmDeleteAccount}
                 disabled={isPending}
               >
-                <View style={[styles.modalButton, styles.deleteButton]}>
-                  {isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.deleteText}>Delete</Text>
-                  )}
-                </View>
-              </TouchableWithoutFeedback>
+                {isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteText}>Delete</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>

@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, TouchableOpacity } from 'react-native';
 import { Pause, Play } from 'lucide-react-native';
 import { useVideoStore } from '../../store/videoStore';
 
@@ -17,20 +12,20 @@ export const PlayerControls = ({ onPressContainer }: PlayerControlsProps) => {
 
   return (
     <Pressable style={styles.controlsOverlay} onPress={onPressContainer}>
-      <TouchableWithoutFeedback
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.playPauseButton}
         onPress={e => {
           e.stopPropagation();
           setPaused(!isPaused);
         }}
       >
-        <View style={styles.playPauseButton}>
-          {isPaused ? (
-            <Play color="white" size={40} />
-          ) : (
-            <Pause color="white" size={40} />
-          )}
-        </View>
-      </TouchableWithoutFeedback>
+        {isPaused ? (
+          <Play color="white" size={40} />
+        ) : (
+          <Pause color="white" size={40} />
+        )}
+      </TouchableOpacity>
     </Pressable>
   );
 };

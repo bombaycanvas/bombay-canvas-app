@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   ImageBackground,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth, useAuthStore } from '../store/authStore';
@@ -72,7 +72,6 @@ const ProfileScreen = () => {
               resizeMode={FastImage.resizeMode.cover}
             />
           </ImageBackground>
-
           <View style={styles.profileInfo}>
             {userProfile?.userData && (
               <>
@@ -82,7 +81,6 @@ const ProfileScreen = () => {
                 <Text style={styles.email}>
                   {userProfile?.userData.email || 'N/A'}
                 </Text>
-
                 {isCreator && (
                   <View style={styles.statsContainer}>
                     <View style={styles.stat}>
@@ -95,21 +93,21 @@ const ProfileScreen = () => {
                 )}
               </>
             )}
-
             <View style={styles.ctaWrapper}>
-              <TouchableWithoutFeedback
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.button, styles.ctaButton]}
                 onPress={() => navigation.navigate('Settings' as never)}
               >
-                <View style={[styles.button, styles.ctaButton]}>
-                  <Text style={styles.buttonText}>Settings</Text>
-                </View>
-              </TouchableWithoutFeedback>
-
-              <TouchableWithoutFeedback onPress={handleLogout}>
-                <View style={[styles.button, styles.ctaButton]}>
-                  <Text style={styles.buttonText}>Logout</Text>
-                </View>
-              </TouchableWithoutFeedback>
+                <Text style={styles.buttonText}>Settings</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.button, styles.ctaButton]}
+                onPress={handleLogout}
+              >
+                <Text style={styles.buttonText}>Logout</Text>
+              </TouchableOpacity>
             </View>
           </View>
 

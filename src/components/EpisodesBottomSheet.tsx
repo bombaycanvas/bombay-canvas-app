@@ -6,7 +6,7 @@ import {
   Modal,
   Platform,
   StyleSheet,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { X } from 'lucide-react-native';
@@ -52,9 +52,9 @@ export const EpisodesBottomSheet = ({
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Episodes</Text>
-            <TouchableWithoutFeedback onPress={onClose}>
+            <TouchableOpacity activeOpacity={0.9} onPress={onClose}>
               <X color="white" size={24} />
-            </TouchableWithoutFeedback>
+            </TouchableOpacity>
           </View>
           {!episodes && isPending ? (
             <FlatList
@@ -115,7 +115,12 @@ export const EpisodesBottomSheet = ({
                 );
 
                 return (
-                  <TouchableWithoutFeedback
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={[
+                      styles.episodeItem,
+                      isActive && styles.activeEpisodeItem,
+                    ]}
                     onPress={() => {
                       onClose();
                       if (locked) {
@@ -161,23 +166,16 @@ export const EpisodesBottomSheet = ({
                       }
                     }}
                   >
-                    <View
-                      style={[
-                        styles.episodeItem,
-                        isActive && styles.activeEpisodeItem,
-                      ]}
-                    >
-                      {isActive && (
-                        <LinearGradient
-                          colors={['#2d1910', '#181818']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={StyleSheet.absoluteFill}
-                        />
-                      )}
-                      {episodeContent}
-                    </View>
-                  </TouchableWithoutFeedback>
+                    {isActive && (
+                      <LinearGradient
+                        colors={['#2d1910', '#181818']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
+                    {episodeContent}
+                  </TouchableOpacity>
                 );
               }}
             />

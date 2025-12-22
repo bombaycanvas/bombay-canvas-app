@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
   View,
@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -23,7 +23,6 @@ import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { useVideoStore } from '../store/videoStore';
-import { LoadingLogo } from '../components/LoadingLogo';
 
 const { height, width } = Dimensions.get('window');
 
@@ -54,14 +53,6 @@ const SeriesDetailScreen = () => {
     setAuthRedirect,
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIntro(false);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
 
   const series = data?.series;
   const firstEpisode = series?.episodes?.[0];
@@ -104,9 +95,12 @@ const SeriesDetailScreen = () => {
   return (
     <View style={styles.container}>
       <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
-        <TouchableWithoutFeedback onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigation.goBack()}
+        >
           <ChevronLeft color="#ff6a00" size={28} />
-        </TouchableWithoutFeedback>
+        </TouchableOpacity>
       </View>
       {series && (
         <>
@@ -146,48 +140,49 @@ const SeriesDetailScreen = () => {
 
             <View style={styles.actionsRow}>
               {locked ? (
-                <TouchableWithoutFeedback
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.watchButton}
                   onPress={() => {
                     setIsLockedVisibleModal(true);
                     setAuthRedirect({ screen: 'SeriesDetail', params: { id } });
                   }}
                 >
-                  <View style={styles.watchButton}>
-                    <Text style={styles.watchText}>Unlock Episodes</Text>
-                  </View>
-                </TouchableWithoutFeedback>
+                  <Text style={styles.watchText}>Unlock Episodes</Text>
+                </TouchableOpacity>
               ) : isPaidEpisode ? (
-                <TouchableWithoutFeedback
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.watchButton}
                   onPress={() => {
                     setPurchaseSeries(series);
                     setIsPurchaseModal(true);
                   }}
                 >
-                  <View style={styles.watchButton}>
-                    <Text style={styles.watchText}>Purchase Episodes</Text>
-                  </View>
-                </TouchableWithoutFeedback>
+                  <Text style={styles.watchText}>Purchase Episodes</Text>
+                </TouchableOpacity>
               ) : (
                 shouldFetch && (
-                  <TouchableWithoutFeedback
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.watchButton}
                     onPress={() => navigation.navigate('Video', { id })}
                   >
-                    <View style={styles.watchButton}>
-                      <Text style={styles.watchText}>Watch Now</Text>
-                    </View>
-                  </TouchableWithoutFeedback>
+                    <Text style={styles.watchText}>Watch Now</Text>
+                  </TouchableOpacity>
                 )
               )}
-
-              <TouchableWithoutFeedback onPress={togglePlay}>
-                <View style={styles.playPauseButton}>
-                  {isPlaying ? (
-                    <Pause color="#ff6a00" size={22} />
-                  ) : (
-                    <Play color="#ff6a00" size={22} />
-                  )}
-                </View>
-              </TouchableWithoutFeedback>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.playPauseButton}
+                onPress={togglePlay}
+              >
+                {isPlaying ? (
+                  <Pause color="#ff6a00" size={22} />
+                ) : (
+                  <Play color="#ff6a00" size={22} />
+                )}
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.metaText}>
@@ -198,32 +193,32 @@ const SeriesDetailScreen = () => {
             </Text>
 
             {series.uploader && (
-              <TouchableWithoutFeedback
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.creatorRow}
                 onPress={() =>
                   navigation.navigate('Creator', { id: series.uploader?.id })
                 }
               >
-                <View style={styles.creatorRow}>
-                  <FastImage
-                    source={{
-                      uri:
-                        series.uploader?.profiles?.[0]?.avatarUrl ||
-                        'https://via.placeholder.com/40',
-                      priority: FastImage.priority.normal,
-                      cache: FastImage.cacheControl.immutable,
-                    }}
-                    style={styles.avatar}
-                    resizeMode={FastImage.resizeMode.cover}
-                  />
-                  <Text
-                    style={styles.creatorName}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {series.uploader?.name}
-                  </Text>
-                </View>
-              </TouchableWithoutFeedback>
+                <FastImage
+                  source={{
+                    uri:
+                      series.uploader?.profiles?.[0]?.avatarUrl ||
+                      'https://via.placeholder.com/40',
+                    priority: FastImage.priority.normal,
+                    cache: FastImage.cacheControl.immutable,
+                  }}
+                  style={styles.avatar}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text
+                  style={styles.creatorName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {series.uploader?.name}
+                </Text>
+              </TouchableOpacity>
             )}
             <Text
               style={styles.description}
@@ -235,11 +230,13 @@ const SeriesDetailScreen = () => {
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-            <TouchableWithoutFeedback onPress={handleViewEpisodes}>
-              <View style={styles.episodesButton}>
-                <Text style={styles.episodesButtonText}>View Episodes</Text>
-              </View>
-            </TouchableWithoutFeedback>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.episodesButton}
+              onPress={handleViewEpisodes}
+            >
+              <Text style={styles.episodesButtonText}>View Episodes</Text>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -257,9 +254,9 @@ const SeriesDetailScreen = () => {
           screenType="seriesDetail"
         />
       )}
-      {(showIntro || isLoading || !series) && (
+      {(isLoading || !series) && (
         <View style={styles.loaderOverlay}>
-          <LoadingLogo fullScreen />
+          <Text style={{ color: 'white' }}>Loading...</Text>
         </View>
       )}
     </View>

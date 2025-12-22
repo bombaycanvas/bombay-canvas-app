@@ -1,12 +1,7 @@
 import FastImage from '@d11/react-native-fast-image';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 
 type Movie = {
   id: string;
@@ -50,21 +45,21 @@ const UserVideos: React.FC<UserVideosProps> = ({ data, isLoading }) => {
       columnWrapperStyle={{ justifyContent: 'space-between' }}
       keyExtractor={item => item.id}
       renderItem={({ item }) => (
-        <TouchableWithoutFeedback
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={[styles.card, { backgroundColor: '#222' }]}
           onPress={() => navigation.navigate('Video', { id: item.id })}
         >
-          <View style={[styles.card, { backgroundColor: '#222' }]}>
-            <FastImage
-              source={{
-                uri: item.posterUrl,
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={styles.poster}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          </View>
-        </TouchableWithoutFeedback>
+          <FastImage
+            source={{
+              uri: item.posterUrl,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.poster}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        </TouchableOpacity>
       )}
     />
   );

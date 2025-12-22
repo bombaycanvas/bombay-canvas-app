@@ -5,7 +5,7 @@ import {
   Image,
   StyleSheet,
   Dimensions,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import Video from 'react-native-video';
 import {
@@ -80,34 +80,36 @@ const Landing = () => {
         </Text>
 
         <View style={styles.ctaWrapper}>
-          <TouchableWithoutFeedback
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.infoCta}
             onPress={() =>
               navigation.navigate('Creator', { id: data?.admin?.id })
             }
           >
-            <View style={styles.infoCta}>
-              <Image
-                source={{
-                  uri:
-                    data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
-                }}
-                style={styles.avatar}
-              />
-              <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
-            </View>
-          </TouchableWithoutFeedback>
-          <TouchableWithoutFeedback onPress={togglePlay}>
-            <View style={styles.playButton}>
-              {isPlaying ? (
-                <Pause fill={'#ffffff'} color="white" height={19} width={17} />
-              ) : (
-                <PlayButtonIcon />
-              )}
-              <Text style={styles.playText}>
-                {isPlaying ? ' Pause' : ' Play'}
-              </Text>
-            </View>
-          </TouchableWithoutFeedback>
+            <Image
+              source={{
+                uri:
+                  data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
+              }}
+              style={styles.avatar}
+            />
+            <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.playButton}
+            onPress={togglePlay}
+          >
+            {isPlaying ? (
+              <Pause fill={'#ffffff'} color="white" height={19} width={17} />
+            ) : (
+              <PlayButtonIcon />
+            )}
+            <Text style={styles.playText}>
+              {isPlaying ? ' Pause' : ' Play'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>

@@ -1,18 +1,13 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  StyleSheet,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity } from 'react-native';
 import { useVideoStore } from '../../store/videoStore';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 export function LockedOverlay() {
   const navigation = useNavigation<NavigationProp<any>>();
 
-  const { isLockedVisibleModal, setIsLockedVisibleModal, authRedirect } = useVideoStore();
+  const { isLockedVisibleModal, setIsLockedVisibleModal, authRedirect } =
+    useVideoStore();
 
   const close = () => setIsLockedVisibleModal(false);
 
@@ -31,34 +26,33 @@ export function LockedOverlay() {
           <Text style={styles.subtitle}>
             You need to create an account or log in to continue.
           </Text>
-
-          <TouchableWithoutFeedback
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.button, styles.signUpButton]}
             onPress={() => {
               close();
               navigation.navigate('Signup', { redirect: authRedirect });
             }}
           >
-            <View style={[styles.button, styles.signUpButton]}>
-              <Text style={styles.signUpText}>Sign Up</Text>
-            </View>
-          </TouchableWithoutFeedback>
-
-          <TouchableWithoutFeedback
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.button, styles.loginButton]}
             onPress={() => {
               close();
               navigation.navigate('Login', { redirect: authRedirect });
             }}
           >
-            <View style={[styles.button, styles.loginButton]}>
-              <Text style={styles.loginText}>Log In</Text>
-            </View>
-          </TouchableWithoutFeedback>
-
-          <TouchableWithoutFeedback onPress={close}>
-            <View style={styles.cancelButton}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </View>
-          </TouchableWithoutFeedback>
+            <Text style={styles.loginText}>Log In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.cancelButton}
+            onPress={close}
+          >
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

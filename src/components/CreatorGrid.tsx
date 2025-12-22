@@ -9,7 +9,7 @@ import {
   Image,
   FlatList,
   Dimensions,
-  TouchableWithoutFeedback,
+  TouchableOpacity,
 } from 'react-native';
 import { FlatGrid } from 'react-native-super-grid';
 import { RootStackParamList } from '../types/navigation';
@@ -70,38 +70,35 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
       contentContainerStyle={styles.wrapper}
       scrollEnabled={false}
       renderItem={({ item }) => (
-        <TouchableWithoutFeedback
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={[styles.card, { backgroundColor: '#222' }]}
           onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
         >
-          <View style={[styles.card, { backgroundColor: '#222' }]}>
-            <FastImage
+          <FastImage
+            source={{
+              uri: item.posterUrl,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.poster}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+          <TouchableOpacity activeOpacity={0.9} style={styles.videoOverlay}>
+            <Image
               source={{
-                uri: item.posterUrl,
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable,
+                uri:
+                  item?.uploader?.profiles &&
+                  item.uploader.profiles.length > 0 &&
+                  item.uploader.profiles[0]?.avatarUrl
+                    ? item.uploader.profiles[0].avatarUrl
+                    : undefined,
               }}
-              style={styles.poster}
-              resizeMode={FastImage.resizeMode.cover}
+              style={styles.avatar}
             />
-
-            <TouchableWithoutFeedback>
-              <View style={styles.videoOverlay}>
-                <Image
-                  source={{
-                    uri:
-                      item?.uploader?.profiles &&
-                      item.uploader.profiles.length > 0 &&
-                      item.uploader.profiles[0]?.avatarUrl
-                        ? item.uploader.profiles[0].avatarUrl
-                        : undefined,
-                  }}
-                  style={styles.avatar}
-                />
-                <Text style={styles.name}>{item?.uploader?.name}</Text>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+            <Text style={styles.name}>{item?.uploader?.name}</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
       )}
     />
   );

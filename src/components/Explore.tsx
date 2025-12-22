@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableWithoutFeedback,
   Animated,
   Easing,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -27,23 +27,25 @@ type RootStackParamList = {
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const ExploreCard = React.memo(({ movie, navigation }: { movie: Movie; navigation: Navigation }) => {
-  const opacity = React.useRef(new Animated.Value(0.5)).current;
+const ExploreCard = React.memo(
+  ({ movie, navigation }: { movie: Movie; navigation: Navigation }) => {
+    const opacity = React.useRef(new Animated.Value(0.5)).current;
 
-  const handleLoad = () => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 500,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  };
+    const handleLoad = () => {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    };
 
-  return (
-    <TouchableWithoutFeedback
-      onPress={() => navigation.navigate('SeriesDetail', { id: movie?.id })}
-    >
-      <View style={styles.card}>
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.card}
+        onPress={() => navigation.navigate('SeriesDetail', { id: movie?.id })}
+      >
         <Animated.View style={{ flex: 1, opacity }}>
           <FastImage
             source={{
@@ -56,30 +58,30 @@ const ExploreCard = React.memo(({ movie, navigation }: { movie: Movie; navigatio
             onLoad={handleLoad}
           />
         </Animated.View>
-        <TouchableWithoutFeedback
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.videoOverlay}
           onPress={() =>
             navigation.navigate('Creator', { id: movie?.uploader?.id })
           }
         >
-          <View style={styles.videoOverlay}>
-            <FastImage
-              source={{
-                uri:
-                  movie?.uploader?.profiles?.[0]?.avatarUrl ||
-                  'https://via.placeholder.com/50',
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={styles.avatar}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-            <Text style={styles.name}>{movie?.uploader?.name}</Text>
-          </View>
-        </TouchableWithoutFeedback>
-      </View>
-    </TouchableWithoutFeedback>
-  );
-});
+          <FastImage
+            source={{
+              uri:
+                movie?.uploader?.profiles?.[0]?.avatarUrl ||
+                'https://via.placeholder.com/50',
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.avatar}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+          <Text style={styles.name}>{movie?.uploader?.name}</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  },
+);
 
 const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
   const navigation = useNavigation<Navigation>();

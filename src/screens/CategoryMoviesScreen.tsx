@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Movie } from '../types/movie';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,17 +24,17 @@ const CategoryMoviesScreen = () => {
   const { movies = [] } = route.params || { movies: [] };
 
   const renderMovie = ({ item }: { item: Movie }) => (
-    <TouchableWithoutFeedback
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={styles.movieItem}
       key={item?.id}
       onPress={() => navigation.navigate('SeriesDetail', { id: item?.id })}
     >
-      <View style={styles.movieItem}>
-        <Image source={{ uri: item?.posterUrl }} style={styles.poster} />
-        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-          {item?.title?.charAt(0).toUpperCase() + item?.title?.slice(1)}
-        </Text>
-      </View>
-    </TouchableWithoutFeedback>
+      <Image source={{ uri: item?.posterUrl }} style={styles.poster} />
+      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        {item?.title?.charAt(0).toUpperCase() + item?.title?.slice(1)}
+      </Text>
+    </TouchableOpacity>
   );
 
   return (
