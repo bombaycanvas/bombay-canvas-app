@@ -32,6 +32,10 @@ const ProfileScreen = () => {
 
   const handleLogout = async () => {
     await logout();
+    (navigation as any).reset({
+      index: 0,
+      routes: [{ name: 'StartLogin' }],
+    });
   };
 
   if (userProfileLoading) {

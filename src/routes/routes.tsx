@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import SeriesDetailScreen from '../screens/SeriesDetailScreen';
+import StartLoginScreen from '../screens/StartLoginScreen';
+import CompleteProfileScreen from '../screens/CompleteProfileScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -85,11 +87,22 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
+  const { token } = useAuthStore();
   return (
-    <Stack.Navigator initialRouteName="MainTabs">
+    <Stack.Navigator initialRouteName={token ? 'MainTabs' : 'StartLogin'}>
+      <Stack.Screen
+        name="StartLogin"
+        component={StartLoginScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="MainTabs"
         component={MainTabs}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="CompleteProfile"
+        component={CompleteProfileScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

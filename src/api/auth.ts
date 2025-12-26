@@ -4,6 +4,76 @@ import { useAuthStore } from '../store/authStore';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
+export const completeProfileRequest = async (data: any) => {
+  try {
+    const response = await api('/api/user/complete-profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        avatarUrl: data.avatarUrl,
+      }),
+    });
+
+    const resp = await response;
+    return resp;
+  } catch (error: any) {
+    Toast.show({
+      type: 'error',
+      text1: 'Failed update profile',
+      text2: `${error.message || 'Please check your details and try again.'}`,
+    });
+  }
+};
+
+export const verifyOtpRequest = async (data: any) => {
+  try {
+    const response = await api('/api/auth/phone/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: data.phone,
+        otp: data.otp,
+      }),
+    });
+
+    const resp = await response;
+    return resp;
+  } catch (error: any) {
+    Toast.show({
+      type: 'error',
+      text1: 'OTP Failed',
+      text2: `${
+        error.message || 'Please check your mobile number and try again.'
+      }`,
+    });
+  }
+};
+
+export const sendOtpRequest = async (data: any) => {
+  try {
+    const response = await api('/api/auth/phone/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: data.phone,
+      }),
+    });
+
+    const resp = await response;
+    return resp;
+  } catch (error: any) {
+    Toast.show({
+      type: 'error',
+      text1: 'OTP Failed',
+      text2: `${
+        error.message || 'Please check your mobile number and try again.'
+      }`,
+    });
+  }
+};
+
 export const requestOtp = async (data: any) => {
   try {
     const response = await api('/api/auth/signup', {
@@ -29,14 +99,18 @@ export const requestOtp = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${error || 'Please verify your email and password, then try again'
-          }`,
+        text2: `${
+          error || 'Please verify your email and password, then try again'
+        }`,
       });
     }
   }
 };
 
-const handleAuthRedirect = (navigation: any, redirect: { screen: string; params?: any }) => {
+const handleAuthRedirect = (
+  navigation: any,
+  redirect: { screen: string; params?: any },
+) => {
   if (redirect.screen === 'Video') {
     navigation.reset({
       index: 2,
@@ -55,6 +129,71 @@ const handleAuthRedirect = (navigation: any, redirect: { screen: string; params?
       ],
     });
   }
+};
+
+export const useVerifyOtpMutation = () => {
+  const navigation = useNavigation();
+
+  return useMutation({
+    mutationFn: async (data: { phone: string; otp: string }) => {
+      const response = await verifyOtpRequest(data);
+      return response;
+    },
+    onSuccess: async data => {
+      if (data?.token && data?.user) {
+        await useAuthStore.getState().saveToken(data.token);
+        await useAuthStore.getState().setUser(data.user);
+
+        if (!data.user.email || data.user.name === 'User') {
+          (navigation as any).navigate('CompleteProfile');
+        } else {
+          (navigation as any).navigate('MainTabs');
+        }
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Verification Failed',
+          text2: data?.message || 'Invalid response from server',
+        });
+      }
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'OTP verification Failed',
+        text2: `${error.message || 'Please enter correct OTP and try again.'}`,
+      });
+    },
+  });
+};
+
+export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
+  return useMutation({
+    mutationFn: async (data: { phone: string }) => {
+      const response = await sendOtpRequest(data);
+      return response;
+    },
+    onSuccess: async data => {
+      if (data?.success) {
+        onSuccessCallback?.(data);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'OTP Failed',
+          text2: data?.message || 'Failed to send OTP',
+        });
+      }
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'OTP Failed',
+        text2: `${
+          error.message || 'Please check your mobile number and try again.'
+        }`,
+      });
+    },
+  });
 };
 
 export const useRequest = (redirect?: { screen: string; params?: any }) => {
@@ -105,8 +244,9 @@ export const login = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${error || 'Please verify your email and password, then try again'
-          }`,
+        text2: `${
+          error || 'Please verify your email and password, then try again'
+        }`,
       });
     }
   }
@@ -250,8 +390,9 @@ export const appleAuthApi = async (idToken: string) => {
     Toast.show({
       type: 'error',
       text1: 'Apple login failed',
-      text2: `${error.message || 'Please verify your account, then try again.'
-        }`,
+      text2: `${
+        error.message || 'Please verify your account, then try again.'
+      }`,
     });
     throw error;
   }
@@ -279,8 +420,9 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
       Toast.show({
         type: 'error',
         text1: 'Apple login failed',
-        text2: `${error.message || 'Please verify your account, then try again.'
-          }`,
+        text2: `${
+          error.message || 'Please verify your account, then try again.'
+        }`,
       });
     },
   });
