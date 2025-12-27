@@ -87,9 +87,11 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token } = useAuthStore();
+  const { token, hasSkipped } = useAuthStore();
   return (
-    <Stack.Navigator initialRouteName={token ? 'MainTabs' : 'StartLogin'}>
+    <Stack.Navigator
+      initialRouteName={token || hasSkipped ? 'MainTabs' : 'StartLogin'}
+    >
       <Stack.Screen
         name="StartLogin"
         component={StartLoginScreen}

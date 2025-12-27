@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Fragment } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Platform,
   Image,
   ActivityIndicator,
-  ImageBackground,
   Linking,
   Alert,
   TouchableWithoutFeedback,
@@ -25,6 +24,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import GoogleLogin from '../assets/GoogleLogin';
 import AppleLogin from '../assets/AppleLogin';
 import Toast from 'react-native-toast-message';
+import { useNavigation } from '@react-navigation/native';
+import { useAuthStore } from '../store/authStore';
 import PhoneInput from 'react-native-international-phone-number';
 import {
   useAppleLogin,
@@ -32,6 +33,7 @@ import {
   useSendOtpMutation,
   useVerifyOtpMutation,
   useLogin,
+  useRequest,
 } from '../api/auth';
 import { type CountryCode } from 'libphonenumber-js';
 import metadata from 'libphonenumber-js/metadata.min.json';
@@ -41,10 +43,12 @@ import { useForm, Controller } from 'react-hook-form';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { setHasSkipped } = useAuthStore();
   const { data } = useGetCoverVideo();
 
   const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
@@ -53,6 +57,7 @@ const StartLoginScreen = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
 
   const otpInputs = useRef<Array<TextInput | null>>([]);
   const slideAnim = useRef(new Animated.Value(height)).current;
@@ -62,6 +67,7 @@ const StartLoginScreen = () => {
   const { mutate: googleLoginMutate } = useGoogleLogin();
   const { mutate: appleLoginMutate } = useAppleLogin();
   const { mutate: loginMutate } = useLogin();
+  const { mutate: signupMutate } = useRequest();
 
   const {
     control,
@@ -69,8 +75,20 @@ const StartLoginScreen = () => {
     formState: { errors },
   } = useForm();
 
+  const handleSkip = async () => {
+    await setHasSkipped(true);
+    (navigation as any).reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
+    });
+  };
+
   const onEmailSubmit = (data: any) => {
-    loginMutate(data);
+    if (isSignup) {
+      signupMutate(data);
+    } else {
+      loginMutate(data);
+    }
   };
 
   const sendOtpMutation = useSendOtpMutation(response => {
@@ -84,7 +102,9 @@ const StartLoginScreen = () => {
 
     if (response?.otp) {
       const otpDigits = response.otp.split('');
-      setOtp(otpDigits);
+      setTimeout(() => {
+        setOtp(otpDigits);
+      }, 500);
 
       const countryCode = (selectedCountry?.cca2 || 'IN') as CountryCode;
       const callingCode =
@@ -334,6 +354,15 @@ const StartLoginScreen = () => {
 
       <TouchableOpacity
         activeOpacity={0.8}
+        style={styles.googleButton}
+        onPress={handleLogin}
+      >
+        <GoogleLogin />
+        <Text style={styles.googleButtonText}>Login using Google</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        activeOpacity={0.8}
         onPress={() => setFlow('methods')}
         style={styles.otherMethodsLink}
       >
@@ -424,9 +453,8 @@ const StartLoginScreen = () => {
           activeOpacity={0.8}
           disabled={timer > 0 || sendOtpMutation.isPending}
           onPress={() => {
-            const fullPhone = `${
-              selectedCountry?.callingCode || ''
-            }${phoneValue.replace(/\s/g, '')}`;
+            const fullPhone = `${selectedCountry?.callingCode || ''
+              }${phoneValue.replace(/\s/g, '')}`;
             sendOtpMutation.mutate({ phone: fullPhone });
           }}
         >
@@ -468,6 +496,31 @@ const StartLoginScreen = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
+          {isSignup && (
+            <Controller
+              control={control}
+              name="fullname"
+              rules={{ required: 'Fullname is required' }}
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <TextInput
+                    style={styles.emailInput}
+                    placeholder="Full Name"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={value}
+                    onChangeText={onChange}
+                    autoCapitalize="words"
+                  />
+                  {errors.fullname && (
+                    <Text style={styles.errorText}>
+                      {errors.fullname.message as string}
+                    </Text>
+                  )}
+                </>
+              )}
+            />
+          )}
+
           <Controller
             control={control}
             name="email"
@@ -539,34 +592,57 @@ const StartLoginScreen = () => {
             style={styles.emailLoginBtn}
             onPress={handleSubmit(onEmailSubmit)}
           >
-            <Text style={styles.emailLoginBtnText}>Login</Text>
+            <Text style={styles.emailLoginBtnText}>
+              {isSignup ? 'Sign Up' : 'Login'}
+            </Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.socialButton}
-          onPress={handleLogin}
-        >
-          <GoogleLogin />
-          <Text style={styles.socialButtonText}>Login using Google</Text>
+        <TouchableOpacity activeOpacity={0.8} style={styles.toggleMethodsLink}>
+          <Text style={styles.toggleMethodsText}>
+            {isSignup ? (
+              <Fragment>
+                Already have an account?{' '}
+                <Text
+                  onPress={() => setIsSignup(!isSignup)}
+                  style={styles.link}
+                >
+                  Login
+                </Text>
+              </Fragment>
+            ) : (
+              <Fragment>
+                Don't have an account?{' '}
+                <Text
+                  onPress={() => setIsSignup(!isSignup)}
+                  style={styles.link}
+                >
+                  SignUp
+                </Text>
+              </Fragment>
+            )}
+          </Text>
         </TouchableOpacity>
 
         {Platform.OS === 'ios' && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.socialButton}
-            onPress={handleAppleLogin}
-          >
-            <AppleLogin />
-            <Text style={styles.socialButtonText}>Login using Apple</Text>
-          </TouchableOpacity>
+          <>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.socialButton}
+              onPress={handleAppleLogin}
+            >
+              <AppleLogin />
+              <Text style={styles.socialButtonText}>
+                {isSignup ? 'Sign up using Apple' : 'Login using Apple'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
 
         <TouchableOpacity
@@ -600,24 +676,34 @@ const StartLoginScreen = () => {
         style={styles.mainContent}
       >
         <View style={styles.topSection}>
-          <Text style={styles.heroText}>2 mins</Text>
-          <Text style={styles.subHeroText}>Vertical Episodes</Text>
+          <Image
+            source={require('../images/MainLogo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.mainTitle}>
+            World’s First{'\n'}
+            <Text style={styles.mainTitleBold}>
+              Creator-Led Vertical OTT Platform
+            </Text>
+          </Text>
 
-          <ImageBackground
-            source={{
-              uri: 'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1763322098861-the-vieb-of-the-world.jpg',
-            }}
-            style={styles.mockInnerFrame}
-            imageStyle={styles.mockBackgroundImage}
-            resizeMode="cover"
-          >
-            <Image
-              source={require('../images/canvasIcon.png')}
-              style={styles.innerLogo}
-              resizeMode="contain"
-            />
-          </ImageBackground>
+          <Text style={styles.para}>
+            From microdramas to series in travel, food, fashion, culture and
+            much more — discover it all in vertical
+          </Text>
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.skipButton,
+            { top: insets.top + (Platform.OS === 'android' ? 20 : 10) },
+          ]}
+          onPress={handleSkip}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="close" size={20} color="#fff" />
+        </TouchableOpacity>
 
         {(flow === 'phone' || flow === 'methods') && renderPhoneInput()}
         {flow === 'otp' && renderOtpInput()}
@@ -645,44 +731,36 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   topSection: {
-    alignItems: 'center',
-    marginBottom: 50,
+    alignItems: 'flex-start',
+    marginBottom: 30,
+    gap: 10,
+    flexDirection: 'column',
+    marginHorizontal: 20,
   },
-  heroText: {
-    fontSize: 56,
+  logo: {
+    width: 80,
+    height: 25,
+  },
+  mainTitle: {
+    fontFamily: 'HelveticaNowDisplay-Light',
+    fontWeight: '300',
+    fontSize: 30,
     color: '#fff',
+    lineHeight: 36,
+  },
+  mainTitleBold: {
     fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 28,
   },
-  subHeroText: {
-    fontSize: 26,
-    color: '#fff',
+  para: {
     fontFamily: 'HelveticaNowDisplay-Regular',
-    marginTop: -12,
-  },
-  mockInnerFrame: {
-    width: width * 0.65,
-    height: height * 0.4,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 35,
-    marginTop: 30,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    overflow: 'hidden',
-    paddingBottom: 25,
-  },
-  mockBackgroundImage: {
-    resizeMode: 'cover',
-    borderRadius: 35,
-  },
-  innerLogo: {
-    width: 50,
-    height: 50,
-    backgroundColor: 'rgba(255,106,0,0.8)',
-    borderRadius: 10,
+    fontWeight: '400',
+    fontSize: 12,
+    color: '#fff',
+    maxWidth: '90%',
+    lineHeight: 16,
   },
   inputContainer: {
     paddingHorizontal: 25,
@@ -744,7 +822,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: '100%',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,106,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -752,7 +830,7 @@ const styles = StyleSheet.create({
   },
   otherMethodsLink: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   otherMethodsText: {
     color: '#fff',
@@ -860,9 +938,28 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 30,
   },
+  googleButton: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 40,
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginTop: 10,
+  },
+  googleButtonText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+    fontSize: 17,
+    color: '#fff',
+  },
   socialButton: {
     backgroundColor: '#2C2B2F',
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 12,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -879,7 +976,7 @@ const styles = StyleSheet.create({
   cancelLink: {
     backgroundColor: 'rgba(255, 106, 0, 0.1)',
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,106,0,0.5)',
@@ -895,8 +992,8 @@ const styles = StyleSheet.create({
   },
   emailInput: {
     backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     fontSize: 16,
     color: '#fff',
     fontFamily: 'HelveticaNowDisplay-Regular',
@@ -911,7 +1008,7 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: 'absolute',
     right: 16,
-    top: '30%',
+    top: '26%',
   },
   errorText: {
     color: '#FF6B6B',
@@ -922,16 +1019,17 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   emailLoginBtn: {
-    backgroundColor: '#EF8A4C',
-    borderRadius: 14,
-    padding: 16,
+    backgroundColor: 'rgba(255,106,0,1)',
     alignItems: 'center',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.5)',
     marginBottom: 20,
-    marginTop: 10,
   },
   emailLoginBtnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: '700',
   },
@@ -951,5 +1049,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 12,
     fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  termsWrapper: {
+    marginBottom: 15,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  termsText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    flex: 1,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  termsLink: {
+    color: '#ef8a4c',
+    textDecorationLine: 'underline',
+  },
+  toggleMethodsLink: {
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 5,
+  },
+  toggleMethodsText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    opacity: 0.8,
+  },
+  link: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+    color: 'rgb(255,106,0)',
+    textDecorationLine: 'underline',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  skipButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
 });

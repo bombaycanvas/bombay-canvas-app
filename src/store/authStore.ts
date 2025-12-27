@@ -11,6 +11,7 @@ export const useAuthStore = create<AuthState>(set => {
       const user = await AsyncStorage.getItem('user');
 
       set({ isAuthenticated: storedAuth === 'true' });
+      set({ hasSkipped: await AsyncStorage.getItem('hasSkipped') === 'true' });
       set({ token: token });
       set({ user: user ? JSON.parse(user) : null });
     } catch (error) {
@@ -21,6 +22,7 @@ export const useAuthStore = create<AuthState>(set => {
   loadAuthState();
   return {
     isAuthenticated: false,
+    hasSkipped: false,
     token: null,
     user: null,
     logout: async () => {
@@ -29,7 +31,8 @@ export const useAuthStore = create<AuthState>(set => {
       await AsyncStorage.removeItem('isAuthenticated');
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('user');
-      set({ isAuthenticated: false, token: null, user: null });
+      await AsyncStorage.removeItem('hasSkipped');
+      set({ isAuthenticated: false, token: null, user: null, hasSkipped: false });
     },
 
     saveToken: async (token: string) => {
@@ -54,6 +57,10 @@ export const useAuthStore = create<AuthState>(set => {
     setUser: async (user: any) => {
       await AsyncStorage.setItem('user', JSON.stringify(user));
       set({ user });
+    },
+    setHasSkipped: async (val: boolean) => {
+      await AsyncStorage.setItem('hasSkipped', val ? 'true' : 'false');
+      set({ hasSkipped: val });
     },
   };
 });
