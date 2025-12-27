@@ -7,10 +7,11 @@ const queryClient = (() => {
       instance = new QueryClient({
         defaultOptions: {
           queries: {
-            refetchOnWindowFocus: true,
+            refetchOnWindowFocus: false,
             refetchOnMount: false,
-            retry: false,
-            staleTime: 60000 * 3,
+            retry: 1,
+            staleTime: 1000 * 60 * 10,
+            gcTime: 1000 * 60 * 30,
           },
         },
       });

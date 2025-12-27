@@ -12,7 +12,6 @@ export const getMovies = async (): Promise<{ series: Movie[] }> => {
     const response = await api(`/api/all-series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
 
     if (!response) {
@@ -31,10 +30,6 @@ export const useMoviesData = () => {
   return useQuery({
     queryKey: ['moviesData'],
     queryFn: getMovies,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: 1,
   });
 };
 
@@ -43,7 +38,6 @@ export const getRecommendedSeries = async (): Promise<{ series: Movie[] }> => {
     const response = await api(`/api/recommended-series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
 
     if (!response) {
@@ -62,10 +56,6 @@ export const useRecommendedSeriesData = () => {
   return useQuery({
     queryKey: ['listRecommendedSeries'],
     queryFn: getRecommendedSeries,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: 1,
   });
 };
 
@@ -74,7 +64,6 @@ const getMoviesByCreator = async (id: string) => {
     const response = await api(`/api/creator/${id}/series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
     const data = await response;
     return data ?? [];
@@ -94,10 +83,6 @@ export const useMoviesDataByCreator = (id: string) => {
     queryKey: ['moviesDataByCreator', id],
     queryFn: () => getMoviesByCreator(id),
     enabled: !!id,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: false,
   });
 };
 
@@ -106,7 +91,6 @@ const getMoviesById = async (id: string) => {
     const response = await api(`/api/series-new/${id}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
     const data = await response;
     return data;
@@ -124,10 +108,6 @@ export const useMoviesDataById = (id: string) => {
     queryKey: ['moviesDataById', id],
     queryFn: () => getMoviesById(id),
     enabled: !!id,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: true,
   });
 };
 
@@ -152,7 +132,6 @@ export const getPlayVideoWithID = async (id: string) => {
     const response = await api(`/api/stream-episode/${id}`, {
       method: 'GET',
       headers,
-      cache: 'no-store',
     });
     const data = await response;
     return data;
@@ -170,10 +149,7 @@ export const usePlayVideoWithId = (id?: string) => {
     queryKey: ['playEpisode', id],
     queryFn: () => getPlayVideoWithID(id!),
     enabled: Boolean(id),
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: true,
+    staleTime: 1000 * 60 * 30,
   });
 };
 
@@ -182,7 +158,6 @@ const getCategories = async (): Promise<Category[] | any> => {
     const response = await api(`/api/genres`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
     const data = await response;
     return data ?? [];
@@ -199,10 +174,6 @@ export const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
     queryFn: () => getCategories(),
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: true,
   });
 };
 
@@ -211,7 +182,6 @@ const getCoverVideo = async (): Promise<CoverVideo | any> => {
     const response = await api(`/api/cover-video`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
     });
     const data = await response;
     return data;
@@ -228,10 +198,6 @@ export const useGetCoverVideo = () => {
   return useQuery({
     queryKey: ['getCoverVideo'],
     queryFn: () => getCoverVideo(),
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    retry: true,
   });
 };
 

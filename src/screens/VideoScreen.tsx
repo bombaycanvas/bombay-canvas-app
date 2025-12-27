@@ -16,7 +16,12 @@ import {
   Animated,
   TouchableOpacity,
 } from 'react-native';
-import { useMoviesDataById, usePlayVideoWithId } from '../api/video';
+import {
+  useMoviesDataById,
+  usePlayVideoWithId,
+  getPlayVideoWithID,
+} from '../api/video';
+import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
 import { useAuthStore } from '../store/authStore';
@@ -36,6 +41,8 @@ type Episode = {
   duration: number;
   thumbnail: string;
   videoUrl: string;
+  isPublic?: boolean;
+  locked?: boolean;
 };
 
 const { width, height: windowHeight } = Dimensions.get('window');
@@ -198,16 +205,43 @@ const VideoScreen = () => {
     setIsEpisodesSheetOpen(true);
   }, [setPaused]);
 
+  const queryClient = useQueryClient();
+
+  const prefetchNextEpisode = useCallback(
+    (nextIndex: number) => {
+      if (nextIndex < episodes.length) {
+        const nextEpisode = episodes[nextIndex];
+        const locked = !nextEpisode?.isPublic && !isAuthenticated;
+        const isPaidEpisode =
+          !locked &&
+          nextEpisode?.locked &&
+          series?.isPaidSeries &&
+          !series?.userPurchased;
+
+        if (!locked && !isPaidEpisode) {
+          queryClient.prefetchQuery({
+            queryKey: ['playEpisode', nextEpisode.id],
+            queryFn: () => getPlayVideoWithID(nextEpisode.id),
+            staleTime: 1000 * 60 * 30,
+          });
+        }
+      }
+    },
+    [episodes, isAuthenticated, series, queryClient],
+  );
+
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: any) => {
       if (viewableItems.length > 0) {
         const visibleItem = viewableItems[0];
         if (visibleItem.isViewable) {
+          const currentIndex = visibleItem.index;
           setCurrentEpisodeId(visibleItem.item.id);
+          prefetchNextEpisode(currentIndex + 1);
         }
       }
     },
-    [setCurrentEpisodeId],
+    [setCurrentEpisodeId, prefetchNextEpisode],
   );
 
   const viewabilityConfig = useRef({

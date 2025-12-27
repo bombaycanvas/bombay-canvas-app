@@ -11,11 +11,13 @@ export const useAuthStore = create<AuthState>(set => {
       const user = await AsyncStorage.getItem('user');
 
       set({ isAuthenticated: storedAuth === 'true' });
-      set({ hasSkipped: await AsyncStorage.getItem('hasSkipped') === 'true' });
+      set({ hasSkipped: (await AsyncStorage.getItem('hasSkipped')) === 'true' });
       set({ token: token });
       set({ user: user ? JSON.parse(user) : null });
+      set({ isLoading: false });
     } catch (error) {
       console.error('Error loading authentication state:', error);
+      set({ isLoading: false });
     }
   };
 
@@ -23,6 +25,7 @@ export const useAuthStore = create<AuthState>(set => {
   return {
     isAuthenticated: false,
     hasSkipped: false,
+    isLoading: true,
     token: null,
     user: null,
     logout: async () => {

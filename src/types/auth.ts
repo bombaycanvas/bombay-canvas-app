@@ -63,6 +63,7 @@ export interface ResetPasswordLinkResponse {
 export type AuthState = {
   isAuthenticated: boolean;
   hasSkipped: boolean;
+  isLoading: boolean;
   token: string | null;
   user: { role: string;[key: string]: any } | null;
   logout: () => Promise<void>;

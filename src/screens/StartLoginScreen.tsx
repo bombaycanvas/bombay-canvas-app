@@ -439,9 +439,13 @@ const StartLoginScreen = () => {
         <TouchableOpacity
           activeOpacity={0.8}
           style={styles.otpSentPill}
-          disabled={true}
+          disabled={verifyOtpMutation.isPending}
         >
-          <Text style={styles.otpSentPillText}>Submit</Text>
+          {verifyOtpMutation.isPending ? (
+            <ActivityIndicator size="small" color="rgba(255, 106, 0, 1)" />
+          ) : (
+            <Text style={styles.otpSentPillText}>Submit</Text>
+          )}
         </TouchableOpacity>
       </View>
 

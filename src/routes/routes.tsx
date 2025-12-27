@@ -14,7 +14,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import SearchScreen from '../screens/SearchScreen';
 import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
-import { Platform } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,7 +87,23 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token, hasSkipped } = useAuthStore();
+  const { token, hasSkipped, isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#000',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
       initialRouteName={token || hasSkipped ? 'MainTabs' : 'StartLogin'}
