@@ -17,6 +17,7 @@ import { useGetCoverVideo } from '../api/video';
 import LinearGradient from 'react-native-linear-gradient';
 import PlayButtonIcon from './assets/PlayButtonIcon';
 import { Pause } from 'lucide-react-native';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -94,7 +95,9 @@ const Landing = () => {
               }}
               style={styles.avatar}
             />
-            <Text style={styles.name}>{data?.admin?.profiles[0]?.name}</Text>
+            <Text style={styles.name}>
+              {capitalizeWords(data?.admin?.profiles[0]?.name)}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.9}

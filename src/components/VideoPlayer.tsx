@@ -207,6 +207,7 @@ export default function VideoPlayer({
       if (!isPlaying) {
         resumeAfterSeek.current = true;
       }
+      setIsBuffering(true);
       videoRef.current?.seek(newTime);
       setCurrentTime(newTime);
       setProgress(value);
@@ -303,6 +304,7 @@ export default function VideoPlayer({
               bufferConfig={bufferConfig}
               progressUpdateInterval={250}
               onSeek={() => {
+                setIsBuffering(false);
                 requestAnimationFrame(() => {
                   if (resumeAfterSeek.current) {
                     setTimeout(() => {

@@ -14,6 +14,7 @@ import { useMoviesDataByCreator } from '../api/video';
 import { useUserData } from '../api/auth';
 import FastImage from '@d11/react-native-fast-image';
 import CanvasLogo from '../images/MainLogo.png';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -69,7 +70,7 @@ const ProfileScreen = () => {
                 uri:
                   userProfile?.userData?.profiles[0]?.avatarUrl ||
                   'https://via.placeholder.com/150',
-                priority: FastImage.priority.normal,
+                priority: FastImage.priority.high,
                 cache: FastImage.cacheControl.immutable,
               }}
               style={styles.avatar}
@@ -80,7 +81,7 @@ const ProfileScreen = () => {
             {userProfile?.userData && (
               <>
                 <Text style={styles.username}>
-                  {userProfile?.userData.name || 'N/A'}
+                  {capitalizeWords(userProfile?.userData.name || 'N/A')}
                 </Text>
                 <Text style={styles.email}>
                   {userProfile?.userData.email || 'N/A'}

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FlatGrid } from 'react-native-super-grid';
 import { RootStackParamList } from '../types/navigation';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 type Series = {
   id: string;
@@ -96,7 +97,9 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
               }}
               style={styles.avatar}
             />
-            <Text style={styles.name}>{item?.uploader?.name}</Text>
+            <Text style={styles.name}>
+              {capitalizeWords(item?.uploader?.name)}
+            </Text>
           </TouchableOpacity>
         </TouchableOpacity>
       )}

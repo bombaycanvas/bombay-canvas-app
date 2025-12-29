@@ -457,8 +457,9 @@ const StartLoginScreen = () => {
           activeOpacity={0.8}
           disabled={timer > 0 || sendOtpMutation.isPending}
           onPress={() => {
-            const fullPhone = `${selectedCountry?.callingCode || ''
-              }${phoneValue.replace(/\s/g, '')}`;
+            const fullPhone = `${
+              selectedCountry?.callingCode || ''
+            }${phoneValue.replace(/\s/g, '')}`;
             sendOtpMutation.mutate({ phone: fullPhone });
           }}
         >
@@ -1113,9 +1114,8 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'transparent',
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    opacity: 0.4,
   },
 });

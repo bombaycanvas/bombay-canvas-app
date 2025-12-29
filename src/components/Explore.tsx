@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 type Movie = any;
 
@@ -76,7 +77,9 @@ const ExploreCard = React.memo(
             style={styles.avatar}
             resizeMode={FastImage.resizeMode.cover}
           />
-          <Text style={styles.name}>{movie?.uploader?.name}</Text>
+          <Text style={styles.name}>
+            {capitalizeWords(movie?.uploader?.name)}
+          </Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );

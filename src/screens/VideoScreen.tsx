@@ -27,6 +27,7 @@ import { useVideoStore } from '../store/videoStore';
 import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -120,7 +121,7 @@ const VideoListItem = React.memo(
                   }
                   style={styles.username}
                 >
-                  {movie?.uploader?.name}
+                  {capitalizeWords(movie?.uploader?.name)}
                 </Text>
               </View>
               <Text style={styles.title}>

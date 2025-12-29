@@ -2,6 +2,7 @@ import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { BackgroundWrapper } from './BackgroundImage';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 const { height } = Dimensions.get('window');
 
@@ -24,6 +25,8 @@ interface CreatorLandingProps {
 
 const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
   const profile = data?.series?.[0]?.uploader?.profiles?.[0];
+  const uploaderName = profile?.name ?? data?.series[0]?.uploader?.name ?? '';
+  const capitalizedName = capitalizeWords(uploaderName);
   const bgImage =
     profile?.posterUrl ||
     'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1757661776404-Card Image.png';
@@ -43,9 +46,7 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
         <View style={styles.content}>
           {hasSeries ? (
             <>
-              <Text style={styles.mainTitle}>
-                {profile?.name || data?.series[0]?.uploader?.name}
-              </Text>
+              <Text style={styles.mainTitle}>{capitalizedName}</Text>
               <Text style={styles.para}>{profile?.description}</Text>
             </>
           ) : (

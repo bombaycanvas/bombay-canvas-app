@@ -23,6 +23,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { useVideoStore } from '../store/videoStore';
+import { capitalizeWords } from '../utils/capitalizeWords';
 
 const { height, width } = Dimensions.get('window');
 
@@ -187,9 +188,8 @@ const SeriesDetailScreen = () => {
 
             <Text style={styles.metaText}>
               {new Date(series.releaseDate).getFullYear()} •{' '}
-              {series.genres?.[0]?.name.charAt(0).toUpperCase() +
-                series.genres?.[0]?.name.slice(1).toLowerCase()}{' '}
-              • {series.episodes?.length} Episodes
+              {capitalizeWords(series.genres?.[0]?.name)} •{' '}
+              {series.episodes?.length} Episodes
             </Text>
 
             {series.uploader && (
@@ -205,7 +205,7 @@ const SeriesDetailScreen = () => {
                     uri:
                       series.uploader?.profiles?.[0]?.avatarUrl ||
                       'https://via.placeholder.com/40',
-                    priority: FastImage.priority.normal,
+                    priority: FastImage.priority.high,
                     cache: FastImage.cacheControl.immutable,
                   }}
                   style={styles.avatar}
@@ -216,7 +216,7 @@ const SeriesDetailScreen = () => {
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
-                  {series.uploader?.name}
+                  {capitalizeWords(series.uploader?.name)}
                 </Text>
               </TouchableOpacity>
             )}
