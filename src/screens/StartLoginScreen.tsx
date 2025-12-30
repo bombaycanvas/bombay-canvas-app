@@ -133,6 +133,7 @@ const StartLoginScreen = () => {
 
   useEffect(() => {
     if (flow === 'methods') {
+      Keyboard.dismiss();
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -363,7 +364,12 @@ const StartLoginScreen = () => {
 
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => setFlow('methods')}
+        onPress={() => {
+          Keyboard.dismiss();
+          setTimeout(() => {
+            setFlow('methods');
+          }, 50);
+        }}
         style={styles.otherMethodsLink}
       >
         <Text style={styles.otherMethodsText}>

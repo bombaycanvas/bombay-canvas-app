@@ -24,6 +24,7 @@ import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { signInWithGoogle } from '../utils/authService';
 import AppleLogin from '../assets/AppleLogin';
 import Toast from 'react-native-toast-message';
+import { Smartphone } from 'lucide-react-native';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
@@ -34,6 +35,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<any>>();
   const redirect = route.params?.redirect;
+  const fromSignupFromRoute = route.params?.fromSignup;
+  const finalFromSignup =
+    typeof fromSignupFromRoute === 'boolean' ? fromSignupFromRoute : fromSignup;
 
   const { mutate: requestMutate } = useRequest(redirect);
   const { mutate: loginMutate } = useLogin(redirect);
@@ -47,7 +51,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
   } = useForm();
 
   const onSubmit = (data: any) => {
-    fromSignup ? requestMutate(data) : loginMutate(data);
+    finalFromSignup ? requestMutate(data) : loginMutate(data);
     reset();
   };
 
@@ -90,7 +94,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
     >
       <View style={styles.titleSection}>
         <Text style={styles.mainTitle}>
-          {fromSignup ? (
+          {finalFromSignup ? (
             <>
               Let&apos;s Get <Text style={styles.bold}>You Started</Text>
             </>
@@ -105,7 +109,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
       <View style={styles.formSection}>
         <Text style={styles.label}>Your Information</Text>
 
-        {fromSignup && (
+        {finalFromSignup && (
           <Controller
             control={control}
             name="fullname"
@@ -201,7 +205,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           onPress={handleSubmit(onSubmit)}
         >
           <Text style={styles.continueTxt}>
-            {fromSignup ? 'Sign Up' : 'Log In'}
+            {finalFromSignup ? 'Sign Up' : 'Log In'}
           </Text>
           <ButtonIcon />
         </TouchableOpacity>
@@ -219,7 +223,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
         >
           <GoogleLogin />
           <Text style={styles.googleTxt}>
-            {fromSignup ? 'Sign in' : 'Log in'} with Google
+            {finalFromSignup ? 'Sign Up' : 'Log In'} with Google
           </Text>
         </TouchableOpacity>
         {Platform.OS === 'ios' && (
@@ -230,10 +234,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           >
             <AppleLogin />
             <Text style={styles.appleTxt}>
-              {fromSignup ? 'Sign in' : 'Log in'} with Apple
+              {finalFromSignup ? 'Sign Up' : 'Log In'} with Apple
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.mobileBtn}
+          onPress={() => navigation.navigate('StartLogin' as never)}
+        >
+          <Smartphone size={28} color={'#fff'} strokeWidth={2} />
+          <Text style={styles.mobileTxt}>
+            {finalFromSignup ? 'Sign Up with Number' : 'Log In with Number'}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.termsWrapper}>
           <Controller
@@ -267,7 +281,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
       </View>
 
       <Text style={styles.extraTxt}>
-        {fromSignup ? (
+        {finalFromSignup ? (
           <Fragment>
             Already have an account?{' '}
             <Text
@@ -468,5 +482,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     marginLeft: 8,
+  },
+  mobileBtn: {
+    borderWidth: 1,
+    borderColor: '#414141',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+
+  mobileTxt: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+    fontSize: 16,
+    marginLeft: 8,
+    color: '#fff',
   },
 });

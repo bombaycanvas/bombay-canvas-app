@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  InteractionManager,
+} from 'react-native';
 import { useVideoStore } from '../../store/videoStore';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
@@ -10,6 +17,28 @@ export function LockedOverlay() {
     useVideoStore();
 
   const close = () => setIsLockedVisibleModal(false);
+
+  const handleAuthNavigate = (fromSignup: boolean) => {
+    setIsLockedVisibleModal(false);
+
+    InteractionManager.runAfterInteractions(() => {
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainTabs',
+            params: {
+              screen: 'Profile',
+              params: {
+                fromSignup,
+                redirect: authRedirect,
+              },
+            },
+          },
+        ],
+      });
+    });
+  };
 
   return (
     <Modal
@@ -29,20 +58,14 @@ export function LockedOverlay() {
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.button, styles.signUpButton]}
-            onPress={() => {
-              close();
-              navigation.navigate('Signup', { redirect: authRedirect });
-            }}
+            onPress={() => handleAuthNavigate(true)}
           >
             <Text style={styles.signUpText}>Sign Up</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.button, styles.loginButton]}
-            onPress={() => {
-              close();
-              navigation.navigate('Login', { redirect: authRedirect });
-            }}
+            onPress={() => handleAuthNavigate(false)}
           >
             <Text style={styles.loginText}>Log In</Text>
           </TouchableOpacity>
