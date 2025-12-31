@@ -668,59 +668,62 @@ const StartLoginScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
-      <Video
-        source={{ uri: data?.CoverUrlVideo?.url }}
-        style={styles.backgroundVideo}
-        resizeMode="cover"
-        repeat
-        muted
-      />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <Video
+          source={{ uri: data?.CoverUrlVideo?.url }}
+          style={styles.backgroundVideo}
+          resizeMode="cover"
+          repeat
+          muted
+        />
 
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
-        style={styles.overlayGradient}
-      />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
+          style={styles.overlayGradient}
+        />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.mainContent}
-      >
-        <View style={styles.topSection}>
-          <Image
-            source={require('../images/MainLogo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.mainTitle}>
-            World’s First{'\n'}
-            <Text style={styles.mainTitleBold}>
-              Creator-Led Vertical OTT Platform
-            </Text>
-          </Text>
-
-          <Text style={styles.para}>
-            From microdramas to series in travel, food, fashion, culture and
-            much more — discover it all in vertical
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.skipButton,
-            { top: insets.top + (Platform.OS === 'android' ? 20 : 10) },
-          ]}
-          onPress={handleSkip}
-          activeOpacity={0.8}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.mainContent}
         >
-          <Ionicons name="close" size={20} color="#fff" />
-        </TouchableOpacity>
+          <View style={styles.topSection}>
+            <Image
+              source={require('../images/MainLogo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
 
-        {(flow === 'phone' || flow === 'methods') && renderPhoneInput()}
-        {flow === 'otp' && renderOtpInput()}
-        {renderOtherMethods()}
-      </KeyboardAvoidingView>
-    </View>
+            <Text style={styles.mainTitle}>
+              World’s First{'\n'}
+              <Text style={styles.mainTitleBold}>
+                Creator-Led Vertical OTT Platform
+              </Text>
+            </Text>
+
+            <Text style={styles.para}>
+              From microdramas to series in travel, food, fashion, culture and
+              much more — discover it all in vertical
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.skipButton,
+              { top: insets.top + (Platform.OS === 'android' ? 20 : 10) },
+            ]}
+            onPress={handleSkip}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </TouchableOpacity>
+
+          {(flow === 'phone' || flow === 'methods') && renderPhoneInput()}
+          {flow === 'otp' && renderOtpInput()}
+          {renderOtherMethods()}
+        </KeyboardAvoidingView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 

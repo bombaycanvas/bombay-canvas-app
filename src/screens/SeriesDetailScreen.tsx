@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
   View,
@@ -52,6 +52,8 @@ const SeriesDetailScreen = () => {
     setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
+    setSeries,
+    setEpisodes,
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
 
@@ -75,6 +77,15 @@ const SeriesDetailScreen = () => {
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (series) {
+      setSeries(series);
+      if (series.episodes?.length) {
+        setEpisodes(series?.episodes);
+      }
+    }
+  }, [series, setSeries, setEpisodes]);
 
   const togglePlay = () => {
     setIsPlaying(prev => !prev);

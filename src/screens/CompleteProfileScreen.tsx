@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -74,69 +76,71 @@ const CompleteProfileScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1a1a1a', '#000']} style={styles.gradient} />
+    <TouchableWithoutFeedback  onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#1a1a1a', '#000']} style={styles.gradient} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>Complete Profile</Text>
-          <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color="rgba(255,255,255,0.5)"
-            />
-            <TextInput
-              style={styles.textInput}
-              placeholder="Full Name"
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              value={name}
-              onChangeText={setName}
-            />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.content}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Complete Profile</Text>
+            <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
           </View>
 
-          <View style={styles.inputWrapper}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color="rgba(255,255,255,0.5)"
-            />
-            <TextInput
-              style={styles.textInput}
-              placeholder="Email Address"
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color="rgba(255,255,255,0.5)"
+              />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Full Name"
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.submitButton,
-              (!name || !email) && styles.disabledButton,
-            ]}
-            onPress={handleCompleteProfile}
-            disabled={isSubmitting || !name || !email}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="rgba(255,255,255,0.5)"
+              />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Email Address"
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.submitButton,
+                (!name || !email) && styles.disabledButton,
+              ]}
+              onPress={handleCompleteProfile}
+              disabled={isSubmitting || !name || !email}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Submit</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 

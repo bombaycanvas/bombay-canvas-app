@@ -16,11 +16,7 @@ import {
   Animated,
   TouchableOpacity,
 } from 'react-native';
-import {
-  useMoviesDataById,
-  usePlayVideoWithId,
-  getPlayVideoWithID,
-} from '../api/video';
+import { usePlayVideoWithId, getPlayVideoWithID } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
@@ -152,29 +148,24 @@ const VideoListItem = React.memo(
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
-  const { id, episodeId } = route.params ?? {};
-  const { setEpisodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
+  const { episodeId } = route.params ?? {};
+  const { series, episodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
+
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
 
-  const { data, isLoading, isError } = useMoviesDataById(id);
   const { isAuthenticated: globalAuth } = useAuthStore();
-  const series = data?.series;
-  const episodes: Episode[] = series?.episodes;
-  const isAuthenticated = data?.isAuthenticated || globalAuth;
+  const isAuthenticated = series?.isAuthenticated || globalAuth;
 
   const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    if (episodes?.length > 0) {
-      setEpisodes(episodes);
-      if (!currentEpisodeId) {
-        const defaultEpisodeId = episodeId || episodes[0].id;
-        setCurrentEpisodeId(defaultEpisodeId);
-      }
+    if (episodes?.length > 0 && !currentEpisodeId) {
+      const defaultEpisodeId = episodeId || episodes[0].id;
+      setCurrentEpisodeId(defaultEpisodeId);
     }
-  }, [episodes, episodeId, setEpisodes, setCurrentEpisodeId, currentEpisodeId]);
+  }, [episodes, episodeId, currentEpisodeId, setCurrentEpisodeId]);
 
   const scrollToEpisode = useCallback(
     (index: number) => {
@@ -275,14 +266,6 @@ const VideoScreen = () => {
     }
   }, [episodes, safeIndex, scrollToEpisode]);
 
-  if (isError) {
-    return (
-      <View style={styles.loaderContainer}>
-        <Text style={styles.emptyText}>Error loading videos.</Text>
-      </View>
-    );
-  }
-
   if (!episodes || episodes.length === 0) {
     return (
       <View style={styles.loaderContainer}>
@@ -313,10 +296,11 @@ const VideoScreen = () => {
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}
-        snapToInterval={ITEM_HEIGHT}
-        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.99}
+        snapToOffsets={episodes.map((_, i) => i * ITEM_HEIGHT)}
+        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
         snapToAlignment="start"
-        disableIntervalMomentum={Platform.OS === 'ios'}
+        disableIntervalMomentum={true}
+        scrollEventThrottle={16}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
       />
@@ -327,7 +311,7 @@ const VideoScreen = () => {
         activeEpisode={activeEpisode}
         onEpisodeSelect={handleEpisodeSelect}
         isAuthenticated={isAuthenticated}
-        isPending={isLoading}
+        isPending={false}
         series={series}
         screenType="videoScreen"
       />
