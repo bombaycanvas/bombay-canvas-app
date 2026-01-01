@@ -504,9 +504,7 @@ const StartLoginScreen = () => {
       >
         <View style={styles.sheetHandle} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView behavior={'padding'}>
           {isSignup && (
             <Controller
               control={control}
@@ -683,10 +681,7 @@ const StartLoginScreen = () => {
           style={styles.overlayGradient}
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.mainContent}
-        >
+        <KeyboardAvoidingView behavior={'padding'} style={styles.mainContent}>
           <View style={styles.topSection}>
             <Image
               source={require('../images/MainLogo.png')}
