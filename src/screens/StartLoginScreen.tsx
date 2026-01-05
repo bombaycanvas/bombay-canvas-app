@@ -54,7 +54,7 @@ const StartLoginScreen = () => {
   const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [phoneValue, setPhoneValue] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
@@ -97,7 +97,7 @@ const StartLoginScreen = () => {
     Toast.show({
       type: 'success',
       text1: 'OTP Sent',
-      text2: 'Please check your phone for the 6-digit code',
+      text2: 'Please check your phone for the 4-digit code',
     });
 
     if (response?.otp) {
@@ -166,7 +166,17 @@ const StartLoginScreen = () => {
   const getCountryCallingCode = (countryCode: string = 'IN'): string => {
     const country =
       metadata.countries[countryCode as keyof typeof metadata.countries];
-    return country?.[0]?.[0] || '91';
+    return country?.[0] || '91';
+  };
+  const getFullPhoneNumber = () => {
+    const cleanedPhone = phoneValue.replace(/\D/g, '');
+
+    const callingCode = Array.isArray(selectedCountry?.callingCode)
+      ? selectedCountry.callingCode[0]
+      : selectedCountry?.callingCode ||
+        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+
+    return `+${callingCode}${cleanedPhone}`;
   };
 
   const getIsPhoneValid = (): boolean => {
@@ -180,13 +190,7 @@ const StartLoginScreen = () => {
   };
 
   const handlePhoneSubmit = () => {
-    const cleanedPhone = phoneValue.replace(/\D/g, '');
-
-    const countryCode = (selectedCountry?.cca2 || 'IN') as CountryCode;
-    const callingCode =
-      selectedCountry?.callingCode || getCountryCallingCode(countryCode);
-
-    const fullPhoneNumber = `+${callingCode}${cleanedPhone}`;
+    const fullPhoneNumber = getFullPhoneNumber();
 
     sendOtpMutation.mutate({
       phone: fullPhoneNumber,
@@ -205,12 +209,11 @@ const StartLoginScreen = () => {
     if (!value && index > 0) {
       otpInputs.current[index - 1]?.focus();
     }
+    if (newOtp.every(d => d !== '') && newOtp.length === 4) {
+      const fullPhoneNumber = getFullPhoneNumber();
 
-    if (newOtp.every(d => d !== '') && newOtp.length === 6) {
-      const cleanedPhone = phoneValue.replace(/\D/g, '');
-      const callingCode = selectedCountry?.callingCode || '91';
       verifyOtpMutation.mutate({
-        phone: `+${callingCode}${cleanedPhone}`,
+        phone: fullPhoneNumber,
         otp: newOtp.join(''),
       });
     }
@@ -463,10 +466,8 @@ const StartLoginScreen = () => {
           activeOpacity={0.8}
           disabled={timer > 0 || sendOtpMutation.isPending}
           onPress={() => {
-            const fullPhone = `${
-              selectedCountry?.callingCode || ''
-            }${phoneValue.replace(/\s/g, '')}`;
-            sendOtpMutation.mutate({ phone: fullPhone });
+            const fullPhoneNumber = getFullPhoneNumber();
+            sendOtpMutation.mutate({ phone: fullPhoneNumber });
           }}
         >
           <Text style={[styles.timerText, timer === 0 && styles.resendActive]}>

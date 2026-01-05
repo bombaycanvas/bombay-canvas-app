@@ -244,6 +244,18 @@ export const verifyRazorpayOrder = async (payload: any) => {
 };
 
 export const openRazorpayCheckout = async (orderData: any) => {
+  const user = useAuthStore.getState().user;
+
+  const formatIndianMobile = (mobile?: string) => {
+    if (!mobile) return undefined;
+    const digitsOnly = mobile.replace(/\D/g, '');
+    return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+  };
+
+  const mobile = formatIndianMobile(
+    user?.mobile || user?.phone || user?.contact,
+  );
+
   const data = orderData?.order ?? orderData;
 
   const orderId = data?.orderId || data?.id;
@@ -271,6 +283,25 @@ export const openRazorpayCheckout = async (orderData: any) => {
       name: 'Bombay Canvas',
       description: 'Purchase access',
       order_id: orderId,
+
+      method: {
+        upi: true,
+        card: true,
+        netbanking: true,
+        wallet: true,
+        emi: true,
+      },
+
+      upi: {
+        flow: 'intent',
+      },
+
+      prefill: {
+        contact: mobile,
+        email: user?.email,
+        name: user?.name,
+      },
+
       theme: { color: '#ff6600' },
     };
 

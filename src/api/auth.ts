@@ -29,7 +29,7 @@ export const completeProfileRequest = async (data: any) => {
 
 export const verifyOtpRequest = async (data: any) => {
   try {
-    const response = await api('/api/auth/phone/verify-otp', {
+    const response = await api('/api/auth/otp/msg91/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -53,14 +53,13 @@ export const verifyOtpRequest = async (data: any) => {
 
 export const sendOtpRequest = async (data: any) => {
   try {
-    const response = await api('/api/auth/phone/send-otp', {
+    const response = await api('/api/auth/otp/msg91/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone: data.phone,
       }),
     });
-
     const resp = await response;
     return resp;
   } catch (error: any) {

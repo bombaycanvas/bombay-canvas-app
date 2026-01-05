@@ -80,7 +80,7 @@ const MainTabs = () => {
       {token != null ? (
         <Tab.Screen name="Profile" component={ProfileScreen} />
       ) : (
-        <Tab.Screen name="Profile" component={LoginScreen} />
+        <Tab.Screen name="Profile" component={StartLoginScreen} />
       )}
     </Tab.Navigator>
   );
@@ -105,9 +105,7 @@ const AppStack = () => {
   }
 
   return (
-    <Stack.Navigator
-      initialRouteName={token ? 'MainTabs' : 'StartLogin'}
-    >
+    <Stack.Navigator initialRouteName={token ? 'MainTabs' : 'StartLogin'}>
       <Stack.Screen
         name="StartLogin"
         component={StartLoginScreen}

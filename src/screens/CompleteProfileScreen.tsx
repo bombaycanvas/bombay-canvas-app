@@ -61,12 +61,6 @@ const CompleteProfileScreen = () => {
           text2: 'Profile completed successfully',
         });
         (navigation as any).navigate('MainTabs');
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Failed',
-          text2: response?.message || 'Something went wrong',
-        });
       }
     } catch (error) {
       console.error(error);
@@ -76,7 +70,7 @@ const CompleteProfileScreen = () => {
   };
 
   return (
-    <TouchableWithoutFeedback  onPress={Keyboard.dismiss} accessible={false}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
         <LinearGradient colors={['#1a1a1a', '#000']} style={styles.gradient} />
 
