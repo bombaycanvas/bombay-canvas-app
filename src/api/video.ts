@@ -261,7 +261,7 @@ export const openRazorpayCheckout = async (orderData: any) => {
   const orderId = data?.orderId || data?.id;
   const amount = data?.finalAmount ?? data?.amount;
   const currency = data?.currency || 'INR';
-  const key = data?.key || data?.razorpayKey || 'rzp_test_123';
+  const key = data?.key || data?.razorpayKey;
   const purchaseId = data?.purchaseId;
 
   if (!amount || !orderId) {

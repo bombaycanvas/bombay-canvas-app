@@ -83,9 +83,7 @@ const ProfileScreen = () => {
                 <Text style={styles.username}>
                   {capitalizeWords(userProfile?.userData.name || 'N/A')}
                 </Text>
-                <Text style={styles.email}>
-                  {userProfile?.userData.email || 'N/A'}
-                </Text>
+                <Text style={styles.email}>{userProfile?.userData.email}</Text>
                 {isCreator && (
                   <View style={styles.statsContainer}>
                     <View style={styles.stat}>

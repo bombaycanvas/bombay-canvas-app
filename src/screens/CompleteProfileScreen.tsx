@@ -22,25 +22,14 @@ const CompleteProfileScreen = () => {
   const navigation = useNavigation();
   const { setUser } = useAuthStore();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCompleteProfile = async () => {
-    if (!name || !email) {
+    if (!name) {
       Toast.show({
         type: 'error',
-        text1: 'Required Fields',
-        text2: 'Please enter both your name and email',
-      });
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Toast.show({
-        type: 'error',
-        text1: 'Invalid Email',
-        text2: 'Please enter a valid email address',
+        text1: 'Required Field',
+        text2: 'Please enter your name',
       });
       return;
     }
@@ -49,7 +38,6 @@ const CompleteProfileScreen = () => {
     try {
       const response = await completeProfileRequest({
         name,
-        email,
         avatarUrl: null,
       });
 
@@ -84,6 +72,7 @@ const CompleteProfileScreen = () => {
           </View>
 
           <View style={styles.inputContainer}>
+            {/* Name Input */}
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="person-outline"
@@ -99,31 +88,15 @@ const CompleteProfileScreen = () => {
               />
             </View>
 
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="rgba(255,255,255,0.5)"
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Email Address"
-                placeholderTextColor="rgba(255,255,255,0.5)"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
-
+            {/* Submit Button */}
             <TouchableOpacity
               activeOpacity={0.8}
               style={[
                 styles.submitButton,
-                (!name || !email) && styles.disabledButton,
+                !name && styles.disabledButton,
               ]}
               onPress={handleCompleteProfile}
-              disabled={isSubmitting || !name || !email}
+              disabled={isSubmitting || !name}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#fff" />

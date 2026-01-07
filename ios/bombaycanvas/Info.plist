@@ -71,5 +71,31 @@
 	<string>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app requires access to your photo library to upload images.</string>
+	<key>LSApplicationQueriesSchemes</key>
+ <array>
+     <string>tez</string>
+     <string>phonepe</string>
+     <string>paytmmp</string>
+     <string>credpay</string>
+     <string>mobikwik</string>
+     <string>in.fampay.app</string>
+     <string>bhim</string>
+     <string>amazonpay</string>
+     <string>navi</string>
+     <string>kiwi</string>
+     <string>payzapp</string>
+     <string>jupiter</string>
+     <string>omnicard</string>
+     <string>icici</string>
+     <string>popclubapp</string>
+     <string>sbiyono</string>
+     <string>myjio</string>
+     <string>slice-upi</string>
+     <string>bobupi</string>
+     <string>shriramone</string>
+     <string>indusmobile</string>
+     <string>whatsapp</string>
+     <string>kotakbank</string>
+ </array>
 </dict>
 </plist>

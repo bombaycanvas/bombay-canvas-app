@@ -173,7 +173,7 @@ export function PurchaseModal() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.payBtnText}>
-                  Unlock Now for ₹ {finalPrice ?? purchaseSeries?.price}
+                  Unlock Now for ₹{finalPrice ?? purchaseSeries?.price}
                 </Text>
               )}
             </TouchableOpacity>
