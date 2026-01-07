@@ -198,22 +198,46 @@ const StartLoginScreen = () => {
   };
 
   const handleOtpChange = (value: string, index: number) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, 4).split('');
+      const filledOtp = ['', '', '', ''];
+
+      digits.forEach((d, i) => {
+        filledOtp[i] = d;
+      });
+
+      setOtp(filledOtp);
+
+      const lastIndex = digits.length - 1;
+      requestAnimationFrame(() => {
+        otpInputs.current[lastIndex]?.focus();
+      });
+
+      if (digits.length === 4) {
+        verifyOtpMutation.mutate({
+          phone: getFullPhoneNumber(),
+          otp: digits.join(''),
+        });
+      }
+
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    if (value && index < 5) {
+    if (value && index < 3) {
       otpInputs.current[index + 1]?.focus();
     }
 
     if (!value && index > 0) {
       otpInputs.current[index - 1]?.focus();
     }
-    if (newOtp.every(d => d !== '') && newOtp.length === 4) {
-      const fullPhoneNumber = getFullPhoneNumber();
 
+    if (newOtp.every(d => d !== '')) {
       verifyOtpMutation.mutate({
-        phone: fullPhoneNumber,
+        phone: getFullPhoneNumber(),
         otp: newOtp.join(''),
       });
     }
@@ -430,7 +454,10 @@ const StartLoginScreen = () => {
               }}
               style={styles.otpCircle}
               keyboardType="number-pad"
-              maxLength={1}
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
+              autoFocus={index === 0}
+              maxLength={4}
               value={digit}
               onChangeText={value => handleOtpChange(value, index)}
               onKeyPress={({ nativeEvent }) => {
