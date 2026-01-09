@@ -48,7 +48,10 @@ const CompleteProfileScreen = () => {
           text1: 'Welcome!',
           text2: 'Profile completed successfully',
         });
-        (navigation as any).navigate('MainTabs');
+        (navigation as any).reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
       }
     } catch (error) {
       console.error(error);
@@ -91,10 +94,7 @@ const CompleteProfileScreen = () => {
             {/* Submit Button */}
             <TouchableOpacity
               activeOpacity={0.8}
-              style={[
-                styles.submitButton,
-                !name && styles.disabledButton,
-              ]}
+              style={[styles.submitButton, !name && styles.disabledButton]}
               onPress={handleCompleteProfile}
               disabled={isSubmitting || !name}
             >

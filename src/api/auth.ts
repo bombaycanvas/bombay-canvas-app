@@ -144,9 +144,15 @@ export const useVerifyOtpMutation = () => {
         await useAuthStore.getState().setUser(data.user);
 
         if (!data.user.email || data.user.name === 'User') {
-          (navigation as any).navigate('CompleteProfile');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'CompleteProfile' }],
+          });
         } else {
-          (navigation as any).navigate('MainTabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       } else {
         Toast.show({
@@ -209,7 +215,10 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
-          (navigation as any).navigate('MainTabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       }
     },
@@ -266,7 +275,10 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
-          (navigation as any).navigate('MainTabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       }
     },
@@ -303,7 +315,10 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
-          (navigation as any).navigate('MainTabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       }
     },
@@ -368,7 +383,10 @@ export const useDeleteUserAccount = () => {
     mutationFn: deleteAccount,
     onSuccess: async () => {
       await useAuthStore.getState().logout();
-      navigation.navigate('MainTabs' as never);
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' }],
+      });
     },
     onError: error => {
       console.log('Account delete failed:', error.message);
@@ -411,7 +429,10 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
-          (navigation as any).navigate('MainTabs');
+          (navigation as any).reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       }
     },
