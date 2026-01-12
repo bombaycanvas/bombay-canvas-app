@@ -8,6 +8,9 @@ react {
 
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("gradle.properties")
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -33,10 +36,10 @@ android {
             keyPassword 'android'
         }
         release {
-        storeFile file('MYAPP_UPLOAD_STORE_FILE')
-        storePassword 'MYAPP_UPLOAD_STORE_PASSWORD'
-        keyAlias 'MYAPP_UPLOAD_KEY_ALIAS'
-        keyPassword 'MYAPP_UPLOAD_KEY_PASSWORD'
+        storeFile file(keystoreProperties['MYAPP_UPLOAD_STORE_FILE'])
+        storePassword keystoreProperties['MYAPP_UPLOAD_STORE_PASSWORD']
+        keyAlias keystoreProperties['MYAPP_UPLOAD_KEY_ALIAS']
+        keyPassword keystoreProperties['MYAPP_UPLOAD_KEY_PASSWORD']
         }
     }
     buildTypes {
@@ -44,9 +47,9 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        signingConfig signingConfigs.release
+        minifyEnabled false
+        shrinkResources false
         }
     }
 }
