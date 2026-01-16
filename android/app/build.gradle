@@ -56,6 +56,11 @@ android {
 
 dependencies {
     implementation("com.facebook.react:react-android")
+
+    implementation(project(":react-native-svg")) {
+        exclude group: "com.caverock", module: "androidsvg"
+    }
+
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
 
     if (hermesEnabled.toBoolean()) {
@@ -64,5 +69,11 @@ dependencies {
         implementation jscFlavor
     }
 }
+configurations.all {
+    resolutionStrategy {
+        force "com.caverock:androidsvg-aar:1.4"
+    }
+}
+
 
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
