@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
+import { SharedElement } from 'react-navigation-shared-element';
 
 type Movie = any;
 
@@ -19,18 +20,28 @@ type ExploreProps = {
   heading: string;
   movieData: Movie[];
   isLoading?: boolean;
+  onCardPress?: (movie: Movie, layout: any) => void;
 };
 
 type RootStackParamList = {
-  SeriesDetail: { id: string | number };
-  Creator: { id: string | number };
+  SeriesDetail: { id: string | number; cardLayout?: any; posterUrl: string };
+  Creator: { id: string | number; cardLayout?: any };
 };
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const ExploreCard = React.memo(
-  ({ movie, navigation }: { movie: Movie; navigation: Navigation }) => {
+  ({
+    movie,
+    navigation,
+    onCardPress,
+  }: {
+    movie: Movie;
+    navigation: Navigation;
+    onCardPress?: (movie: Movie, layout: any) => void;
+  }) => {
     const opacity = React.useRef(new Animated.Value(0.5)).current;
+    const cardRef = React.useRef<View>(null);
 
     const handleLoad = () => {
       Animated.timing(opacity, {
@@ -42,51 +53,64 @@ const ExploreCard = React.memo(
     };
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        style={styles.card}
-        onPress={() => navigation.navigate('SeriesDetail', { id: movie?.id })}
-      >
-        <Animated.View style={{ flex: 1, opacity }}>
-          <FastImage
-            source={{
-              uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
-              priority: FastImage.priority.high,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={styles.cardImage}
-            resizeMode={FastImage.resizeMode.cover}
-            onLoad={handleLoad}
-          />
-        </Animated.View>
+      <View ref={cardRef}>
         <TouchableOpacity
           activeOpacity={0.9}
-          style={styles.videoOverlay}
-          onPress={() =>
-            navigation.navigate('Creator', { id: movie?.uploader?.id })
-          }
+          style={styles.card}
+          onPress={() => {
+            cardRef.current?.measureInWindow((x, y, width, height) => {
+              onCardPress?.(movie, { x, y, width, height });
+            });
+          }}
         >
-          <FastImage
-            source={{
-              uri:
-                movie?.uploader?.profiles?.[0]?.avatarUrl ||
-                'https://via.placeholder.com/50',
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable,
+          <SharedElement id={`series.${movie?.id}.poster`} style={{ flex: 1 }}>
+            <Animated.View style={{ flex: 1, opacity }}>
+              <FastImage
+                source={{
+                  uri:
+                    movie?.posterUrl || 'https://via.placeholder.com/300x400',
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={styles.cardImage}
+                resizeMode={FastImage.resizeMode.cover}
+                onLoad={handleLoad}
+              />
+            </Animated.View>
+          </SharedElement>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.videoOverlay}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('Creator', { id: movie?.uploader?.id });
             }}
-            style={styles.avatar}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-          <Text style={styles.name}>
-            {capitalizeWords(movie?.uploader?.name)}
-          </Text>
+          >
+            <FastImage
+              source={{
+                uri:
+                  movie?.uploader?.profiles?.[0]?.avatarUrl ||
+                  'https://via.placeholder.com/50',
+              }}
+              style={styles.avatar}
+            />
+            <Text style={styles.name}>
+              {capitalizeWords(movie?.uploader?.name)}
+            </Text>
+          </TouchableOpacity>
         </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
     );
   },
 );
 
-const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
+const Explore: React.FC<ExploreProps> = ({
+  heading,
+  movieData,
+  isLoading,
+  onCardPress,
+}) => {
   const navigation = useNavigation<Navigation>();
 
   if (isLoading) {
@@ -120,7 +144,12 @@ const Explore: React.FC<ExploreProps> = ({ heading, movieData, isLoading }) => {
         style={{ marginBottom: 10 }}
       >
         {(movieData || []).map(movie => (
-          <ExploreCard key={movie?.id} movie={movie} navigation={navigation} />
+          <ExploreCard
+            key={movie.id}
+            movie={movie}
+            navigation={navigation}
+            onCardPress={onCardPress}
+          />
         ))}
       </ScrollView>
     </View>

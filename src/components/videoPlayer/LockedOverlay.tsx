@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,38 +6,49 @@ import {
   StyleSheet,
   TouchableOpacity,
   InteractionManager,
+  Platform,
 } from 'react-native';
 import { useVideoStore } from '../../store/videoStore';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 export function LockedOverlay() {
   const navigation = useNavigation<NavigationProp<any>>();
+  const [pendingNav, setPendingNav] = useState<{ fromSignup: boolean } | null>(
+    null,
+  );
 
   const { isLockedVisibleModal, setIsLockedVisibleModal, authRedirect } =
     useVideoStore();
 
-  const close = () => setIsLockedVisibleModal(false);
+  const close = () => {
+    setIsLockedVisibleModal(false);
+    setPendingNav(null);
+  };
+
+  const performNavigation = (fromSignup: boolean) => {
+    navigation.navigate('StartLogin', {
+      fromSignup,
+      redirect: authRedirect,
+    });
+  };
 
   const handleAuthNavigate = (fromSignup: boolean) => {
+    setPendingNav({ fromSignup });
     setIsLockedVisibleModal(false);
 
-    InteractionManager.runAfterInteractions(() => {
-      navigation.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'MainTabs',
-            params: {
-              screen: 'Profile',
-              params: {
-                fromSignup,
-                redirect: authRedirect,
-              },
-            },
-          },
-        ],
+    if (Platform.OS !== 'ios') {
+      InteractionManager.runAfterInteractions(() => {
+        performNavigation(fromSignup);
+        setPendingNav(null);
       });
-    });
+    }
+  };
+
+  const handleDismiss = () => {
+    if (pendingNav) {
+      performNavigation(pendingNav.fromSignup);
+      setPendingNav(null);
+    }
   };
 
   return (
@@ -47,6 +58,7 @@ export function LockedOverlay() {
       animationType="fade"
       presentationStyle="overFullScreen"
       onRequestClose={close}
+      onDismiss={handleDismiss}
       statusBarTranslucent
     >
       <View style={styles.overlay}>

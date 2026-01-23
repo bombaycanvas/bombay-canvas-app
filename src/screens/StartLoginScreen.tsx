@@ -24,7 +24,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import GoogleLogin from '../assets/GoogleLogin';
 import AppleLogin from '../assets/AppleLogin';
 import Toast from 'react-native-toast-message';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import PhoneInput from 'react-native-international-phone-number';
 import {
@@ -48,6 +48,8 @@ const { height } = Dimensions.get('window');
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const route = useRoute<any>();
+  const redirect = route.params?.redirect;
   const { setHasSkipped } = useAuthStore();
   const { data } = useGetCoverVideo();
 
@@ -63,11 +65,11 @@ const StartLoginScreen = () => {
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const verifyOtpMutation = useVerifyOtpMutation();
-  const { mutate: googleLoginMutate } = useGoogleLogin();
-  const { mutate: appleLoginMutate } = useAppleLogin();
-  const { mutate: loginMutate } = useLogin();
-  const { mutate: signupMutate } = useRequest();
+  const verifyOtpMutation = useVerifyOtpMutation(redirect);
+  const { mutate: googleLoginMutate } = useGoogleLogin(redirect);
+  const { mutate: appleLoginMutate } = useAppleLogin(redirect);
+  const { mutate: loginMutate } = useLogin(redirect);
+  const { mutate: signupMutate } = useRequest(redirect);
 
   const {
     control,
@@ -174,7 +176,7 @@ const StartLoginScreen = () => {
     const callingCode = Array.isArray(selectedCountry?.callingCode)
       ? selectedCountry.callingCode[0]
       : selectedCountry?.callingCode ||
-        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+      getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
 
     return `+${callingCode}${cleanedPhone}`;
   };

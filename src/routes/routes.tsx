@@ -1,43 +1,52 @@
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
+import { Platform, View, ActivityIndicator } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createSharedElementStackNavigator } from 'react-navigation-shared-element';
+import { TransitionPresets } from '@react-navigation/stack';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
-
+import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import HomeScreen from '../screens/HomeScreen';
+import SearchScreen from '../screens/SearchScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import LoginScreen from '../screens/LoginScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import VideoScreen from '../screens/VideoScreen';
 import CreatorScreen from '../screens/CreatorScreen';
-import LoginScreen from '../screens/LoginScreen';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import ProfileScreen from '../screens/ProfileScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import SearchScreen from '../screens/SearchScreen';
-import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
-import { Platform, View, ActivityIndicator } from 'react-native';
-import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
-import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import SeriesDetailScreen from '../screens/SeriesDetailScreen';
+import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
+import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
+import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
 
 export type MainTabsParamList = {
   Home: undefined;
   Search: undefined;
-  Creator: { id: string };
-  Video: { id: string };
-  Login: undefined;
-  SignUp: undefined;
   Profile: undefined;
-  Settings: undefined;
 };
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  MainTabs: undefined;
+  StartLogin: undefined;
+  CompleteProfile: undefined;
+  Signup: undefined;
+  SeriesDetail: {
+    id: string | number;
+    cardLayout?: any;
+    posterUrl: string; // ADD THIS
+  };
+  Video: undefined;
+  Creator: { id: string | number };
+  Settings: undefined;
+  CategoryMovies: { category: string };
+};
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<MainTabsParamList>();
+const Stack = createSharedElementStackNavigator<RootStackParamList>();
 
 const MainTabs = () => {
   const insets = useSafeAreaInsets();
@@ -48,22 +57,18 @@ const MainTabs = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        animation: 'none',
-        tabBarActiveTintColor: '#ffffff',
+        tabBarActiveTintColor: '#fff',
         tabBarInactiveTintColor: '#888',
         tabBarStyle: {
-          backgroundColor: '#000000',
+          backgroundColor: '#000',
           borderTopWidth: 0,
           height: 70 + insets.bottom,
           paddingBottom: insets.bottom,
           display: Platform.OS !== 'ios' && isKeyboardVisible ? 'none' : 'flex',
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
         tabBarIcon: ({ color, focused }) => {
-          let iconName = 'home-outline';
+          let iconName: string = 'home-outline';
+
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Search') {
@@ -71,17 +76,17 @@ const MainTabs = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
           }
+
           return <Ionicons name={iconName} size={24} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      {token != null ? (
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      ) : (
-        <Tab.Screen name="Profile" component={StartLoginScreen} />
-      )}
+      <Tab.Screen
+        name="Profile"
+        component={token ? ProfileScreen : StartLoginScreen}
+      />
     </Tab.Navigator>
   );
 };
@@ -99,72 +104,85 @@ const AppStack = () => {
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color="#ffffff" />
+        <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
 
   return (
-    <Stack.Navigator initialRouteName={token ? 'MainTabs' : 'StartLogin'}>
-      <Stack.Screen
-        name="StartLogin"
-        component={StartLoginScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="MainTabs"
-        component={MainTabs}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="CompleteProfile"
-        component={CompleteProfileScreen}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator
+      initialRouteName={token ? 'MainTabs' : 'StartLogin'}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="StartLogin" component={StartLoginScreen} />
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+
       <Stack.Screen
         name="Signup"
-        children={props => <LoginScreen {...props} fromSignup={true} />}
-        options={{ headerShown: false }}
+        component={LoginScreen}
+        initialParams={{ fromSignup: true }}
       />
       <Stack.Screen
         name="SeriesDetail"
-        children={() => <SeriesDetailScreen />}
-        options={{ headerShown: false }}
+        component={SeriesDetailScreen}
+        options={{
+          ...(Platform.OS === 'android'
+            ? {
+              ...TransitionPresets.SlideFromRightIOS,
+            }
+            : {
+              presentation: 'transparentModal',
+              cardStyle: { backgroundColor: 'transparent' },
+              gestureDirection: 'vertical',
+              gestureEnabled: false,
+            }),
+        }}
       />
+
       <Stack.Screen
         name="Video"
-        children={() => <VideoScreen />}
-        options={{ headerShown: false }}
+        component={VideoScreen}
+        options={{
+          presentation: 'transparentModal',
+          cardStyle: { backgroundColor: 'transparent' },
+          gestureDirection: 'vertical',
+        }}
       />
       <Stack.Screen
         name="Creator"
-        children={() => <CreatorScreen />}
-        options={{ headerShown: false }}
+        component={CreatorScreen}
+        options={{
+          ...(Platform.OS === 'android'
+            ? {
+              ...TransitionPresets.SlideFromRightIOS,
+            }
+            : {
+              presentation: 'transparentModal',
+              cardStyle: { backgroundColor: 'transparent' },
+              gestureDirection: 'vertical',
+              gestureEnabled: false,
+            }),
+        }}
       />
-      <Stack.Screen
-        name="Login"
-        children={props => <LoginScreen {...props} fromSignup={false} />}
-        options={{ headerShown: false }}
-      />
+
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: '#202020',
-          },
+          headerStyle: { backgroundColor: '#202020' },
           headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontFamily: 'HelveticaNowDisplay-Bold',
-          },
         }}
       />
+
       <Stack.Screen
         name="CategoryMovies"
         component={CategoryMoviesScreen}
         options={({ route }: any) => {
-          const rawCategory = route?.params?.category;
+          const rawCategory = route?.params?.category ?? '';
           const title =
             rawCategory.charAt(0).toUpperCase() +
             rawCategory.slice(1).toLowerCase();
@@ -184,10 +202,7 @@ export default function AppNavigator() {
   const { initializeAuth } = useAuthStore();
 
   useEffect(() => {
-    const initialize = async () => {
-      await initializeAuth();
-    };
-    initialize();
+    initializeAuth();
   }, [initializeAuth]);
 
   return (

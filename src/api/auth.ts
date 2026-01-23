@@ -44,9 +44,8 @@ export const verifyOtpRequest = async (data: any) => {
     Toast.show({
       type: 'error',
       text1: 'OTP Failed',
-      text2: `${
-        error.message || 'Please check your mobile number and try again.'
-      }`,
+      text2: `${error.message || 'Please check your mobile number and try again.'
+        }`,
     });
   }
 };
@@ -66,9 +65,8 @@ export const sendOtpRequest = async (data: any) => {
     Toast.show({
       type: 'error',
       text1: 'OTP Failed',
-      text2: `${
-        error.message || 'Please check your mobile number and try again.'
-      }`,
+      text2: `${error.message || 'Please check your mobile number and try again.'
+        }`,
     });
   }
 };
@@ -98,9 +96,8 @@ export const requestOtp = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${
-          error || 'Please verify your email and password, then try again'
-        }`,
+        text2: `${error || 'Please verify your email and password, then try again'
+          }`,
       });
     }
   }
@@ -130,7 +127,9 @@ const handleAuthRedirect = (
   }
 };
 
-export const useVerifyOtpMutation = () => {
+export const useVerifyOtpMutation = (
+  redirect?: { screen: string; params?: any },
+) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -149,10 +148,14 @@ export const useVerifyOtpMutation = () => {
             routes: [{ name: 'CompleteProfile' }],
           });
         } else {
-          (navigation as any).reset({
-            index: 0,
-            routes: [{ name: 'MainTabs' }],
-          });
+          if (redirect) {
+            handleAuthRedirect(navigation, redirect);
+          } else {
+            (navigation as any).reset({
+              index: 0,
+              routes: [{ name: 'MainTabs' }],
+            });
+          }
         }
       } else {
         Toast.show({
@@ -193,9 +196,8 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
       Toast.show({
         type: 'error',
         text1: 'OTP Failed',
-        text2: `${
-          error.message || 'Please check your mobile number and try again.'
-        }`,
+        text2: `${error.message || 'Please check your mobile number and try again.'
+          }`,
       });
     },
   });
@@ -252,9 +254,8 @@ export const login = async (data: any) => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `${
-          error || 'Please verify your email and password, then try again'
-        }`,
+        text2: `${error || 'Please verify your email and password, then try again'
+          }`,
       });
     }
   }
@@ -407,9 +408,8 @@ export const appleAuthApi = async (idToken: string) => {
     Toast.show({
       type: 'error',
       text1: 'Apple login failed',
-      text2: `${
-        error.message || 'Please verify your account, then try again.'
-      }`,
+      text2: `${error.message || 'Please verify your account, then try again.'
+        }`,
     });
     throw error;
   }
@@ -440,9 +440,8 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
       Toast.show({
         type: 'error',
         text1: 'Apple login failed',
-        text2: `${
-          error.message || 'Please verify your account, then try again.'
-        }`,
+        text2: `${error.message || 'Please verify your account, then try again.'
+          }`,
       });
     },
   });

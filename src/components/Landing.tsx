@@ -20,13 +20,14 @@ import { Pause } from 'lucide-react-native';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
-  Creator: { id: string };
+  Creator: { id: string | number; cardLayout?: any };
 };
 
 const { height } = Dimensions.get('window');
 
 const Landing = () => {
   const videoRef = useRef(null);
+  const creatorRef = useRef<View>(null);
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [isPlaying, setIsPlaying] = useState(true);
   const { data } = useGetCoverVideo();
@@ -81,24 +82,31 @@ const Landing = () => {
         </Text>
 
         <View style={styles.ctaWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.infoCta}
-            onPress={() =>
-              navigation.navigate('Creator', { id: data?.admin?.id })
-            }
-          >
-            <Image
-              source={{
-                uri:
-                  data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
+          <View ref={creatorRef}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.infoCta}
+              onPress={() => {
+                creatorRef.current?.measureInWindow((x, y, width, height) => {
+                  navigation.navigate('Creator', {
+                    id: data?.admin?.id,
+                    cardLayout: { x, y, width, height }
+                  });
+                });
               }}
-              style={styles.avatar}
-            />
-            <Text style={styles.name}>
-              {capitalizeWords(data?.admin?.profiles[0]?.name)}
-            </Text>
-          </TouchableOpacity>
+            >
+              <Image
+                source={{
+                  uri:
+                    data?.admin?.profiles[0]?.avatarUrl ?? '/static/avatar.jpg',
+                }}
+                style={styles.avatar}
+              />
+              <Text style={styles.name}>
+                {capitalizeWords(data?.admin?.profiles[0]?.name)}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.playButton}

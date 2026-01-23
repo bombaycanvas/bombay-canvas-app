@@ -1,4 +1,10 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
   View,
@@ -7,6 +13,9 @@ import {
   Dimensions,
   ScrollView,
   TouchableOpacity,
+  Animated,
+  Platform,
+  PanResponder,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -24,8 +33,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { useVideoStore } from '../store/videoStore';
 import { capitalizeWords } from '../utils/capitalizeWords';
+import { BlurView } from '@react-native-community/blur';
+import { useNetflixTransition } from '../hooks/useNetflixTransition';
 
 const { height, width } = Dimensions.get('window');
+const DRAG_THRESHOLD = 120;
 
 type RootStackParamList = {
   SeriesDetail: { id: string };
@@ -36,16 +48,20 @@ type RootRedirectVideo = {
   Creator: { id: string };
   Video: { id: string };
 };
-
-const SeriesDetailScreen = () => {
+const SeriesDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const videoRef = useRef(null);
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const route = useRoute<RouteProp<RootStackParamList, 'SeriesDetail'>>();
-  const { id } = route.params;
-  const { data, isLoading, isError } = useMoviesDataById(id);
+  const params = route.params as any;
+  const didAnimateRef = useRef(false);
+  const id = params?.id;
+  const cardLayout = params?.cardLayout;
+  const posterUrl = params?.posterUrl;
 
+  const { data, isLoading, isError } = useMoviesDataById(id);
   const [isPlaying, setIsPlaying] = useState(true);
+
   const [isReady, setIsReady] = useState(false);
   const {
     setIsLockedVisibleModal,
@@ -56,6 +72,8 @@ const SeriesDetailScreen = () => {
     setEpisodes,
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
+  const { progress, getAnimationValues, open, close, snapBack } =
+    useNetflixTransition();
 
   const series = data?.series;
   const firstEpisode = series?.episodes?.[0];
@@ -69,14 +87,76 @@ const SeriesDetailScreen = () => {
     !series?.userPurchased;
   const shouldFetch = !locked && !isPaidEpisode;
 
-  useFocusEffect(
-    useCallback(() => {
-      setIsPlaying(true);
-      return () => {
-        setIsPlaying(false);
-      };
-    }, []),
-  );
+  const animationValues = useMemo(() => {
+    if (cardLayout) {
+      return getAnimationValues(cardLayout);
+    }
+    return {
+      scale: new Animated.Value(1),
+      translateX: new Animated.Value(0),
+      translateY: new Animated.Value(0),
+      blurOpacity: new Animated.Value(0),
+      contentOpacity: new Animated.Value(1),
+      backdropOpacity: new Animated.Value(0.7),
+      posterOpacity: new Animated.Value(0),
+      posterScale: new Animated.Value(1),
+      posterTranslateX: new Animated.Value(0),
+      posterTranslateY: new Animated.Value(0),
+      videoOpacity: new Animated.Value(0),
+      borderRadius: new Animated.Value(0),
+    };
+  }, [cardLayout, getAnimationValues]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => Platform.OS === 'ios',
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (Platform.OS !== 'ios') return false;
+        return (
+          gestureState.dy > 10 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        );
+      },
+      onPanResponderGrant: () => {
+        progress.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (!cardLayout) return;
+
+        const dragDistance = Math.max(0, gestureState.dy);
+        const dragProgress = dragDistance / (height * 0.7);
+        const newProgress = Math.max(0, 1 - dragProgress * 1.5);
+
+        progress.setValue(newProgress);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (!cardLayout) return;
+
+        const shouldClose =
+          gestureState.dy > DRAG_THRESHOLD || gestureState.vy > 0.5;
+
+        if (shouldClose) {
+          handleBack();
+        } else {
+          snapBack();
+        }
+      },
+      onPanResponderTerminate: () => {
+        snapBack();
+      },
+    }),
+  ).current;
+
+  useEffect(() => {
+    if (didAnimateRef.current) return;
+    didAnimateRef.current = true;
+    if (cardLayout && Platform.OS === 'ios') {
+      open(cardLayout);
+    } else {
+      progress.setValue(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (series) {
@@ -86,6 +166,25 @@ const SeriesDetailScreen = () => {
       }
     }
   }, [series, setSeries, setEpisodes]);
+
+  const handleBack = useCallback(() => {
+    if (cardLayout && Platform.OS === 'ios') {
+      close(cardLayout, () => {
+        navigation.goBack();
+      });
+    } else {
+      navigation.goBack();
+    }
+  }, [cardLayout, close, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsPlaying(true);
+      return () => {
+        setIsPlaying(false);
+      };
+    }, []),
+  );
 
   const togglePlay = () => {
     setIsPlaying(prev => !prev);
@@ -106,197 +205,305 @@ const SeriesDetailScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigation.goBack()}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: '#000',
+            opacity: animationValues.backdropOpacity,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            zIndex: 20,
+            opacity: animationValues.posterOpacity,
+            transform: [
+              { translateX: animationValues.posterTranslateX },
+              { translateY: animationValues.posterTranslateY },
+              { scale: animationValues.posterScale },
+            ],
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderRadius: animationValues.borderRadius,
+              overflow: 'hidden',
+            },
+          ]}
         >
+          <FastImage
+            source={{
+              uri:
+                posterUrl ||
+                series?.posterUrl ||
+                'https://via.placeholder.com/300x400',
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={[StyleSheet.absoluteFill]}
+            resizeMode="cover"
+            onLoad={() => console.log('Poster loaded')}
+            onError={e => console.log('Poster error:', e.nativeEvent.error)}
+          />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              opacity: animationValues.blurOpacity,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          {Platform.OS === 'ios' ? (
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType="dark"
+              blurAmount={20}
+              reducedTransparencyFallbackColor="rgba(0,0,0,0.8)"
+            />
+          ) : (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: 'rgba(0,0,0,0.7)' },
+              ]}
+            />
+          )}
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.videoWrapper,
+          {
+            opacity: animationValues.videoOpacity,
+            transform: [
+              { translateX: animationValues.translateX },
+              { translateY: animationValues.translateY },
+              { scale: animationValues.scale },
+            ],
+          },
+        ]}
+        pointerEvents="box-none"
+        {...panResponder.panHandlers}
+      >
+        {series && (
+          <Video
+            key={firstEpisode?.videoUrl}
+            ref={videoRef}
+            source={{ uri: firstEpisode?.videoUrl }}
+            style={styles.video}
+            paused={!isPlaying}
+            resizeMode="cover"
+            onReadyForDisplay={() => setIsReady(true)}
+            poster={firstEpisode?.thumbnail}
+            posterResizeMode="cover"
+            repeat
+          />
+        )}
+        {!isReady && series && (
+          <FastImage
+            source={{
+              uri: firstEpisode?.thumbnail,
+              priority: FastImage.priority.high,
+            }}
+            style={StyleSheet.absoluteFill}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        )}
+        <LinearGradient
+          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
+          style={styles.gradient}
+          start={{ x: 0.5, y: 1 }}
+          end={{ x: 0.5, y: 0 }}
+        />
+      </Animated.View>
+
+      <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
+        <TouchableOpacity activeOpacity={0.9} onPress={handleBack}>
           <ChevronLeft color="#ff6a00" size={28} />
         </TouchableOpacity>
       </View>
-      {series && (
-        <>
-          <View style={styles.videoWrapper}>
-            <Video
-              key={firstEpisode?.videoUrl}
-              ref={videoRef}
-              source={{ uri: firstEpisode?.videoUrl }}
-              style={styles.video}
-              paused={!isPlaying}
-              resizeMode="cover"
-              onReadyForDisplay={() => setIsReady(true)}
-              poster={firstEpisode?.thumbnail}
-              posterResizeMode="cover"
-              repeat
-            />
-            {!isReady && (
-              <FastImage
-                source={{
-                  uri: firstEpisode?.thumbnail,
-                  priority: FastImage.priority.high,
-                }}
-                style={StyleSheet.absoluteFill}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            )}
-            <LinearGradient
-              colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
-              style={styles.gradient}
-              start={{ x: 0.5, y: 1 }}
-              end={{ x: 0.5, y: 0 }}
-            />
-          </View>
+      <Animated.View
+        style={[
+          styles.contentContainer,
+          {
+            opacity: animationValues.contentOpacity,
+          },
+        ]}
+      >
+        {series && (
+          <View style={styles.contentWrapper}>
+            <ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingTop: height * 0.5 },
+              ]}
+            >
+              <View style={styles.content}>
+                <Text style={styles.title}>{series.title}</Text>
 
-          <ScrollView style={styles.details}>
-            <Text style={styles.title}>{series.title}</Text>
-
-            <View style={styles.actionsRow}>
-              {locked ? (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.watchButton}
-                  onPress={() => {
-                    setIsLockedVisibleModal(true);
-                    setAuthRedirect({ screen: 'SeriesDetail', params: { id } });
-                  }}
-                >
-                  <Text style={styles.watchText}>Unlock Episodes</Text>
-                </TouchableOpacity>
-              ) : isPaidEpisode ? (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.watchButton}
-                  onPress={() => {
-                    setPurchaseSeries(series);
-                    setIsPurchaseModal(true);
-                  }}
-                >
-                  <Text style={styles.watchText}>Purchase Episodes</Text>
-                </TouchableOpacity>
-              ) : (
-                shouldFetch && (
+                <View style={styles.actionsRow}>
+                  {locked ? (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.watchButton}
+                      onPress={() => {
+                        setIsLockedVisibleModal(true);
+                        setAuthRedirect({
+                          screen: 'SeriesDetail',
+                          params: { id },
+                        });
+                      }}
+                    >
+                      <Text style={styles.watchText}>Unlock Episodes</Text>
+                    </TouchableOpacity>
+                  ) : isPaidEpisode ? (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.watchButton}
+                      onPress={() => {
+                        setPurchaseSeries(series);
+                        setIsPurchaseModal(true);
+                      }}
+                    >
+                      <Text style={styles.watchText}>Purchase Episodes</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    shouldFetch && (
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.watchButton}
+                        onPress={() => navigation.navigate('Video', { id })}
+                      >
+                        <Text style={styles.watchText}>Watch Now</Text>
+                      </TouchableOpacity>
+                    )
+                  )}
                   <TouchableOpacity
                     activeOpacity={0.9}
-                    style={styles.watchButton}
-                    onPress={() => navigation.navigate('Video', { id })}
+                    style={styles.playPauseButton}
+                    onPress={togglePlay}
                   >
-                    <Text style={styles.watchText}>Watch Now</Text>
+                    {isPlaying ? (
+                      <Pause color="#ff6a00" size={22} />
+                    ) : (
+                      <Play color="#ff6a00" size={22} />
+                    )}
                   </TouchableOpacity>
-                )
-              )}
+                </View>
+
+                <Text style={styles.metaText}>
+                  {new Date(series.releaseDate).getFullYear()} •{' '}
+                  {capitalizeWords(series.genres?.[0]?.name || '')} •{' '}
+                  {series.episodes?.length || 0} Episodes
+                </Text>
+
+                {/* Creator Info - FIXED: Ensure it shows */}
+                {series.uploader && (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.creatorRow}
+                    onPress={() =>
+                      navigation.navigate('Creator', {
+                        id: series.uploader?.id,
+                      })
+                    }
+                  >
+                    <FastImage
+                      source={{
+                        uri:
+                          series.uploader?.profiles?.[0]?.avatarUrl ||
+                          'https://via.placeholder.com/40',
+                        priority: FastImage.priority.high,
+                        cache: FastImage.cacheControl.immutable,
+                      }}
+                      style={styles.avatar}
+                      resizeMode={FastImage.resizeMode.cover}
+                    />
+                    <Text
+                      style={styles.creatorName}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {capitalizeWords(series.uploader?.name || 'Unknown')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {series.description && (
+                  <Text
+                    style={styles.description}
+                    numberOfLines={10}
+                    ellipsizeMode="tail"
+                  >
+                    {series.description}
+                  </Text>
+                )}
+                <View style={{ height: 100 }} />
+              </View>
+            </ScrollView>
+            <View
+              style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}
+            >
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={styles.playPauseButton}
-                onPress={togglePlay}
+                style={styles.episodesButton}
+                onPress={handleViewEpisodes}
               >
-                {isPlaying ? (
-                  <Pause color="#ff6a00" size={22} />
-                ) : (
-                  <Play color="#ff6a00" size={22} />
-                )}
+                <Text style={styles.episodesButtonText}>View Episodes</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.metaText}>
-              {new Date(series.releaseDate).getFullYear()} •{' '}
-              {capitalizeWords(series.genres?.[0]?.name)} •{' '}
-              {series.episodes?.length} Episodes
-            </Text>
-
-            {series.uploader && (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={styles.creatorRow}
-                onPress={() =>
-                  navigation.navigate('Creator', { id: series.uploader?.id })
-                }
-              >
-                <FastImage
-                  source={{
-                    uri:
-                      series.uploader?.profiles?.[0]?.avatarUrl ||
-                      'https://via.placeholder.com/40',
-                    priority: FastImage.priority.high,
-                    cache: FastImage.cacheControl.immutable,
-                  }}
-                  style={styles.avatar}
-                  resizeMode={FastImage.resizeMode.cover}
-                />
-                <Text
-                  style={styles.creatorName}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {capitalizeWords(series.uploader?.name)}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <Text
-              style={styles.description}
-              numberOfLines={5}
-              ellipsizeMode="tail"
-            >
-              {series.description}
-            </Text>
-          </ScrollView>
-
-          <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={styles.episodesButton}
-              onPress={handleViewEpisodes}
-            >
-              <Text style={styles.episodesButtonText}>View Episodes</Text>
-            </TouchableOpacity>
           </View>
-        </>
-      )}
+        )}
+      </Animated.View>
 
+      {(isLoading || !series) && (
+        <View style={styles.loaderOverlay}>
+          <Text style={{ color: 'white' }}>Loading...</Text>
+        </View>
+      )}
       {series && (
         <EpisodesBottomSheet
           visible={isEpisodesSheetOpen}
           onClose={() => setIsEpisodesSheetOpen(false)}
           episodes={series.episodes}
           activeEpisode={firstEpisode}
-          onEpisodeSelect={() => {}}
+          onEpisodeSelect={() => { }}
           isAuthenticated={isAuthenticated}
           isPending={isLoading}
           series={series}
           screenType="seriesDetail"
         />
       )}
-      {(isLoading || !series) && (
-        <View style={styles.loaderOverlay}>
-          <Text style={{ color: 'white' }}>Loading...</Text>
-        </View>
-      )}
     </View>
   );
 };
 
-export default SeriesDetailScreen;
-
 const styles = StyleSheet.create({
-  creatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingRight: 12,
-    marginBottom: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.25)',
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
-  container: { flex: 1, backgroundColor: '#000' },
   backButtonContainer: {
     position: 'absolute',
     left: 0,
-    zIndex: 999,
+    zIndex: 20,
     justifyContent: 'center',
     padding: 12,
   },
   videoWrapper: {
+    position: 'absolute',
     width: width,
     height: height * 0.5,
     backgroundColor: '#111',
@@ -306,41 +513,49 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
     overflow: 'hidden',
+    zIndex: 10,
   },
-  video: { width: '100%', height: '100%' },
+  video: {
+    width: '100%',
+    height: '100%',
+  },
   gradient: {
     position: 'absolute',
     bottom: 0,
     height: '45%',
     width: '100%',
   },
-  loader: {
+  contentContainer: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  details: {
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  content: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingTop: 20,
+    backgroundColor: 'transparent',
   },
   title: {
     color: '#fff',
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 8,
-    marginTop: 8,
+    marginBottom: 12,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
     gap: 10,
-  },
-  loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    backgroundColor: '#000',
   },
   watchButton: {
     flex: 1,
@@ -363,7 +578,19 @@ const styles = StyleSheet.create({
   metaText: {
     color: '#aaa',
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.25)',
   },
   avatar: {
     width: 28,
@@ -399,4 +626,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  loader: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
+
+export default SeriesDetailScreen;

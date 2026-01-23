@@ -42,6 +42,59 @@ const CARD_MARGIN = 12;
 const NUM_COLUMNS = 3;
 const CARD_WIDTH = (width - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
+const CreatorCard = React.memo(({ item, navigation }: { item: Series; navigation: any }) => {
+  const cardRef = React.useRef<View>(null);
+  return (
+    <View ref={cardRef}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={[styles.card, { backgroundColor: '#222' }]}
+        onPress={() => {
+          cardRef.current?.measureInWindow((x, y, width, height) => {
+            navigation.navigate('SeriesDetail', {
+              id: item.id,
+              cardLayout: { x, y, width, height },
+              posterUrl: item.posterUrl,
+            });
+          });
+        }}
+      >
+        <FastImage
+          source={{
+            uri: item.posterUrl,
+            priority: FastImage.priority.normal,
+            cache: FastImage.cacheControl.immutable,
+          }}
+          style={styles.poster}
+          resizeMode={FastImage.resizeMode.cover}
+        />
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.videoOverlay}
+          onPress={e => {
+            e.stopPropagation();
+          }}
+        >
+          <Image
+            source={{
+              uri:
+                item?.uploader?.profiles &&
+                  item.uploader.profiles.length > 0 &&
+                  item.uploader.profiles[0]?.avatarUrl
+                  ? item.uploader.profiles[0].avatarUrl
+                  : undefined,
+            }}
+            style={styles.avatar}
+          />
+          <Text style={styles.name}>
+            {capitalizeWords(item?.uploader?.name)}
+          </Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
 const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
 
@@ -71,37 +124,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
       contentContainerStyle={styles.wrapper}
       scrollEnabled={false}
       renderItem={({ item }) => (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[styles.card, { backgroundColor: '#222' }]}
-          onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
-        >
-          <FastImage
-            source={{
-              uri: item.posterUrl,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={styles.poster}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-          <TouchableOpacity activeOpacity={0.9} style={styles.videoOverlay}>
-            <Image
-              source={{
-                uri:
-                  item?.uploader?.profiles &&
-                  item.uploader.profiles.length > 0 &&
-                  item.uploader.profiles[0]?.avatarUrl
-                    ? item.uploader.profiles[0].avatarUrl
-                    : undefined,
-              }}
-              style={styles.avatar}
-            />
-            <Text style={styles.name}>
-              {capitalizeWords(item?.uploader?.name)}
-            </Text>
-          </TouchableOpacity>
-        </TouchableOpacity>
+        <CreatorCard item={item} navigation={navigation} />
       )}
     />
   );
