@@ -301,23 +301,20 @@ const SeriesDetailScreen: React.FC = () => {
         pointerEvents="box-none"
         {...panResponder.panHandlers}
       >
-        {series &&
-          isFocused &&
-          (console.log('series', series),
-          (
-            <Video
-              useTextureView={true}
-              ref={videoRef}
-              source={safeVideoUrl ? { uri: safeVideoUrl } : undefined}
-              style={styles.video}
-              paused={!isPlaying}
-              resizeMode="cover"
-              onReadyForDisplay={() => setIsReady(true)}
-              poster={firstEpisode?.thumbnail}
-              posterResizeMode="cover"
-              // repeat
-            />
-          ))}
+        {series && isFocused && (
+          <Video
+            useTextureView={true}
+            ref={videoRef}
+            source={safeVideoUrl ? { uri: safeVideoUrl } : undefined}
+            style={styles.video}
+            paused={!isPlaying}
+            resizeMode="cover"
+            onReadyForDisplay={() => setIsReady(true)}
+            poster={firstEpisode?.thumbnail}
+            posterResizeMode="cover"
+            repeat
+          />
+        )}
         {!isReady && series && (
           <FastImage
             source={{
