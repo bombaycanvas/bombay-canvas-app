@@ -131,14 +131,14 @@ const AppStack = () => {
         options={{
           ...(Platform.OS === 'android'
             ? {
-              ...TransitionPresets.SlideFromRightIOS,
-            }
+                ...TransitionPresets.SlideFromRightIOS,
+              }
             : {
-              presentation: 'transparentModal',
-              cardStyle: { backgroundColor: 'transparent' },
-              gestureDirection: 'vertical',
-              gestureEnabled: false,
-            }),
+                presentation: 'transparentModal',
+                cardStyle: { backgroundColor: 'transparent' },
+                gestureDirection: 'vertical',
+                gestureEnabled: false,
+              }),
         }}
       />
 
@@ -146,25 +146,34 @@ const AppStack = () => {
         name="Video"
         component={VideoScreen}
         options={{
-          presentation: 'transparentModal',
-          cardStyle: { backgroundColor: 'transparent' },
-          gestureDirection: 'vertical',
+          headerShown: false,
+          ...(Platform.OS === 'android'
+            ? {
+                presentation: 'card',
+                animation: 'slide_from_bottom',
+              }
+            : {
+                presentation: 'transparentModal',
+                cardStyle: { backgroundColor: 'transparent' },
+                gestureDirection: 'vertical',
+              }),
         }}
       />
+
       <Stack.Screen
         name="Creator"
         component={CreatorScreen}
         options={{
           ...(Platform.OS === 'android'
             ? {
-              ...TransitionPresets.SlideFromRightIOS,
-            }
+                ...TransitionPresets.SlideFromRightIOS,
+              }
             : {
-              presentation: 'transparentModal',
-              cardStyle: { backgroundColor: 'transparent' },
-              gestureDirection: 'vertical',
-              gestureEnabled: false,
-            }),
+                presentation: 'transparentModal',
+                cardStyle: { backgroundColor: 'transparent' },
+                gestureDirection: 'vertical',
+                gestureEnabled: false,
+              }),
         }}
       />
 

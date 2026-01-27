@@ -22,8 +22,8 @@ android {
         applicationId "com.bombaycanvas"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.0.2"
         manifestPlaceholders = [
             appAuthRedirectScheme: "com.googleusercontent.apps.1018893063821-etqnnkfq7f3jga4jluo3e6v75lq8mmlr.apps"
         ]

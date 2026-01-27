@@ -25,6 +25,7 @@ import {
   RouteProp,
   useFocusEffect,
   NavigationProp,
+  useIsFocused,
 } from '@react-navigation/native';
 import { useMoviesDataById } from '../api/video';
 import { ChevronLeft, Pause, Play } from 'lucide-react-native';
@@ -77,6 +78,10 @@ const SeriesDetailScreen: React.FC = () => {
 
   const series = data?.series;
   const firstEpisode = series?.episodes?.[0];
+  const safeVideoUrl = firstEpisode?.videoUrl
+    ? encodeURI(firstEpisode.videoUrl)
+    : undefined;
+  const isFocused = useIsFocused();
   const { isAuthenticated: globalAuth } = useAuthStore();
   const isAuthenticated = data?.isAuthenticated || globalAuth;
   const locked = firstEpisode && !firstEpisode?.isPublic && !isAuthenticated;
@@ -296,20 +301,23 @@ const SeriesDetailScreen: React.FC = () => {
         pointerEvents="box-none"
         {...panResponder.panHandlers}
       >
-        {series && (
-          <Video
-            key={firstEpisode?.videoUrl}
-            ref={videoRef}
-            source={{ uri: firstEpisode?.videoUrl }}
-            style={styles.video}
-            paused={!isPlaying}
-            resizeMode="cover"
-            onReadyForDisplay={() => setIsReady(true)}
-            poster={firstEpisode?.thumbnail}
-            posterResizeMode="cover"
-            repeat
-          />
-        )}
+        {series &&
+          isFocused &&
+          (console.log('series', series),
+          (
+            <Video
+              useTextureView={true}
+              ref={videoRef}
+              source={safeVideoUrl ? { uri: safeVideoUrl } : undefined}
+              style={styles.video}
+              paused={!isPlaying}
+              resizeMode="cover"
+              onReadyForDisplay={() => setIsReady(true)}
+              poster={firstEpisode?.thumbnail}
+              posterResizeMode="cover"
+              // repeat
+            />
+          ))}
         {!isReady && series && (
           <FastImage
             source={{
@@ -385,7 +393,12 @@ const SeriesDetailScreen: React.FC = () => {
                       <TouchableOpacity
                         activeOpacity={0.9}
                         style={styles.watchButton}
-                        onPress={() => navigation.navigate('Video', { id })}
+                        onPress={() => {
+                          setIsPlaying(false);
+                          setTimeout(() => {
+                            navigation.navigate('Video', { id });
+                          }, 100);
+                        }}
                       >
                         <Text style={styles.watchText}>Watch Now</Text>
                       </TouchableOpacity>
@@ -479,7 +492,7 @@ const SeriesDetailScreen: React.FC = () => {
           onClose={() => setIsEpisodesSheetOpen(false)}
           episodes={series.episodes}
           activeEpisode={firstEpisode}
-          onEpisodeSelect={() => { }}
+          onEpisodeSelect={() => {}}
           isAuthenticated={isAuthenticated}
           isPending={isLoading}
           series={series}

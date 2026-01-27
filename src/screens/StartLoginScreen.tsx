@@ -176,7 +176,7 @@ const StartLoginScreen = () => {
     const callingCode = Array.isArray(selectedCountry?.callingCode)
       ? selectedCountry.callingCode[0]
       : selectedCountry?.callingCode ||
-      getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
 
     return `+${callingCode}${cleanedPhone}`;
   };
@@ -699,6 +699,7 @@ const StartLoginScreen = () => {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
         <Video
+          useTextureView={true}
           source={{ uri: data?.CoverUrlVideo?.url }}
           style={styles.backgroundVideo}
           resizeMode="cover"

@@ -263,6 +263,7 @@ export default function VideoPlayer({
     typeof episode.videoUrl === 'string' &&
     episode.videoUrl.trim().length > 0;
 
+  if (!isVisible) return <View style={styles.container} />;
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -286,6 +287,7 @@ export default function VideoPlayer({
         <>
           {!locked && isVisible && hasValidVideoUrl ? (
             <Video
+              useTextureView={true}
               key={episode?.videoUrl}
               ref={videoRef}
               source={{ uri: episode?.videoUrl }}

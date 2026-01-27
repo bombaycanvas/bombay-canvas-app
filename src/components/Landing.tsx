@@ -48,6 +48,7 @@ const Landing = () => {
   return (
     <View style={styles.layout}>
       <Video
+        useTextureView={true}
         ref={videoRef}
         source={{ uri: data?.CoverUrlVideo?.url }}
         style={styles.backgroundVideo}
@@ -90,7 +91,7 @@ const Landing = () => {
                 creatorRef.current?.measureInWindow((x, y, width, height) => {
                   navigation.navigate('Creator', {
                     id: data?.admin?.id,
-                    cardLayout: { x, y, width, height }
+                    cardLayout: { x, y, width, height },
                   });
                 });
               }}

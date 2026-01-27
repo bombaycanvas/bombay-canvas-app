@@ -80,11 +80,11 @@ const VideoListItem = React.memo(
     );
 
     const episodeData =
-      data?.episode && data.episode.videoUrl ? data.episode : item;
-
+      data?.episode && data?.episode?.videoUrl ? data?.episode : item;
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer
+          key={episodeData?.id}
           episode={episodeData}
           movie={movie}
           locked={locked}
@@ -274,7 +274,7 @@ const VideoScreen = () => {
     );
   }
 
-  const activeEpisode = episodes.find(e => e.id === currentEpisodeId);
+  const activeEpisode = episodes?.find(e => e.id === currentEpisodeId);
 
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
@@ -294,14 +294,14 @@ const VideoScreen = () => {
           index,
         })}
         initialNumToRender={1}
-        maxToRenderPerBatch={2}
-        windowSize={3}
+        maxToRenderPerBatch={1}
+        windowSize={1}
         snapToOffsets={episodes.map((_, i) => i * ITEM_HEIGHT)}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
         snapToAlignment="start"
         disableIntervalMomentum={true}
         scrollEventThrottle={16}
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
         overScrollMode="never"
       />
       <EpisodesBottomSheet
