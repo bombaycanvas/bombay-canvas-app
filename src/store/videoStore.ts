@@ -13,12 +13,16 @@ interface VideoState {
   episodes: Episode[];
   currentEpisodeId: string | null;
   isPaused: boolean;
+  animationSeriesId: string | null;
+  shouldRestoreSeriesAnimation: boolean;
 
   setSeries: (series: any | null) => void;
   setEpisodes: (episodes: Episode[]) => void;
   setCurrentEpisodeId: (episodeId: string | null) => void;
   setPaused: (paused: boolean) => void;
   resetPlayer: () => void;
+  activeCardRef: React.RefObject<any> | null;
+  setActiveCardRef: (ref: React.RefObject<any> | null) => void;
 
   isLockedVisibleModal: boolean;
   setIsLockedVisibleModal: (value: boolean) => void;
@@ -32,6 +36,9 @@ interface VideoState {
 
   authRedirect: { screen: string; params?: any } | null;
   setAuthRedirect: (redirect: { screen: string; params?: any } | null) => void;
+
+  setAnimationSeriesId: (id: string | null) => void;
+  setShouldRestoreSeriesAnimation: (value: boolean) => void;
 }
 
 export const useVideoStore = create<VideoState>(set => ({
@@ -39,6 +46,11 @@ export const useVideoStore = create<VideoState>(set => ({
   episodes: [],
   currentEpisodeId: null,
   isPaused: true,
+  animationSeriesId: null,
+  shouldRestoreSeriesAnimation: false,
+
+  activeCardRef: null,
+  setActiveCardRef: ref => set({ activeCardRef: ref }),
 
   setSeries: series => set({ series }),
   setEpisodes: episodes => set({ episodes }),
@@ -54,6 +66,10 @@ export const useVideoStore = create<VideoState>(set => ({
       series: null,
     }),
 
+  setAnimationSeriesId: id => set({ animationSeriesId: id }),
+  setShouldRestoreSeriesAnimation: value =>
+    set({ shouldRestoreSeriesAnimation: value }),
+
   isLockedVisibleModal: false,
   setIsLockedVisibleModal: value => set({ isLockedVisibleModal: value }),
 
@@ -67,4 +83,10 @@ export const useVideoStore = create<VideoState>(set => ({
 
   authRedirect: null,
   setAuthRedirect: redirect => set({ authRedirect: redirect }),
+
+  resetPlayerSoft: () =>
+    set({
+      isPaused: true,
+      currentEpisodeId: null,
+    }),
 }));

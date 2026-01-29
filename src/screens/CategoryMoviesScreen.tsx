@@ -23,19 +23,31 @@ const CategoryMoviesScreen = () => {
   const route = useRoute<RouteProp<CategoryMoviesRoute, 'params'>>();
   const { movies = [] } = route.params || { movies: [] };
 
-  const renderMovie = ({ item }: { item: Movie }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      style={styles.movieItem}
-      key={item?.id}
-      onPress={() => navigation.navigate('SeriesDetail', { id: item?.id })}
-    >
-      <Image source={{ uri: item?.posterUrl }} style={styles.poster} />
-      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-        {item?.title?.charAt(0).toUpperCase() + item?.title?.slice(1)}
-      </Text>
-    </TouchableOpacity>
-  );
+  const MovieCard = React.memo(({ item, navigation }: { item: Movie; navigation: any }) => {
+    const cardRef = React.useRef<View>(null);
+    return (
+      <View ref={cardRef}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.movieItem}
+          onPress={() => {
+            cardRef.current?.measureInWindow((x, y, width, height) => {
+              navigation.navigate('SeriesDetail', {
+                id: item.id,
+                cardLayout: { x, y, width, height },
+                posterUrl: item.posterUrl,
+              });
+            });
+          }}
+        >
+          <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  });
 
   return (
     <View style={styles.container}>
@@ -43,7 +55,9 @@ const CategoryMoviesScreen = () => {
         data={movies}
         spacing={12}
         itemDimension={110}
-        renderItem={renderMovie}
+        renderItem={({ item }) => (
+          <MovieCard item={item} navigation={navigation} />
+        )}
         keyExtractor={item => item.id}
         scrollEnabled={false}
         contentContainerStyle={styles.wrapper}

@@ -71,18 +71,32 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
-  const renderMovieItem = ({ item }: { item: Movie }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      style={styles.movieItem}
-      onPress={() => navigation.navigate('SeriesDetail', { id: item.id })}
-    >
-      <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-        {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
-      </Text>
-    </TouchableOpacity>
-  );
+
+  const SearchMovieCard = React.memo(({ item, navigation }: { item: Movie; navigation: any }) => {
+    const cardRef = React.useRef<View>(null);
+    return (
+      <View ref={cardRef}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.movieItem}
+          onPress={() => {
+            cardRef.current?.measureInWindow((x, y, width, height) => {
+              navigation.navigate('SeriesDetail', {
+                id: item.id,
+                cardLayout: { x, y, width, height },
+                posterUrl: item.posterUrl,
+              });
+            });
+          }}
+        >
+          <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  });
 
   const getItemURL = (item: string) => {
     if (item in SearchListDataImage) {
@@ -114,7 +128,9 @@ const SearchScreen = () => {
         <FlatGrid
           key={'list-search'}
           data={searchResults ?? []}
-          renderItem={renderMovieItem}
+          renderItem={({ item }) => (
+            <SearchMovieCard item={item} navigation={navigation} />
+          )}
           spacing={12}
           itemDimension={110}
           scrollEnabled={true}

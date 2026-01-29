@@ -27,7 +27,12 @@ import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
   Creator: { id: string };
-  Video: { id: string; episodeId: string };
+  Video: {
+    id: string;
+    episodeId: string;
+    cardLayout?: { x: number; y: number; width: number; height: number };
+    posterUrl?: string;
+  };
 };
 
 type Episode = {
@@ -50,11 +55,16 @@ const VideoListItem = React.memo(
     movie,
     onEpisodesPress,
     isAuthenticated,
+    onVideoEnd,
+    cardLayout,
   }: {
     item: any;
     movie: any;
     onEpisodesPress: () => void;
     isAuthenticated: boolean;
+    onVideoEnd: () => void;
+    cardLayout?: any;
+    posterUrl?: string;
   }) => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -92,6 +102,8 @@ const VideoListItem = React.memo(
           controlsVisible={controlsVisible}
           setControlsVisible={setControlsVisible}
           isPlaybackLoading={isPlaybackLoading}
+          onVideoEnd={onVideoEnd}
+          cardLayout={cardLayout}
         />
         <Animated.View
           style={[
@@ -148,7 +160,7 @@ const VideoListItem = React.memo(
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
-  const { episodeId } = route.params ?? {};
+  const { episodeId, cardLayout, posterUrl } = route.params ?? {};
   const { series, episodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
 
@@ -170,11 +182,11 @@ const VideoScreen = () => {
   const scrollToEpisode = useCallback(
     (index: number) => {
       try {
-        flatListRef.current?.scrollToIndex({ index, animated: false });
+        flatListRef.current?.scrollToIndex({ index, animated: true });
       } catch (e) {
         flatListRef.current?.scrollToOffset({
           offset: ITEM_HEIGHT * index,
-          animated: false,
+          animated: true,
         });
       }
     },
@@ -244,6 +256,19 @@ const VideoScreen = () => {
     episodes?.findIndex(ep => ep.id === (currentEpisodeId || episodeId)) ?? 0;
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
+  const handleVideoEnd = useCallback(() => {
+    if (!episodes || episodes.length === 0) return;
+    const currentIndex = episodes.findIndex(ep => ep.id === currentEpisodeId);
+    if (currentIndex !== -1) {
+      const nextIndex = (currentIndex + 1) % episodes.length;
+      scrollToEpisode(nextIndex);
+    }
+    // if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
+    //   const nextIndex = currentIndex + 1;
+    //   scrollToEpisode(nextIndex);
+    // }
+  }, [episodes, currentEpisodeId, scrollToEpisode]);
+
   const renderItem = useCallback(
     ({ item }: { item: any }) => (
       <VideoListItem
@@ -251,9 +276,20 @@ const VideoScreen = () => {
         movie={series}
         onEpisodesPress={handlePressOnEpisodes}
         isAuthenticated={isAuthenticated}
+        onVideoEnd={handleVideoEnd}
+        cardLayout={cardLayout}
+        posterUrl={posterUrl}
       />
     ),
-    [series, isAuthenticated, handlePressOnEpisodes],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      series,
+      isAuthenticated,
+      handlePressOnEpisodes,
+      handleVideoEnd,
+      cardLayout,
+      posterUrl,
+    ],
   );
 
   const isInitialMount = useRef(true);
@@ -314,6 +350,8 @@ const VideoScreen = () => {
         isPending={false}
         series={series}
         screenType="videoScreen"
+        cardLayout={cardLayout}
+        posterUrl={posterUrl}
       />
     </View>
   );
@@ -351,6 +389,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
+    zIndex: 50,
+    elevation: 50,
+    pointerEvents: 'box-none',
   },
   leftOverlay: { flex: 1 },
   rightOverlay: { marginLeft: 16 },

@@ -1,6 +1,5 @@
-// hooks/useNetflixTransition.ts
 import { useRef, useCallback } from 'react';
-import { Animated, Dimensions } from 'react-native';
+import { Animated, Dimensions, Platform } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,7 +20,7 @@ export const useNetflixTransition = () => {
         cardLayout.height / (SCREEN_HEIGHT * 0.5),
       );
 
-      const translateX = startX - endX;
+      const translateX = startX - endX - (Platform.OS === 'ios' ? 6 : 0);
       const translateY = startY - endY;
 
       // Poster-specific values target full screen center
@@ -131,11 +130,14 @@ export const useNetflixTransition = () => {
   };
 
   const close = (cardLayout, onFinish?: () => void) => {
+    isAnimating.current = true;
     Animated.timing(progress, {
       toValue: 0,
       duration: 350,
       useNativeDriver: true,
     }).start(() => {
+      isAnimating.current = false;
+      progress.setValue(0);
       onFinish?.();
     });
   };

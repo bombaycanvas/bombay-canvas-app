@@ -112,7 +112,14 @@ const handleAuthRedirect = (
       index: 2,
       routes: [
         { name: 'MainTabs' },
-        { name: 'SeriesDetail', params: { id: redirect.params?.id } },
+        {
+          name: 'SeriesDetail',
+          params: {
+            id: redirect.params?.id,
+            cardLayout: redirect.params?.cardLayout,
+            posterUrl: redirect.params?.posterUrl,
+          },
+        },
         { name: 'Video', params: redirect.params },
       ],
     });
@@ -127,9 +134,10 @@ const handleAuthRedirect = (
   }
 };
 
-export const useVerifyOtpMutation = (
-  redirect?: { screen: string; params?: any },
-) => {
+export const useVerifyOtpMutation = (redirect?: {
+  screen: string;
+  params?: any;
+}) => {
   const navigation = useNavigation();
 
   return useMutation({
@@ -331,7 +339,7 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
 
 export const fetchUserData = async () => {
   try {
-    const response = await api('/api/user/userInfo', {
+    const response = await api('/api/user/userInfo-v2', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',

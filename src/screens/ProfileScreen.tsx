@@ -38,7 +38,6 @@ const ProfileScreen = () => {
       routes: [{ name: 'StartLogin' }],
     });
   };
-
   if (userProfileLoading) {
     return (
       <View
@@ -65,17 +64,19 @@ const ProfileScreen = () => {
             style={styles.coverPhoto}
           >
             <View style={styles.overlay} />
-            <FastImage
-              source={{
-                uri:
-                  userProfile?.userData?.profiles[0]?.avatarUrl ||
-                  'https://via.placeholder.com/150',
-                priority: FastImage.priority.high,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={styles.avatar}
-              resizeMode={FastImage.resizeMode.cover}
-            />
+            {userProfile?.userData?.profiles[0]?.avatarUrl && (
+              <FastImage
+                source={{
+                  uri:
+                    userProfile?.userData?.profiles[0]?.avatarUrl ||
+                    'https://via.placeholder.com/150',
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={styles.avatar}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+            )}
           </ImageBackground>
           <View style={styles.profileInfo}>
             {userProfile?.userData && (
@@ -83,7 +84,9 @@ const ProfileScreen = () => {
                 <Text style={styles.username}>
                   {capitalizeWords(userProfile?.userData.name || 'N/A')}
                 </Text>
-                <Text style={styles.email}>{userProfile?.userData.email}</Text>
+                <Text style={styles.email}>
+                  {userProfile?.userData?.email || userProfile?.userData?.phone}
+                </Text>
                 {isCreator && (
                   <View style={styles.statsContainer}>
                     <View style={styles.stat}>

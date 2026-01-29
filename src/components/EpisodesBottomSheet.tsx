@@ -18,7 +18,7 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 
 type RootRedirectVideo = {
-  Video: { id: string; episodeId: string };
+  Video: { id: string; episodeId: string; cardLayout?: any; posterUrl?: string };
 };
 
 export const EpisodesBottomSheet = ({
@@ -31,6 +31,8 @@ export const EpisodesBottomSheet = ({
   isPending,
   series,
   screenType = 'videoScreen',
+  cardLayout,
+  posterUrl,
 }: any) => {
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const {
@@ -38,6 +40,7 @@ export const EpisodesBottomSheet = ({
     setIsPurchaseModal,
     setPurchaseSeries,
     setCurrentEpisodeId,
+    setAuthRedirect,
   } = useVideoStore();
 
   return (
@@ -124,6 +127,15 @@ export const EpisodesBottomSheet = ({
                     onPress={() => {
                       onClose();
                       if (locked) {
+                        setAuthRedirect({
+                          screen: screenType === 'seriesDetail' ? 'SeriesDetail' : 'Video',
+                          params: {
+                            id: series?.id,
+                            episodeId: item.id,
+                            cardLayout,
+                            posterUrl: posterUrl || series?.posterUrl,
+                          },
+                        });
                         setTimeout(
                           () => {
                             requestAnimationFrame(() => {
@@ -159,6 +171,8 @@ export const EpisodesBottomSheet = ({
                           navigation.navigate('Video', {
                             id: series?.id,
                             episodeId: item.id,
+                            cardLayout,
+                            posterUrl: posterUrl || series?.posterUrl,
                           });
                         }, 400);
                       } else {

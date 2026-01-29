@@ -37,9 +37,14 @@ export type RootStackParamList = {
   SeriesDetail: {
     id: string | number;
     cardLayout?: any;
-    posterUrl: string; // ADD THIS
+    posterUrl?: string;
   };
-  Video: undefined;
+  Video: {
+    id: string;
+    episodeId?: string;
+    cardLayout?: any;
+    posterUrl?: string;
+  };
   Creator: { id: string | number };
   Settings: undefined;
   CategoryMovies: { category: string };
@@ -131,14 +136,14 @@ const AppStack = () => {
         options={{
           ...(Platform.OS === 'android'
             ? {
-                ...TransitionPresets.SlideFromRightIOS,
-              }
+              ...TransitionPresets.SlideFromRightIOS,
+            }
             : {
-                presentation: 'transparentModal',
-                cardStyle: { backgroundColor: 'transparent' },
-                gestureDirection: 'vertical',
-                gestureEnabled: false,
-              }),
+              presentation: 'transparentModal',
+              cardStyle: { backgroundColor: 'transparent' },
+              gestureDirection: 'vertical',
+              gestureEnabled: false,
+            }),
         }}
       />
 
@@ -149,14 +154,14 @@ const AppStack = () => {
           headerShown: false,
           ...(Platform.OS === 'android'
             ? {
-                presentation: 'card',
-                animation: 'slide_from_bottom',
-              }
+              presentation: 'card',
+              animation: 'slide_from_bottom',
+            }
             : {
-                presentation: 'transparentModal',
-                cardStyle: { backgroundColor: 'transparent' },
-                gestureDirection: 'vertical',
-              }),
+              presentation: 'fullScreenModal',
+              cardStyle: { backgroundColor: 'transparent' },
+              gestureDirection: 'vertical',
+            }),
         }}
       />
 
@@ -166,14 +171,14 @@ const AppStack = () => {
         options={{
           ...(Platform.OS === 'android'
             ? {
-                ...TransitionPresets.SlideFromRightIOS,
-              }
+              ...TransitionPresets.SlideFromRightIOS,
+            }
             : {
-                presentation: 'transparentModal',
-                cardStyle: { backgroundColor: 'transparent' },
-                gestureDirection: 'vertical',
-                gestureEnabled: false,
-              }),
+              presentation: 'transparentModal',
+              cardStyle: { backgroundColor: 'transparent' },
+              gestureDirection: 'vertical',
+              gestureEnabled: false,
+            }),
         }}
       />
 

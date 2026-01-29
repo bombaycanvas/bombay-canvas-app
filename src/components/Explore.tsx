@@ -13,6 +13,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { SharedElement } from 'react-navigation-shared-element';
+import { useVideoStore } from '../store/videoStore';
 
 type Movie = any;
 
@@ -42,6 +43,7 @@ const ExploreCard = React.memo(
   }) => {
     const opacity = React.useRef(new Animated.Value(0.5)).current;
     const cardRef = React.useRef<View>(null);
+    const { setActiveCardRef } = useVideoStore();
 
     const handleLoad = () => {
       Animated.timing(opacity, {
@@ -53,11 +55,12 @@ const ExploreCard = React.memo(
     };
 
     return (
-      <View ref={cardRef}>
+      <View ref={cardRef} collapsable={false}>
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.card}
           onPress={() => {
+            setActiveCardRef(cardRef);
             cardRef.current?.measureInWindow((x, y, width, height) => {
               onCardPress?.(movie, { x, y, width, height });
             });
@@ -82,7 +85,7 @@ const ExploreCard = React.memo(
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.videoOverlay}
-            onPress={(e) => {
+            onPress={e => {
               e.stopPropagation();
               navigation.navigate('Creator', { id: movie?.uploader?.id });
             }}

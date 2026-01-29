@@ -41,13 +41,18 @@ const { height, width } = Dimensions.get('window');
 const DRAG_THRESHOLD = 120;
 
 type RootStackParamList = {
-  SeriesDetail: { id: string };
-  Video: { id: string };
+  SeriesDetail: { id: string; cardLayout?: any; posterUrl?: string };
+  Video: {
+    id: string;
+    episodeId?: string;
+    cardLayout?: any;
+    posterUrl?: string;
+  };
 };
 
 type RootRedirectVideo = {
   Creator: { id: string };
-  Video: { id: string };
+  Video: { id: string; cardLayout?: any; posterUrl?: string };
 };
 const SeriesDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -107,7 +112,7 @@ const SeriesDetailScreen: React.FC = () => {
       posterScale: new Animated.Value(1),
       posterTranslateX: new Animated.Value(0),
       posterTranslateY: new Animated.Value(0),
-      videoOpacity: new Animated.Value(0),
+      videoOpacity: new Animated.Value(1),
       borderRadius: new Animated.Value(0),
     };
   }, [cardLayout, getAnimationValues]);
@@ -175,6 +180,7 @@ const SeriesDetailScreen: React.FC = () => {
   const handleBack = useCallback(() => {
     if (cardLayout && Platform.OS === 'ios') {
       close(cardLayout, () => {
+        didAnimateRef.current = false;
         navigation.goBack();
       });
     } else {
@@ -368,7 +374,7 @@ const SeriesDetailScreen: React.FC = () => {
                         setIsLockedVisibleModal(true);
                         setAuthRedirect({
                           screen: 'SeriesDetail',
-                          params: { id },
+                          params: { id, posterUrl },
                         });
                       }}
                     >
@@ -393,7 +399,11 @@ const SeriesDetailScreen: React.FC = () => {
                         onPress={() => {
                           setIsPlaying(false);
                           setTimeout(() => {
-                            navigation.navigate('Video', { id });
+                            navigation.navigate('Video', {
+                              id,
+                              cardLayout,
+                              posterUrl,
+                            });
                           }, 100);
                         }}
                       >
@@ -489,11 +499,13 @@ const SeriesDetailScreen: React.FC = () => {
           onClose={() => setIsEpisodesSheetOpen(false)}
           episodes={series.episodes}
           activeEpisode={firstEpisode}
-          onEpisodeSelect={() => {}}
+          onEpisodeSelect={() => { }}
           isAuthenticated={isAuthenticated}
           isPending={isLoading}
           series={series}
           screenType="seriesDetail"
+          cardLayout={cardLayout}
+          posterUrl={posterUrl}
         />
       )}
     </View>
