@@ -3,8 +3,8 @@ import { Animated, Dimensions, Platform } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export const useNetflixTransition = () => {
-  const progress = useRef(new Animated.Value(0)).current;
+export const useNetflixTransition = (initialValue: number = 0) => {
+  const progress = useRef(new Animated.Value(initialValue)).current;
   const isAnimating = useRef(false);
 
   // Derived animation values
@@ -117,7 +117,7 @@ export const useNetflixTransition = () => {
     [progress],
   );
 
-  const open = (cardLayout, onFinish?: () => void) => {
+  const open = (cardLayout: any, onFinish?: () => void) => {
     progress.setValue(0);
 
     Animated.timing(progress, {
@@ -129,7 +129,7 @@ export const useNetflixTransition = () => {
     });
   };
 
-  const close = (cardLayout, onFinish?: () => void) => {
+  const close = (cardLayout: any, onFinish?: () => void) => {
     isAnimating.current = true;
     Animated.timing(progress, {
       toValue: 0,

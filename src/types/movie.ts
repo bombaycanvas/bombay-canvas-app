@@ -8,6 +8,13 @@ export interface Movie {
   title: string;
   posterUrl: string;
   genres?: Genre[];
+  uploader?: {
+    id: string;
+    name: string;
+    profiles?: {
+      avatarUrl: string;
+    }[];
+  };
 }
 
 export interface Category {

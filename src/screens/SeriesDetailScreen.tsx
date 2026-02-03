@@ -36,6 +36,7 @@ import { useVideoStore } from '../store/videoStore';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { BlurView } from '@react-native-community/blur';
 import { useNetflixTransition } from '../hooks/useNetflixTransition';
+import { BufferingIndicator } from '../components/videoPlayer/BufferingIndicator';
 
 const { height, width } = Dimensions.get('window');
 const DRAG_THRESHOLD = 120;
@@ -79,7 +80,7 @@ const SeriesDetailScreen: React.FC = () => {
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
   const { progress, getAnimationValues, open, close, snapBack } =
-    useNetflixTransition();
+    useNetflixTransition(Platform.OS === 'ios' ? 0 : 1);
 
   const series = data?.series;
   const firstEpisode = series?.episodes?.[0];
@@ -489,8 +490,11 @@ const SeriesDetailScreen: React.FC = () => {
       </Animated.View>
 
       {(isLoading || !series) && (
+        // <View style={styles.loaderOverlay}>
+        //   <Text style={{ color: 'white' }}>Loading...</Text>
+        // </View>
         <View style={styles.loaderOverlay}>
-          <Text style={{ color: 'white' }}>Loading...</Text>
+          <BufferingIndicator />
         </View>
       )}
       {series && (
@@ -499,7 +503,7 @@ const SeriesDetailScreen: React.FC = () => {
           onClose={() => setIsEpisodesSheetOpen(false)}
           episodes={series.episodes}
           activeEpisode={firstEpisode}
-          onEpisodeSelect={() => { }}
+          onEpisodeSelect={() => {}}
           isAuthenticated={isAuthenticated}
           isPending={isLoading}
           series={series}
@@ -656,10 +660,10 @@ const styles = StyleSheet.create({
   },
   loaderOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 5,
   },
 });
 

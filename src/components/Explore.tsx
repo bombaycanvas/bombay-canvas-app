@@ -41,14 +41,14 @@ const ExploreCard = React.memo(
     navigation: Navigation;
     onCardPress?: (movie: Movie, layout: any) => void;
   }) => {
-    const opacity = React.useRef(new Animated.Value(0.5)).current;
+    const opacity = React.useRef(new Animated.Value(0.8)).current;
     const cardRef = React.useRef<View>(null);
     const { setActiveCardRef } = useVideoStore();
 
     const handleLoad = () => {
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 500,
+        duration: 250,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();

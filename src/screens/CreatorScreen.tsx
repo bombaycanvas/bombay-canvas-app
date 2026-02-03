@@ -1,5 +1,16 @@
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { StyleSheet, ScrollView, RefreshControl, TouchableOpacity, View, Text, Dimensions, Animated, Platform, PanResponder } from 'react-native';
+import {
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  View,
+  Text,
+  Dimensions,
+  Animated,
+  Platform,
+  PanResponder,
+} from 'react-native';
 import CreatorLanding from '../components/CreatorLanding';
 import { useMoviesDataByCreator } from '../api/video';
 import CreatorGrids from '../components/CreatorGrid';
@@ -23,11 +34,10 @@ const CreatorScreen = () => {
   const id = params?.id ?? 'cmfc48arw0002s60ex05k9w5c';
   const cardLayout = params?.cardLayout;
 
-  const { data, isLoading, refetch, isFetching } = useMoviesDataByCreator(
-    id,
-  );
+  const { data, isLoading, refetch, isFetching } = useMoviesDataByCreator(id);
 
-  const { progress, getAnimationValues, open, close, snapBack } = useNetflixTransition();
+  const { progress, getAnimationValues, open, close, snapBack } =
+    useNetflixTransition(Platform.OS === 'ios' ? 0 : 1);
   const didAnimateRef = useRef(false);
 
   const animationValues = useMemo(() => {
@@ -72,7 +82,8 @@ const CreatorScreen = () => {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (!cardLayout) return;
-        const shouldClose = gestureState.dy > DRAG_THRESHOLD || gestureState.vy > 0.5;
+        const shouldClose =
+          gestureState.dy > DRAG_THRESHOLD || gestureState.vy > 0.5;
         if (shouldClose) {
           handleBack();
         } else {
@@ -140,7 +151,13 @@ const CreatorScreen = () => {
           },
         ]}
       >
-        <Animated.View style={{ flex: 1, borderRadius: animationValues.borderRadius, overflow: 'hidden' }}>
+        <Animated.View
+          style={{
+            flex: 1,
+            borderRadius: animationValues.borderRadius,
+            overflow: 'hidden',
+          }}
+        >
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}

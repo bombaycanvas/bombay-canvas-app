@@ -329,9 +329,9 @@ const VideoScreen = () => {
           offset: ITEM_HEIGHT * index,
           index,
         })}
-        initialNumToRender={1}
-        maxToRenderPerBatch={1}
-        windowSize={1}
+        initialNumToRender={2}
+        maxToRenderPerBatch={2}
+        windowSize={2}
         snapToOffsets={episodes.map((_, i) => i * ITEM_HEIGHT)}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
         snapToAlignment="start"

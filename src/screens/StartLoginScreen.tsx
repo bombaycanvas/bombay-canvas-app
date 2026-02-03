@@ -20,6 +20,7 @@ import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGetCoverVideo } from '../api/video';
+import { useVideoCache } from '../hooks/useVideoCache';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import GoogleLogin from '../assets/GoogleLogin';
 import AppleLogin from '../assets/AppleLogin';
@@ -52,6 +53,7 @@ const StartLoginScreen = () => {
   const redirect = route.params?.redirect;
   const { setHasSkipped } = useAuthStore();
   const { data } = useGetCoverVideo();
+  const videoUrl = useVideoCache(data?.CoverUrlVideo?.url);
 
   const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
@@ -700,7 +702,7 @@ const StartLoginScreen = () => {
       <View style={styles.container}>
         <Video
           useTextureView={true}
-          source={{ uri: data?.CoverUrlVideo?.url }}
+          source={{ uri: videoUrl }}
           style={styles.backgroundVideo}
           resizeMode="cover"
           repeat

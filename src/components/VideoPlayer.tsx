@@ -97,6 +97,12 @@ export default function VideoPlayer({
   }, []);
 
   useEffect(() => {
+    if (isVisible) {
+      setPaused(false);
+    }
+  }, [isVisible, setPaused]);
+
+  useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: controlsVisible ? 1 : 0,
       duration: 250,
@@ -201,6 +207,7 @@ export default function VideoPlayer({
   const handleLoad = (data: OnLoadData) => {
     setDuration(data.duration);
     setIsBuffering(false);
+    setIsReady(true);
     setError(null);
   };
 
@@ -242,11 +249,17 @@ export default function VideoPlayer({
     return `${m}:${s < 10 ? '0' + s : s}`;
   };
 
+  // const bufferConfig = {
+  //   minBufferMs: 5000,
+  //   maxBufferMs: 50000,
+  //   bufferForPlaybackMs: 2500,
+  //   bufferForPlaybackAfterRebufferMs: 5000,
+  // };
   const bufferConfig = {
-    minBufferMs: 5000,
-    maxBufferMs: 50000,
-    bufferForPlaybackMs: 2500,
-    bufferForPlaybackAfterRebufferMs: 5000,
+    minBufferMs: 1500,
+    maxBufferMs: 30000,
+    bufferForPlaybackMs: 500,
+    bufferForPlaybackAfterRebufferMs: 1000,
   };
 
   const onVideoTap = () => {
@@ -259,15 +272,15 @@ export default function VideoPlayer({
       showDelayTimer.current = null;
     }
 
-    if (controlsVisible) {
-      setControlsVisible(false);
-      return;
-    }
     showDelayTimer.current = setTimeout(() => {
-      setControlsVisible(true);
-      hideTimerRef.current = setTimeout(() => {
+      if (controlsVisible) {
         setControlsVisible(false);
-      }, 3000);
+      } else {
+        setControlsVisible(true);
+        hideTimerRef.current = setTimeout(() => {
+          setControlsVisible(false);
+        }, 3000);
+      }
     }, 300);
 
     if (!locked && isPaidEpisode) {
@@ -296,7 +309,11 @@ export default function VideoPlayer({
     <>
       <View style={styles.container}>
         {isVisible && (locked || isPaidEpisode || isPlaybackLoading) ? (
-          <View style={styles.posterContainer}>
+          <Pressable
+            style={styles.posterContainer}
+            onPress={onVideoTap}
+            disabled={isPlaybackLoading}
+          >
             <Image
               source={{ uri: movie?.posterUrl }}
               style={styles.poster}
@@ -307,7 +324,7 @@ export default function VideoPlayer({
                 <BufferingIndicator />
               </View>
             )}
-          </View>
+          </Pressable>
         ) : (
           <>
             {!locked && isVisible && hasValidVideoUrl ? (
@@ -357,6 +374,9 @@ export default function VideoPlayer({
 
             {isVisible && (
               <>
+                {/* {(isBuffering || !isReady || isPlaybackLoading) && !error && (
+                  <BufferingIndicator />
+                )} */}
                 {(isBuffering || !isReady || isPlaybackLoading) && !error && (
                   <BufferingIndicator />
                 )}

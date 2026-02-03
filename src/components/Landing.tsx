@@ -14,6 +14,7 @@ import {
   NavigationProp,
 } from '@react-navigation/native';
 import { useGetCoverVideo } from '../api/video';
+import { useVideoCache } from '../hooks/useVideoCache';
 import LinearGradient from 'react-native-linear-gradient';
 import PlayButtonIcon from './assets/PlayButtonIcon';
 import { Pause } from 'lucide-react-native';
@@ -29,13 +30,18 @@ const Landing = () => {
   const videoRef = useRef(null);
   const creatorRef = useRef<View>(null);
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false); // Start paused
   const { data } = useGetCoverVideo();
+  const videoUrl = useVideoCache(data?.CoverUrlVideo?.url);
 
   useFocusEffect(
     useCallback(() => {
-      setIsPlaying(true);
+      const timer = setTimeout(() => {
+        setIsPlaying(true);
+      }, 1000);
+
       return () => {
+        clearTimeout(timer);
         setIsPlaying(false);
       };
     }, []),
@@ -47,15 +53,17 @@ const Landing = () => {
 
   return (
     <View style={styles.layout}>
-      <Video
-        useTextureView={true}
-        ref={videoRef}
-        source={{ uri: data?.CoverUrlVideo?.url }}
-        style={styles.backgroundVideo}
-        resizeMode="cover"
-        repeat
-        paused={!isPlaying}
-      />
+      {isPlaying && (
+        <Video
+          useTextureView={true}
+          ref={videoRef}
+          source={{ uri: videoUrl }}
+          style={styles.backgroundVideo}
+          resizeMode="cover"
+          repeat
+          paused={!isPlaying}
+        />
+      )}
       <LinearGradient
         colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
         style={styles.gradient}

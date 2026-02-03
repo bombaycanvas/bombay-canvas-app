@@ -5,6 +5,7 @@ import { Movie } from '../types/movie';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { FlatGrid } from 'react-native-super-grid';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type CategoryMoviesRoute = {
   params: {
@@ -23,34 +24,36 @@ const CategoryMoviesScreen = () => {
   const route = useRoute<RouteProp<CategoryMoviesRoute, 'params'>>();
   const { movies = [] } = route.params || { movies: [] };
 
-  const MovieCard = React.memo(({ item, navigation }: { item: Movie; navigation: any }) => {
-    const cardRef = React.useRef<View>(null);
-    return (
-      <View ref={cardRef}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.movieItem}
-          onPress={() => {
-            cardRef.current?.measureInWindow((x, y, width, height) => {
-              navigation.navigate('SeriesDetail', {
-                id: item.id,
-                cardLayout: { x, y, width, height },
-                posterUrl: item.posterUrl,
+  const MovieCard = React.memo(
+    ({ item, navigation }: { item: Movie; navigation: any }) => {
+      const cardRef = React.useRef<View>(null);
+      return (
+        <View ref={cardRef}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.movieItem}
+            onPress={() => {
+              cardRef.current?.measureInWindow((x, y, width, height) => {
+                navigation.navigate('SeriesDetail', {
+                  id: item.id,
+                  cardLayout: { x, y, width, height },
+                  posterUrl: item.posterUrl,
+                });
               });
-            });
-          }}
-        >
-          <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-            {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  });
+            }}
+          >
+            <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+            <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+              {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    },
+  );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <FlatGrid
         data={movies}
         spacing={12}
@@ -62,7 +65,7 @@ const CategoryMoviesScreen = () => {
         scrollEnabled={false}
         contentContainerStyle={styles.wrapper}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

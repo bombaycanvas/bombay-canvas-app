@@ -2633,6 +2633,8 @@ PODS:
     - SDWebImageWebPCoder (~> 0.14)
     - SocketRocket
     - Yoga
+  - RNFS (2.20.0):
+    - React-Core
   - RNGestureHandler (2.29.1):
     - boost
     - DoubleConversion
@@ -2931,6 +2933,7 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCCheckbox (from `../node_modules/@react-native-community/checkbox`)"
   - "RNFastImage (from `../node_modules/@d11/react-native-fast-image`)"
+  - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -3122,6 +3125,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-community/checkbox"
   RNFastImage:
     :path: "../node_modules/@d11/react-native-fast-image"
+  RNFS:
+    :path: "../node_modules/react-native-fs"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
@@ -3229,6 +3234,7 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: fd44f4b03e007e642e98df6726737bc66e9ba609
   RNCCheckbox: 33b44487ca8008394ce658cc32b26eab04f426ef
   RNFastImage: 674d5912e174468a60971d2ba9efc7bb43d116fa
+  RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 9462ba64b3fdb2cb04cbc1b572d020c8d0a096e8
   RNGoogleSignin: 85c82d6e1494bd4a039804959362e63771f7ad5a
   RNScreens: 98771ad898d1c0528fc8139606bbacf5a2e9d237
