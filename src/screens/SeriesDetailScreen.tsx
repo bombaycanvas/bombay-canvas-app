@@ -90,6 +90,7 @@ const SeriesDetailScreen: React.FC = () => {
     setAuthRedirect,
     setSeries,
     setEpisodes,
+    authRedirect,
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
   const { progress, getAnimationValues, open, close, snapBack } =
@@ -185,7 +186,7 @@ const SeriesDetailScreen: React.FC = () => {
 
   useEffect(() => {
     if (!queueLoadedRef.current && isCasting && series && currentEpisode) {
-      loadQueue(series, currentEpisode.id);
+      loadQueue(series, currentEpisode.id, isAuthenticated);
       queueLoadedRef.current = true;
     }
 
@@ -213,6 +214,15 @@ const SeriesDetailScreen: React.FC = () => {
       }
     }
   }, [series, setSeries, setEpisodes]);
+
+  useEffect(() => {
+    if (isCasting && series?.userPurchased && authRedirect?.params?.episodeId) {
+      const purchasedEpisodeId = authRedirect.params.episodeId;
+      loadQueue(series, purchasedEpisodeId, isAuthenticated);
+      setAuthRedirect(null);
+      console.log('Post-purchase casting triggered for episode:', purchasedEpisodeId);
+    }
+  }, [isCasting, series?.userPurchased, authRedirect, loadQueue, isAuthenticated, setAuthRedirect]);
 
   const handleBack = useCallback(() => {
     if (cardLayout && Platform.OS === 'ios') {
@@ -391,7 +401,6 @@ const SeriesDetailScreen: React.FC = () => {
           },
         ]}
       >
-        {console.log(series)}
         {series && (
           <View style={styles.contentWrapper}>
             <ScrollView
@@ -617,7 +626,7 @@ const SeriesDetailScreen: React.FC = () => {
           activeEpisode={currentEpisode}
           onEpisodeSelect={(ep: any) => {
             if (isCasting) {
-              switchEpisode(series, ep.id);
+              switchEpisode(series, ep.id, isAuthenticated);
             } else {
               setCurrentEpisode(ep);
             }
