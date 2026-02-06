@@ -15,8 +15,6 @@ interface Episode {
     thumbnail?: string;
     season?: number;
     episodeNo?: number;
-    isPublic?: boolean;
-    locked?: boolean;
 }
 
 interface Series {
@@ -24,8 +22,6 @@ interface Series {
     title: string;
     posterUrl?: string;
     episodes: Episode[];
-    isPaidSeries?: boolean;
-    userPurchased?: boolean;
 }
 
 export const useCastManager = () => {
@@ -52,16 +48,10 @@ export const useCastManager = () => {
     }, [session, setCasting, setQueueLoaded]);
 
 
-    const buildQueue = useCallback((series: Series, isAuthenticated: boolean) => {
+    const buildQueue = useCallback((series: Series) => {
 
         return series.episodes
             .map(ep => {
-
-                // Check if accessible
-                const isLocked = !ep.isPublic && !isAuthenticated;
-                const isPaidEpisode = !isLocked && ep.locked && series.isPaidSeries && !series.userPurchased;
-
-                if (isLocked || isPaidEpisode) return null;
 
                 const url = ep.tvVideoUrl || ep.videoUrl;
                 if (!url) return null;
@@ -98,25 +88,22 @@ export const useCastManager = () => {
 
 
     const loadQueue = useCallback(
-        async (series: Series, episodeId: string, isAuthenticated: boolean) => {
+        async (series: Series, episodeId: string) => {
 
             if (!client || !session) return;
 
-            const queue = buildQueue(series, isAuthenticated);
+            const queue = buildQueue(series);
             if (!queue.length) return;
 
-            // Find start index in the FILTERED queue
-            const queueItems = queue as any[];
-            const startIndex = queueItems.findIndex(
-                item => item.mediaInfo.metadata.episodeId === episodeId,
+            const startIndex = series.episodes.findIndex(
+                e => e.id === episodeId,
             );
-
             if (startIndex < 0) return;
             try {
 
                 await client.loadMedia({
                     queueData: {
-                        items: queueItems,
+                        items: queue as any,
                         startIndex,
                         repeatMode: MediaRepeatMode.OFF,
                     },
@@ -136,23 +123,18 @@ export const useCastManager = () => {
     /* ---------- SWITCH EPISODE ---------- */
 
     const switchEpisode = useCallback(
-        async (series: Series, episodeId: string, isAuthenticated: boolean) => {
+        async (series: Series, episodeId: string) => {
 
             if (!client) return;
 
             try {
 
-                const queue = buildQueue(series, isAuthenticated);
-                const queueItems = queue as any[];
-                const startIndex = queueItems.findIndex(
-                    item => item.mediaInfo.metadata.episodeId === episodeId,
-                );
-
-                if (startIndex < 0) return;
+                const queue = buildQueue(series);
+                const startIndex = series.episodes.findIndex(e => e.id === episodeId);
 
                 await client.loadMedia({
                     queueData: {
-                        items: queueItems,
+                        items: queue as any,
                         startIndex,
                         repeatMode: MediaRepeatMode.OFF,
                     },

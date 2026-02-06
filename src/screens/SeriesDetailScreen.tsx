@@ -185,7 +185,7 @@ const SeriesDetailScreen: React.FC = () => {
 
   useEffect(() => {
     if (!queueLoadedRef.current && isCasting && series && currentEpisode) {
-      loadQueue(series, currentEpisode.id, isAuthenticated);
+      loadQueue(series, currentEpisode.id);
       queueLoadedRef.current = true;
     }
 
@@ -617,7 +617,7 @@ const SeriesDetailScreen: React.FC = () => {
           activeEpisode={currentEpisode}
           onEpisodeSelect={(ep: any) => {
             if (isCasting) {
-              switchEpisode(series, ep.id, isAuthenticated);
+              switchEpisode(series, ep.id);
             } else {
               setCurrentEpisode(ep);
             }
