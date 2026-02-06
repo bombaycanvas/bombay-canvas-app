@@ -33,6 +33,7 @@ export const EpisodesBottomSheet = ({
   screenType = 'videoScreen',
   cardLayout,
   posterUrl,
+  isCasting,
 }: any) => {
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const {
@@ -165,7 +166,11 @@ export const EpisodesBottomSheet = ({
 
                         return;
                       }
-                      if (screenType === 'seriesDetail') {
+                      if (onEpisodeSelect) {
+                        onEpisodeSelect(item, index);
+                      }
+
+                      if (screenType === 'seriesDetail' && !isCasting) {
                         setCurrentEpisodeId(item.id);
                         setTimeout(() => {
                           navigation.navigate('Video', {
@@ -175,8 +180,6 @@ export const EpisodesBottomSheet = ({
                             posterUrl: posterUrl || series?.posterUrl,
                           });
                         }, 400);
-                      } else {
-                        onEpisodeSelect(item, index);
                       }
                     }}
                   >

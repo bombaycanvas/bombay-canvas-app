@@ -154,8 +154,7 @@ const AppStack = () => {
           headerShown: false,
           ...(Platform.OS === 'android'
             ? {
-              presentation: 'card',
-              animation: 'slide_from_bottom',
+              ...TransitionPresets.SlideFromRightIOS,
             }
             : {
               presentation: 'fullScreenModal',

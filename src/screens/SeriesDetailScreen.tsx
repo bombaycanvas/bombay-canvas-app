@@ -28,7 +28,7 @@ import {
   useIsFocused,
 } from '@react-navigation/native';
 import { useMoviesDataById } from '../api/video';
-import { ChevronLeft, Pause, Play } from 'lucide-react-native';
+import { ChevronLeft, Pause, Play, SkipBack, SkipForward } from 'lucide-react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
@@ -37,6 +37,8 @@ import { capitalizeWords } from '../utils/capitalizeWords';
 import { BlurView } from '@react-native-community/blur';
 import { useNetflixTransition } from '../hooks/useNetflixTransition';
 import { BufferingIndicator } from '../components/videoPlayer/BufferingIndicator';
+import { CastButton } from 'react-native-google-cast';
+import { useCastManager } from '../hooks/useCastManager';
 
 const { height, width } = Dimensions.get('window');
 const DRAG_THRESHOLD = 120;
@@ -67,6 +69,17 @@ const SeriesDetailScreen: React.FC = () => {
   const posterUrl = params?.posterUrl;
 
   const { data, isLoading, isError } = useMoviesDataById(id);
+  const {
+    loadQueue,
+    switchEpisode,
+    isCasting,
+    play,
+    pause,
+    next,
+    previous,
+    playerState,
+    MediaPlayerState,
+  } = useCastManager();
   const [isPlaying, setIsPlaying] = useState(true);
 
   const [isReady, setIsReady] = useState(false);
@@ -82,18 +95,29 @@ const SeriesDetailScreen: React.FC = () => {
   const { progress, getAnimationValues, open, close, snapBack } =
     useNetflixTransition(Platform.OS === 'ios' ? 0 : 1);
 
+  const [currentEpisode, setCurrentEpisode] = useState<any>(null);
   const series = data?.series;
-  const firstEpisode = series?.episodes?.[0];
-  const safeVideoUrl = firstEpisode?.videoUrl
-    ? encodeURI(firstEpisode.videoUrl)
+  const previewEpisode = currentEpisode;
+  const queueLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (series?.episodes?.length && !currentEpisode) {
+      setCurrentEpisode(series.episodes[0]);
+    }
+  }, [series, currentEpisode]);
+
+  const previewVideoUrl = previewEpisode?.videoUrl
+    ? encodeURI(previewEpisode.videoUrl)
     : undefined;
+
   const isFocused = useIsFocused();
   const { isAuthenticated: globalAuth } = useAuthStore();
   const isAuthenticated = data?.isAuthenticated || globalAuth;
-  const locked = firstEpisode && !firstEpisode?.isPublic && !isAuthenticated;
+  const locked =
+    currentEpisode && !currentEpisode?.isPublic && !isAuthenticated;
   const isPaidEpisode =
     !locked &&
-    firstEpisode?.locked &&
+    currentEpisode?.locked &&
     series?.isPaidSeries &&
     !series?.userPurchased;
   const shouldFetch = !locked && !isPaidEpisode;
@@ -158,6 +182,18 @@ const SeriesDetailScreen: React.FC = () => {
     }),
   ).current;
 
+
+  useEffect(() => {
+    if (!queueLoadedRef.current && isCasting && series && currentEpisode) {
+      loadQueue(series, currentEpisode.id, isAuthenticated);
+      queueLoadedRef.current = true;
+    }
+
+    if (!isCasting) {
+      queueLoadedRef.current = false;
+    }
+  }, [isCasting, series, currentEpisode, loadQueue]);
+
   useEffect(() => {
     if (didAnimateRef.current) return;
     didAnimateRef.current = true;
@@ -194,6 +230,7 @@ const SeriesDetailScreen: React.FC = () => {
       setIsPlaying(true);
       return () => {
         setIsPlaying(false);
+        setIsReady(false);
       };
     }, []),
   );
@@ -226,73 +263,74 @@ const SeriesDetailScreen: React.FC = () => {
           },
         ]}
       />
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            zIndex: 20,
-            opacity: animationValues.posterOpacity,
-            transform: [
-              { translateX: animationValues.posterTranslateX },
-              { translateY: animationValues.posterTranslateY },
-              { scale: animationValues.posterScale },
-            ],
-          },
-        ]}
-        pointerEvents="none"
-      >
+      {Platform.OS === 'ios' && (
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
             {
-              borderRadius: animationValues.borderRadius,
-              overflow: 'hidden',
-            },
-          ]}
-        >
-          <FastImage
-            source={{
-              uri:
-                posterUrl ||
-                series?.posterUrl ||
-                'https://via.placeholder.com/300x400',
-              priority: FastImage.priority.high,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={[StyleSheet.absoluteFill]}
-            resizeMode="cover"
-            onLoad={() => console.log('Poster loaded')}
-            onError={e => console.log('Poster error:', e.nativeEvent.error)}
-          />
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              opacity: animationValues.blurOpacity,
+              zIndex: 20,
+              opacity: animationValues.posterOpacity,
+              transform: [
+                { translateX: animationValues.posterTranslateX },
+                { translateY: animationValues.posterTranslateY },
+                { scale: animationValues.posterScale },
+              ],
             },
           ]}
           pointerEvents="none"
         >
-          {Platform.OS === 'ios' ? (
-            <BlurView
-              style={StyleSheet.absoluteFill}
-              blurType="dark"
-              blurAmount={20}
-              reducedTransparencyFallbackColor="rgba(0,0,0,0.8)"
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                borderRadius: animationValues.borderRadius,
+                overflow: 'hidden',
+              },
+            ]}
+          >
+            <FastImage
+              source={{
+                uri:
+                  posterUrl ||
+                  series?.posterUrl ||
+                  'https://via.placeholder.com/300x400',
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={[StyleSheet.absoluteFill]}
+              resizeMode="cover"
+              onLoad={() => console.log('Poster loaded')}
+              onError={e => console.log('Poster error:', e.nativeEvent.error)}
             />
-          ) : (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: 'rgba(0,0,0,0.7)' },
-              ]}
-            />
-          )}
-        </Animated.View>
-      </Animated.View>
+          </Animated.View>
 
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                opacity: animationValues.blurOpacity,
+              },
+            ]}
+            pointerEvents="none"
+          >
+            {Platform.OS === 'ios' ? (
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurType="dark"
+                blurAmount={20}
+                reducedTransparencyFallbackColor="rgba(0,0,0,0.8)"
+              />
+            ) : (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: 'rgba(0,0,0,0.7)' },
+                ]}
+              />
+            )}
+          </Animated.View>
+        </Animated.View>
+      )}
       <Animated.View
         style={[
           styles.videoWrapper,
@@ -312,12 +350,12 @@ const SeriesDetailScreen: React.FC = () => {
           <Video
             useTextureView={true}
             ref={videoRef}
-            source={safeVideoUrl ? { uri: safeVideoUrl } : undefined}
+            source={previewVideoUrl ? { uri: previewVideoUrl } : undefined}
             style={styles.video}
-            paused={!isPlaying}
+            paused={!isPlaying || isCasting}
             resizeMode="cover"
             onReadyForDisplay={() => setIsReady(true)}
-            poster={firstEpisode?.thumbnail}
+            poster={series?.posterUrl}
             posterResizeMode="cover"
             repeat
           />
@@ -325,7 +363,7 @@ const SeriesDetailScreen: React.FC = () => {
         {!isReady && series && (
           <FastImage
             source={{
-              uri: firstEpisode?.thumbnail,
+              uri: currentEpisode?.thumbnail || series.posterUrl,
               priority: FastImage.priority.high,
             }}
             style={StyleSheet.absoluteFill}
@@ -353,6 +391,7 @@ const SeriesDetailScreen: React.FC = () => {
           },
         ]}
       >
+        {console.log(series)}
         {series && (
           <View style={styles.contentWrapper}>
             <ScrollView
@@ -394,22 +433,50 @@ const SeriesDetailScreen: React.FC = () => {
                     </TouchableOpacity>
                   ) : (
                     shouldFetch && (
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        style={styles.watchButton}
-                        onPress={() => {
-                          setIsPlaying(false);
-                          setTimeout(() => {
-                            navigation.navigate('Video', {
-                              id,
-                              cardLayout,
-                              posterUrl,
-                            });
-                          }, 100);
-                        }}
-                      >
-                        <Text style={styles.watchText}>Watch Now</Text>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          activeOpacity={0.9}
+                          style={[styles.watchButton, isCasting && styles.buttonDisabled]}
+                          disabled={isCasting}
+                          onPress={() => {
+                            setIsPlaying(false);
+                            setTimeout(() => {
+                              navigation.navigate('Video', {
+                                id,
+                                cardLayout,
+                                posterUrl,
+                              });
+                            }, 100);
+                          }}
+                        >
+                          <Text style={styles.watchText}>Watch Now</Text>
+                        </TouchableOpacity>
+
+                        {/* Watch on TV Button - Styled like Play/Pause button */}
+                        {series?.isTV && (
+                          <View
+                            style={[
+                              styles.castButton,
+                              {
+                                width: 46,
+                                height: 46,
+                                overflow: 'hidden',
+                              },
+                            ]}
+                          >
+                            <CastButton
+                              style={
+                                {
+                                  width: 46,
+                                  height: 46,
+                                  backgroundColor: 'transparent',
+                                  tintColor: '#ff6a00',
+                                } as any
+                              }
+                            />
+                          </View>
+                        )}
+                      </>
                     )
                   )}
                   <TouchableOpacity
@@ -432,44 +499,89 @@ const SeriesDetailScreen: React.FC = () => {
                 </Text>
 
                 {/* Creator Info - FIXED: Ensure it shows */}
-                {series.uploader && (
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.creatorRow}
-                    onPress={() =>
-                      navigation.navigate('Creator', {
-                        id: series.uploader?.id,
-                      })
-                    }
-                  >
-                    <FastImage
-                      source={{
-                        uri:
-                          series.uploader?.profiles?.[0]?.avatarUrl ||
-                          'https://via.placeholder.com/40',
-                        priority: FastImage.priority.high,
-                        cache: FastImage.cacheControl.immutable,
-                      }}
-                      style={styles.avatar}
-                      resizeMode={FastImage.resizeMode.cover}
-                    />
-                    <Text
-                      style={styles.creatorName}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {capitalizeWords(series.uploader?.name || 'Unknown')}
+                {isCasting ? (
+                  <View style={styles.castingControlsContainer}>
+                    <Text style={styles.castingStatusText}>
+                      Casting to TV
                     </Text>
-                  </TouchableOpacity>
-                )}
-                {series.description && (
-                  <Text
-                    style={styles.description}
-                    numberOfLines={10}
-                    ellipsizeMode="tail"
-                  >
-                    {series.description}
-                  </Text>
+                    <View style={styles.castingButtonsRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={styles.castControlButton}
+                        onPress={previous}
+                      >
+                        <SkipBack color="#fff" size={28} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={[styles.castControlButton, styles.playPauseCastButton]}
+                        onPress={() => {
+                          if (playerState === MediaPlayerState.PLAYING || playerState === MediaPlayerState.BUFFERING) {
+                            pause();
+                          } else {
+                            play();
+                          }
+                        }}
+                      >
+                        {playerState === MediaPlayerState.PLAYING || playerState === MediaPlayerState.BUFFERING ? (
+                          <Pause color="#000" size={32} fill="#000" />
+                        ) : (
+                          <Play color="#000" size={32} fill="#000" />
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={styles.castControlButton}
+                        onPress={next}
+                      >
+                        <SkipForward color="#fff" size={28} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    {series.uploader && (
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.creatorRow}
+                        onPress={() =>
+                          navigation.navigate('Creator', {
+                            id: series.uploader?.id,
+                          })
+                        }
+                      >
+                        <FastImage
+                          source={{
+                            uri:
+                              series.uploader?.profiles?.[0]?.avatarUrl ||
+                              'https://via.placeholder.com/40',
+                            priority: FastImage.priority.high,
+                            cache: FastImage.cacheControl.immutable,
+                          }}
+                          style={styles.avatar}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
+                        <Text
+                          style={styles.creatorName}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {capitalizeWords(series.uploader?.name || 'Unknown')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {series.description && (
+                      <Text
+                        style={styles.description}
+                        numberOfLines={10}
+                        ellipsizeMode="tail"
+                      >
+                        {series.description}
+                      </Text>
+                    )}
+                  </>
                 )}
                 <View style={{ height: 100 }} />
               </View>
@@ -479,7 +591,10 @@ const SeriesDetailScreen: React.FC = () => {
             >
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={styles.episodesButton}
+                style={[styles.episodesButton,
+                  // isCasting && styles.buttonDisabled
+                ]}
+                // disabled={isCasting}
                 onPress={handleViewEpisodes}
               >
                 <Text style={styles.episodesButtonText}>View Episodes</Text>
@@ -490,9 +605,6 @@ const SeriesDetailScreen: React.FC = () => {
       </Animated.View>
 
       {(isLoading || !series) && (
-        // <View style={styles.loaderOverlay}>
-        //   <Text style={{ color: 'white' }}>Loading...</Text>
-        // </View>
         <View style={styles.loaderOverlay}>
           <BufferingIndicator />
         </View>
@@ -502,14 +614,21 @@ const SeriesDetailScreen: React.FC = () => {
           visible={isEpisodesSheetOpen}
           onClose={() => setIsEpisodesSheetOpen(false)}
           episodes={series.episodes}
-          activeEpisode={firstEpisode}
-          onEpisodeSelect={() => {}}
+          activeEpisode={currentEpisode}
+          onEpisodeSelect={(ep: any) => {
+            if (isCasting) {
+              switchEpisode(series, ep.id, isAuthenticated);
+            } else {
+              setCurrentEpisode(ep);
+            }
+          }}
           isAuthenticated={isAuthenticated}
           isPending={isLoading}
           series={series}
           screenType="seriesDetail"
           cardLayout={cardLayout}
           posterUrl={posterUrl}
+          isCasting={isCasting}
         />
       )}
     </View>
@@ -597,9 +716,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   playPauseButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: 10,
     padding: 12,
+  },
+  castButton: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   metaText: {
     color: '#aaa',
@@ -663,7 +788,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
-    zIndex: 5,
+    zIndex: 25,
+  },
+  castingControlsContainer: {
+    backgroundColor: 'rgba(255,106,0,0.1)',
+    borderRadius: 20,
+    padding: 20,
+    marginVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.3)',
+  },
+  castingStatusText: {
+    color: '#ff6a00',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 20,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  castingButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  castControlButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playPauseCastButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ff6a00',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
 

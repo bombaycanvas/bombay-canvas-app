@@ -178,7 +178,7 @@ const StartLoginScreen = () => {
     const callingCode = Array.isArray(selectedCountry?.callingCode)
       ? selectedCountry.callingCode[0]
       : selectedCountry?.callingCode ||
-        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+      getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
 
     return `+${callingCode}${cleanedPhone}`;
   };

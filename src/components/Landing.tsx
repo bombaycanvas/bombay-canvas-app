@@ -38,7 +38,7 @@ const Landing = () => {
     useCallback(() => {
       const timer = setTimeout(() => {
         setIsPlaying(true);
-      }, 1000);
+      }, 350);
 
       return () => {
         clearTimeout(timer);

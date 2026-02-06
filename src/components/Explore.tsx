@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { SharedElement } from 'react-navigation-shared-element';
 import { useVideoStore } from '../store/videoStore';
+import LinearGradient from 'react-native-linear-gradient';
 
 type Movie = any;
 
@@ -41,31 +42,102 @@ const ExploreCard = React.memo(
     navigation: Navigation;
     onCardPress?: (movie: Movie, layout: any) => void;
   }) => {
-    const opacity = React.useRef(new Animated.Value(0.8)).current;
+    const opacity = React.useRef(new Animated.Value(0)).current;
     const cardRef = React.useRef<View>(null);
     const { setActiveCardRef } = useVideoStore();
 
+    const [isImageLoaded, setIsImageLoaded] = React.useState(false);
+    const shimmerAnim = React.useRef(new Animated.Value(-1)).current;
+    const skeletonOpacity = React.useRef(new Animated.Value(1)).current;
+
+    React.useEffect(() => {
+      if (!isImageLoaded) {
+        shimmerAnim.setValue(-150);
+
+        const loop = Animated.loop(
+          Animated.timing(shimmerAnim, {
+            toValue: 150,
+            duration: 1300,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+        );
+
+        loop.start();
+
+        return () => loop.stop();
+      }
+    }, [isImageLoaded]);
+
+
+    const shimmerTranslate = shimmerAnim;
+
+
     const handleLoad = () => {
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 250,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+
+        Animated.timing(skeletonOpacity, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsImageLoaded(true);
+      });
     };
+
 
     return (
       <View ref={cardRef} collapsable={false}>
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.card}
+          disabled={!isImageLoaded}
           onPress={() => {
+            if (!isImageLoaded) return;
+
             setActiveCardRef(cardRef);
             cardRef.current?.measureInWindow((x, y, width, height) => {
               onCardPress?.(movie, { x, y, width, height });
             });
           }}
         >
+          {/* Skeleton */}
+          {!isImageLoaded && (
+            <Animated.View
+              style={[
+                styles.skeletonCard,
+                { opacity: skeletonOpacity }
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.shimmerContainer,
+                  { transform: [{ translateX: shimmerTranslate }] },
+                ]}
+              >
+                <LinearGradient
+                  colors={[
+                    'transparent',
+                    'rgba(255, 106, 0, 0.31)',
+                    'transparent',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.shimmerGradient}
+                />
+              </Animated.View>
+            </Animated.View>
+          )}
+
+
           <SharedElement id={`series.${movie?.id}.poster`} style={{ flex: 1 }}>
             <Animated.View style={{ flex: 1, opacity }}>
               <FastImage
@@ -82,31 +154,35 @@ const ExploreCard = React.memo(
             </Animated.View>
           </SharedElement>
 
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.videoOverlay}
-            onPress={e => {
-              e.stopPropagation();
-              navigation.navigate('Creator', { id: movie?.uploader?.id });
-            }}
-          >
-            <FastImage
-              source={{
-                uri:
-                  movie?.uploader?.profiles?.[0]?.avatarUrl ||
-                  'https://via.placeholder.com/50',
+          {/* Creator overlay show only after image loaded */}
+          {isImageLoaded && (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.videoOverlay}
+              onPress={e => {
+                e.stopPropagation();
+                navigation.navigate('Creator', { id: movie?.uploader?.id });
               }}
-              style={styles.avatar}
-            />
-            <Text style={styles.name}>
-              {capitalizeWords(movie?.uploader?.name)}
-            </Text>
-          </TouchableOpacity>
+            >
+              <FastImage
+                source={{
+                  uri:
+                    movie?.uploader?.profiles?.[0]?.avatarUrl ||
+                    'https://via.placeholder.com/50',
+                }}
+                style={styles.avatar}
+              />
+              <Text style={styles.name}>
+                {capitalizeWords(movie?.uploader?.name)}
+              </Text>
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
       </View>
     );
   },
 );
+
 
 const Explore: React.FC<ExploreProps> = ({
   heading,
@@ -211,4 +287,20 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     color: '#fff',
   },
+  skeletonCard: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    borderRadius: 12,
+  },
+
+  shimmerContainer: {
+    width: 150,
+    height: '100%',
+  },
+
+  shimmerGradient: {
+    flex: 1,
+  },
+
 });

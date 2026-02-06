@@ -18,6 +18,7 @@ PODS:
   - FBLazyVector (0.81.4)
   - fmt (11.0.2)
   - glog (0.3.5)
+  - google-cast-sdk (4.8.4)
   - GoogleSignIn (9.0.0):
     - AppAuth (~> 2.0)
     - AppCheckCore (~> 11.0)
@@ -1828,6 +1829,10 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-google-cast (4.9.1):
+    - google-cast-sdk
+    - PromisesObjC
+    - React
   - react-native-razorpay (2.3.1):
     - razorpay-pod (= 1.5.0)
     - React
@@ -2837,15 +2842,15 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - SDWebImage (5.21.2):
-    - SDWebImage/Core (= 5.21.2)
-  - SDWebImage/Core (5.21.2)
+  - SDWebImage (5.21.5):
+    - SDWebImage/Core (= 5.21.5)
+  - SDWebImage/Core (5.21.5)
   - SDWebImageAVIFCoder (0.11.1):
     - libavif/core (>= 0.11.0)
     - SDWebImage (~> 5.10)
   - SDWebImageSVGCoder (1.7.0):
     - SDWebImage/Core (~> 5.6)
-  - SDWebImageWebPCoder (0.14.6):
+  - SDWebImageWebPCoder (0.15.0):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
   - SocketRocket (0.7.1)
@@ -2895,6 +2900,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - "react-native-blur (from `../node_modules/@react-native-community/blur`)"
+  - react-native-google-cast (from `../node_modules/react-native-google-cast`)
   - react-native-razorpay (from `../node_modules/react-native-razorpay`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
@@ -2947,6 +2953,7 @@ SPEC REPOS:
     - AppAuth
     - AppCheckCore
     - BEMCheckBox
+    - google-cast-sdk
     - GoogleSignIn
     - GoogleUtilities
     - GTMAppAuth
@@ -3049,6 +3056,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-blur:
     :path: "../node_modules/@react-native-community/blur"
+  react-native-google-cast:
+    :path: "../node_modules/react-native-google-cast"
   react-native-razorpay:
     :path: "../node_modules/react-native-razorpay"
   react-native-safe-area-context:
@@ -3151,6 +3160,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 941bef1c8eeabd9fe1f501e30a5220beee913886
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
+  google-cast-sdk: 32f65af50d164e3c475e79ad123db3cc26fbcd37
   GoogleSignIn: c7f09cfbc85a1abf69187be091997c317cc33b77
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
@@ -3196,6 +3206,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: e4a65db5f4df53369f39558c0cf2f480f6d3d6c7
   React-microtasksnativemodule: 86334c5c06315e0bccb7b6e6f2c905e92f98b615
   react-native-blur: b83ffbc5380d8bd2f06804b4b0e848be3507e65c
+  react-native-google-cast: 7be68a5d0b7eeb95a5924c3ecef8d319ef6c0a44
   react-native-razorpay: 376ba84b614ef8a22b5701df4ffee10f4c116d14
   react-native-safe-area-context: 0a3b034bb63a5b684dd2f5fffd3c90ef6ed41ee8
   react-native-slider: 05e7080478df08489251c2a6739a0d5628b7c198
@@ -3240,10 +3251,10 @@ SPEC CHECKSUMS:
   RNScreens: 98771ad898d1c0528fc8139606bbacf5a2e9d237
   RNSVG: 63f96b45c10e8b6b4e1c4df831223f0e6af39e5e
   RNVectorIcons: e355dd0998d6b9020e560922a66614eb9636501b
-  SDWebImage: 9f177d83116802728e122410fb25ad88f5c7608a
+  SDWebImage: e9c98383c7572d713c1a0d7dd2783b10599b9838
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
-  SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
+  SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 9b30b783a17681321b52ac507a37219d7d795ace
 
