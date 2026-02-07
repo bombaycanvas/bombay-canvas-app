@@ -802,8 +802,7 @@ const styles = StyleSheet.create({
   castingControlsContainer: {
     backgroundColor: 'rgba(255,106,0,0.1)',
     borderRadius: 20,
-    padding: 20,
-    marginVertical: 10,
+    padding: 15,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,106,0,0.3)',

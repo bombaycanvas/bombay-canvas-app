@@ -78,11 +78,12 @@ export const useCastManager = () => {
 
                         metadata: {
                             type: 'tv_show',
-                            title: ep.title,
+                            title: `${ep.title} (S${ep.season || 1} E${ep.episodeNo || 1})`,
+                            subtitle: series.title,
                             episodeId: ep.id,
                             seriesTitle: series.title,
-                            seasonNumber: ep.season || 1,
-                            episodeNumber: ep.episodeNo || 1,
+                            season: ep.season || 1,
+                            episode: ep.episodeNo || 1,
                             images: [{ url: ep.thumbnail || series.posterUrl }],
                         },
                     },
