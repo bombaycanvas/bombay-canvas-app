@@ -77,11 +77,10 @@ export const useCastManager = () => {
                         streamType: 'BUFFERED',
 
                         metadata: {
-                            type: 'tv_show',
-                            title: `${ep.title} (S${ep.season || 1} E${ep.episodeNo || 1})`,
-                            subtitle: series.title,
-                            episodeId: ep.id,
+                            metadataType: 2,
                             seriesTitle: series.title,
+                            title: ep.title,
+                            episodeId: ep.id,
                             season: ep.season || 1,
                             episode: ep.episodeNo || 1,
                             images: [{ url: ep.thumbnail || series.posterUrl }],
