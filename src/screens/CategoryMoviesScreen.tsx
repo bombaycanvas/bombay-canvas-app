@@ -36,7 +36,6 @@ const CategoryMoviesScreen = () => {
               cardRef.current?.measureInWindow((x, y, width, height) => {
                 navigation.navigate('SeriesDetail', {
                   id: item.id,
-                  cardLayout: { x, y, width, height },
                   posterUrl: item.posterUrl,
                 });
               });

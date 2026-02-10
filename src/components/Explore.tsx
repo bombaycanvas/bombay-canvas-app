@@ -12,7 +12,6 @@ import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
-import { SharedElement } from 'react-navigation-shared-element';
 import { useVideoStore } from '../store/videoStore';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -26,8 +25,8 @@ type ExploreProps = {
 };
 
 type RootStackParamList = {
-  SeriesDetail: { id: string | number; cardLayout?: any; posterUrl: string };
-  Creator: { id: string | number; cardLayout?: any };
+  SeriesDetail: { id: string | number; posterUrl: string };
+  Creator: { id: string | number; };
 };
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -138,21 +137,19 @@ const ExploreCard = React.memo(
           )}
 
 
-          <SharedElement id={`series.${movie?.id}.poster`} style={{ flex: 1 }}>
-            <Animated.View style={{ flex: 1, opacity }}>
-              <FastImage
-                source={{
-                  uri:
-                    movie?.posterUrl || 'https://via.placeholder.com/300x400',
-                  priority: FastImage.priority.high,
-                  cache: FastImage.cacheControl.immutable,
-                }}
-                style={styles.cardImage}
-                resizeMode={FastImage.resizeMode.cover}
-                onLoad={handleLoad}
-              />
-            </Animated.View>
-          </SharedElement>
+          <Animated.View style={{ flex: 1, opacity }}>
+            <FastImage
+              source={{
+                uri:
+                  movie?.posterUrl || 'https://via.placeholder.com/300x400',
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.cardImage}
+              resizeMode={FastImage.resizeMode.cover}
+              onLoad={handleLoad}
+            />
+          </Animated.View>
 
           {/* Creator overlay show only after image loaded */}
           {isImageLoaded && (

@@ -70,15 +70,12 @@ export default function HomeScreen() {
   };
 
   const genreMap = getMoviesByGenre();
-
-  const onCardPress = (movie: any, cardLayout: any) => {
+  const onCardPress = (movie: any,) => {
     navigation.navigate('SeriesDetail', {
       id: movie.id,
-      cardLayout,
       posterUrl: movie.posterUrl,
     });
   };
-
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <ScrollView>

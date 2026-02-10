@@ -13,9 +13,8 @@ import {
   Dimensions,
   ScrollView,
   TouchableOpacity,
-  Animated,
+  BackHandler,
   Platform,
-  PanResponder,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -34,8 +33,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { useVideoStore } from '../store/videoStore';
 import { capitalizeWords } from '../utils/capitalizeWords';
-import { BlurView } from '@react-native-community/blur';
-import { useNetflixTransition } from '../hooks/useNetflixTransition';
 import { BufferingIndicator } from '../components/videoPlayer/BufferingIndicator';
 import { CastButton } from 'react-native-google-cast';
 import { useCastManager } from '../hooks/useCastManager';
@@ -44,18 +41,17 @@ const { height, width } = Dimensions.get('window');
 const DRAG_THRESHOLD = 120;
 
 type RootStackParamList = {
-  SeriesDetail: { id: string; cardLayout?: any; posterUrl?: string };
+  SeriesDetail: { id: string; posterUrl?: string };
   Video: {
     id: string;
     episodeId?: string;
-    cardLayout?: any;
     posterUrl?: string;
   };
 };
 
 type RootRedirectVideo = {
   Creator: { id: string };
-  Video: { id: string; cardLayout?: any; posterUrl?: string };
+  Video: { id: string; posterUrl?: string };
 };
 const SeriesDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -63,9 +59,7 @@ const SeriesDetailScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const route = useRoute<RouteProp<RootStackParamList, 'SeriesDetail'>>();
   const params = route.params as any;
-  const didAnimateRef = useRef(false);
   const id = params?.id;
-  const cardLayout = params?.cardLayout;
   const posterUrl = params?.posterUrl;
 
   const { data, isLoading, isError } = useMoviesDataById(id);
@@ -93,8 +87,6 @@ const SeriesDetailScreen: React.FC = () => {
     authRedirect,
   } = useVideoStore();
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
-  const { progress, getAnimationValues, open, close, snapBack } =
-    useNetflixTransition(Platform.OS === 'ios' ? 0 : 1);
 
   const [currentEpisode, setCurrentEpisode] = useState<any>(null);
   const series = data?.series;
@@ -122,68 +114,6 @@ const SeriesDetailScreen: React.FC = () => {
     series?.isPaidSeries &&
     !series?.userPurchased;
   const shouldFetch = !locked && !isPaidEpisode;
-
-  const animationValues = useMemo(() => {
-    if (cardLayout) {
-      return getAnimationValues(cardLayout);
-    }
-    return {
-      scale: new Animated.Value(1),
-      translateX: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      blurOpacity: new Animated.Value(0),
-      contentOpacity: new Animated.Value(1),
-      backdropOpacity: new Animated.Value(0.7),
-      posterOpacity: new Animated.Value(0),
-      posterScale: new Animated.Value(1),
-      posterTranslateX: new Animated.Value(0),
-      posterTranslateY: new Animated.Value(0),
-      videoOpacity: new Animated.Value(1),
-      borderRadius: new Animated.Value(0),
-    };
-  }, [cardLayout, getAnimationValues]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => Platform.OS === 'ios',
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (Platform.OS !== 'ios') return false;
-        return (
-          gestureState.dy > 10 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
-        );
-      },
-      onPanResponderGrant: () => {
-        progress.stopAnimation();
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (!cardLayout) return;
-
-        const dragDistance = Math.max(0, gestureState.dy);
-        const dragProgress = dragDistance / (height * 0.7);
-        const newProgress = Math.max(0, 1 - dragProgress * 1.5);
-
-        progress.setValue(newProgress);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (!cardLayout) return;
-
-        const shouldClose =
-          gestureState.dy > DRAG_THRESHOLD || gestureState.vy > 0.5;
-
-        if (shouldClose) {
-          handleBack();
-        } else {
-          snapBack();
-        }
-      },
-      onPanResponderTerminate: () => {
-        snapBack();
-      },
-    }),
-  ).current;
-
-
   useEffect(() => {
     if (!queueLoadedRef.current && isCasting && series && currentEpisode) {
       loadQueue(series, currentEpisode.id, isAuthenticated);
@@ -195,16 +125,6 @@ const SeriesDetailScreen: React.FC = () => {
     }
   }, [isCasting, series, currentEpisode, loadQueue]);
 
-  useEffect(() => {
-    if (didAnimateRef.current) return;
-    didAnimateRef.current = true;
-    if (cardLayout && Platform.OS === 'ios') {
-      open(cardLayout);
-    } else {
-      progress.setValue(1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (series) {
@@ -223,17 +143,9 @@ const SeriesDetailScreen: React.FC = () => {
       console.log('Post-purchase casting triggered for episode:', purchasedEpisodeId);
     }
   }, [isCasting, series?.userPurchased, authRedirect, loadQueue, isAuthenticated, setAuthRedirect]);
-
   const handleBack = useCallback(() => {
-    if (cardLayout && Platform.OS === 'ios') {
-      close(cardLayout, () => {
-        didAnimateRef.current = false;
-        navigation.goBack();
-      });
-    } else {
-      navigation.goBack();
-    }
-  }, [cardLayout, close, navigation]);
+    navigation.goBack();
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -261,100 +173,21 @@ const SeriesDetailScreen: React.FC = () => {
       </View>
     );
   }
-
   return (
     <View style={styles.container}>
-      <Animated.View
+      {/* Background */}
+      <View
         style={[
           StyleSheet.absoluteFill,
           {
             backgroundColor: '#000',
-            opacity: animationValues.backdropOpacity,
           },
         ]}
       />
-      {Platform.OS === 'ios' && (
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              zIndex: 20,
-              opacity: animationValues.posterOpacity,
-              transform: [
-                { translateX: animationValues.posterTranslateX },
-                { translateY: animationValues.posterTranslateY },
-                { scale: animationValues.posterScale },
-              ],
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                borderRadius: animationValues.borderRadius,
-                overflow: 'hidden',
-              },
-            ]}
-          >
-            <FastImage
-              source={{
-                uri:
-                  posterUrl ||
-                  series?.posterUrl ||
-                  'https://via.placeholder.com/300x400',
-                priority: FastImage.priority.high,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={[StyleSheet.absoluteFill]}
-              resizeMode="cover"
-              onLoad={() => console.log('Poster loaded')}
-              onError={e => console.log('Poster error:', e.nativeEvent.error)}
-            />
-          </Animated.View>
 
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                opacity: animationValues.blurOpacity,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView
-                style={StyleSheet.absoluteFill}
-                blurType="dark"
-                blurAmount={20}
-                reducedTransparencyFallbackColor="rgba(0,0,0,0.8)"
-              />
-            ) : (
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: 'rgba(0,0,0,0.7)' },
-                ]}
-              />
-            )}
-          </Animated.View>
-        </Animated.View>
-      )}
-      <Animated.View
-        style={[
-          styles.videoWrapper,
-          {
-            opacity: animationValues.videoOpacity,
-            transform: [
-              { translateX: animationValues.translateX },
-              { translateY: animationValues.translateY },
-              { scale: animationValues.scale },
-            ],
-          },
-        ]}
-        pointerEvents="box-none"
-        {...panResponder.panHandlers}
+      {/* Video Content */}
+      <View
+        style={styles.videoWrapper}
       >
         {series && isFocused && (
           <Video
@@ -386,21 +219,15 @@ const SeriesDetailScreen: React.FC = () => {
           start={{ x: 0.5, y: 1 }}
           end={{ x: 0.5, y: 0 }}
         />
-      </Animated.View>
+      </View>
 
       <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
         <TouchableOpacity activeOpacity={0.9} onPress={handleBack}>
           <ChevronLeft color="#ff6a00" size={28} />
         </TouchableOpacity>
       </View>
-      <Animated.View
-        style={[
-          styles.contentContainer,
-          {
-            opacity: animationValues.contentOpacity,
-          },
-        ]}
-      >
+
+      <View style={styles.contentContainer}>
         {series && (
           <View style={styles.contentWrapper}>
             <ScrollView
@@ -452,7 +279,6 @@ const SeriesDetailScreen: React.FC = () => {
                             setTimeout(() => {
                               navigation.navigate('Video', {
                                 id,
-                                cardLayout,
                                 posterUrl,
                               });
                             }, 100);
@@ -601,9 +427,7 @@ const SeriesDetailScreen: React.FC = () => {
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={[styles.episodesButton,
-                  // isCasting && styles.buttonDisabled
                 ]}
-                // disabled={isCasting}
                 onPress={handleViewEpisodes}
               >
                 <Text style={styles.episodesButtonText}>View Episodes</Text>
@@ -611,7 +435,7 @@ const SeriesDetailScreen: React.FC = () => {
             </View>
           </View>
         )}
-      </Animated.View>
+      </View>
 
       {(isLoading || !series) && (
         <View style={styles.loaderOverlay}>
@@ -635,7 +459,6 @@ const SeriesDetailScreen: React.FC = () => {
           isPending={isLoading}
           series={series}
           screenType="seriesDetail"
-          cardLayout={cardLayout}
           posterUrl={posterUrl}
           isCasting={isCasting}
         />

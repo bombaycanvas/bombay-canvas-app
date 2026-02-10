@@ -37,7 +37,6 @@ type VideoPlayerProps = {
   setControlsVisible?: (visible: boolean) => void;
   isPlaybackLoading?: boolean;
   onVideoEnd?: () => void;
-  cardLayout?: any;
 };
 
 export default function VideoPlayer({
@@ -49,7 +48,6 @@ export default function VideoPlayer({
   setControlsVisible: externalSetControlsVisible,
   isPlaybackLoading = false,
   onVideoEnd,
-  cardLayout,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const isSeeking = useRef(false);
@@ -157,7 +155,6 @@ export default function VideoPlayer({
           params: {
             id: movie?.id,
             episodeId: episode?.id,
-            cardLayout,
             posterUrl: movie?.posterUrl,
           },
         });
@@ -178,7 +175,6 @@ export default function VideoPlayer({
     setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
-    cardLayout,
   ]);
 
   const handleBuffer = ({

@@ -116,7 +116,6 @@ const handleAuthRedirect = (
           name: 'SeriesDetail',
           params: {
             id: redirect.params?.id,
-            cardLayout: redirect.params?.cardLayout,
             posterUrl: redirect.params?.posterUrl,
           },
         },

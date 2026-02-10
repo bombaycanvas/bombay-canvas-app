@@ -18,7 +18,7 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 
 type RootRedirectVideo = {
-  Video: { id: string; episodeId: string; cardLayout?: any; posterUrl?: string };
+  Video: { id: string; episodeId: string; posterUrl?: string };
 };
 
 export const EpisodesBottomSheet = ({
@@ -31,7 +31,6 @@ export const EpisodesBottomSheet = ({
   isPending,
   series,
   screenType = 'videoScreen',
-  cardLayout,
   posterUrl,
   isCasting,
 }: any) => {
@@ -133,7 +132,6 @@ export const EpisodesBottomSheet = ({
                           params: {
                             id: series?.id,
                             episodeId: item.id,
-                            cardLayout,
                             posterUrl: posterUrl || series?.posterUrl,
                           },
                         });
@@ -176,7 +174,6 @@ export const EpisodesBottomSheet = ({
                           navigation.navigate('Video', {
                             id: series?.id,
                             episodeId: item.id,
-                            cardLayout,
                             posterUrl: posterUrl || series?.posterUrl,
                           });
                         }, 400);

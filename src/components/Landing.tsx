@@ -21,7 +21,7 @@ import { Pause } from 'lucide-react-native';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
-  Creator: { id: string | number; cardLayout?: any };
+  Creator: { id: string | number; };
 };
 
 const { height } = Dimensions.get('window');
@@ -99,7 +99,6 @@ const Landing = () => {
                 creatorRef.current?.measureInWindow((x, y, width, height) => {
                   navigation.navigate('Creator', {
                     id: data?.admin?.id,
-                    cardLayout: { x, y, width, height },
                   });
                 });
               }}

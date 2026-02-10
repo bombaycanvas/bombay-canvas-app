@@ -30,7 +30,6 @@ type RootStackParamList = {
   Video: {
     id: string;
     episodeId: string;
-    cardLayout?: { x: number; y: number; width: number; height: number };
     posterUrl?: string;
   };
 };
@@ -56,14 +55,12 @@ const VideoListItem = React.memo(
     onEpisodesPress,
     isAuthenticated,
     onVideoEnd,
-    cardLayout,
   }: {
     item: any;
     movie: any;
     onEpisodesPress: () => void;
     isAuthenticated: boolean;
     onVideoEnd: () => void;
-    cardLayout?: any;
     posterUrl?: string;
   }) => {
     const insets = useSafeAreaInsets();
@@ -103,7 +100,6 @@ const VideoListItem = React.memo(
           setControlsVisible={setControlsVisible}
           isPlaybackLoading={isPlaybackLoading}
           onVideoEnd={onVideoEnd}
-          cardLayout={cardLayout}
         />
         <Animated.View
           style={[
@@ -160,7 +156,7 @@ const VideoListItem = React.memo(
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
-  const { episodeId, cardLayout, posterUrl } = route.params ?? {};
+  const { episodeId, posterUrl } = route.params ?? {};
   const { series, episodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
     useVideoStore();
 
@@ -277,7 +273,6 @@ const VideoScreen = () => {
         onEpisodesPress={handlePressOnEpisodes}
         isAuthenticated={isAuthenticated}
         onVideoEnd={handleVideoEnd}
-        cardLayout={cardLayout}
         posterUrl={posterUrl}
       />
     ),
@@ -287,7 +282,6 @@ const VideoScreen = () => {
       isAuthenticated,
       handlePressOnEpisodes,
       handleVideoEnd,
-      cardLayout,
       posterUrl,
     ],
   );
@@ -350,7 +344,6 @@ const VideoScreen = () => {
         isPending={false}
         series={series}
         screenType="videoScreen"
-        cardLayout={cardLayout}
         posterUrl={posterUrl}
       />
     </View>

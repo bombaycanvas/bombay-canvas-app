@@ -2,7 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createSharedElementStackNavigator } from 'react-navigation-shared-element';
+import { createStackNavigator } from '@react-navigation/stack';
 import { TransitionPresets } from '@react-navigation/stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
@@ -33,16 +33,14 @@ export type RootStackParamList = {
   MainTabs: undefined;
   StartLogin: undefined;
   CompleteProfile: undefined;
-  Signup: undefined;
+  Signup: { fromSignup?: boolean };
   SeriesDetail: {
     id: string | number;
-    cardLayout?: any;
     posterUrl?: string;
   };
   Video: {
     id: string;
     episodeId?: string;
-    cardLayout?: any;
     posterUrl?: string;
   };
   Creator: { id: string | number };
@@ -51,7 +49,7 @@ export type RootStackParamList = {
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
-const Stack = createSharedElementStackNavigator<RootStackParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 const MainTabs = () => {
   const insets = useSafeAreaInsets();
@@ -119,6 +117,8 @@ const AppStack = () => {
       initialRouteName={token ? 'MainTabs' : 'StartLogin'}
       screenOptions={{
         headerShown: false,
+        ...TransitionPresets.SlideFromRightIOS,
+        cardStyle: { backgroundColor: '#000' },
       }}
     >
       <Stack.Screen name="StartLogin" component={StartLoginScreen} />
@@ -133,18 +133,6 @@ const AppStack = () => {
       <Stack.Screen
         name="SeriesDetail"
         component={SeriesDetailScreen}
-        options={{
-          ...(Platform.OS === 'android'
-            ? {
-              ...TransitionPresets.SlideFromRightIOS,
-            }
-            : {
-              presentation: 'transparentModal',
-              cardStyle: { backgroundColor: 'transparent' },
-              gestureDirection: 'vertical',
-              gestureEnabled: false,
-            }),
-        }}
       />
 
       <Stack.Screen
@@ -152,33 +140,12 @@ const AppStack = () => {
         component={VideoScreen}
         options={{
           headerShown: false,
-          ...(Platform.OS === 'android'
-            ? {
-              ...TransitionPresets.SlideFromRightIOS,
-            }
-            : {
-              presentation: 'fullScreenModal',
-              cardStyle: { backgroundColor: 'transparent' },
-              gestureDirection: 'vertical',
-            }),
         }}
       />
 
       <Stack.Screen
         name="Creator"
         component={CreatorScreen}
-        options={{
-          ...(Platform.OS === 'android'
-            ? {
-              ...TransitionPresets.SlideFromRightIOS,
-            }
-            : {
-              presentation: 'transparentModal',
-              cardStyle: { backgroundColor: 'transparent' },
-              gestureDirection: 'vertical',
-              gestureEnabled: false,
-            }),
-        }}
       />
 
       <Stack.Screen
