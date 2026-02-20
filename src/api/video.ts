@@ -30,11 +30,10 @@ export const useMoviesData = () => {
   return useQuery({
     queryKey: ['moviesData'],
     queryFn: getMovies,
-    staleTime: 1000 * 60 * 60 * 24,
-    gcTime: 1000 * 60 * 60 * 24 * 7,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 };
 
@@ -61,11 +60,10 @@ export const useRecommendedSeriesData = () => {
   return useQuery({
     queryKey: ['listRecommendedSeries'],
     queryFn: getRecommendedSeries,
-    staleTime: 1000 * 60 * 60 * 24,
-    gcTime: 1000 * 60 * 60 * 24 * 7,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 };
 
@@ -208,11 +206,10 @@ export const useGetCoverVideo = () => {
   return useQuery({
     queryKey: ['getCoverVideo'],
     queryFn: () => getCoverVideo(),
-    staleTime: 1000 * 60 * 60 * 24,
-    gcTime: 1000 * 60 * 60 * 24 * 7,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 };
 

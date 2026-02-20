@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Fragment } from 'react';
+import React, { useState, useRef, useEffect, Fragment, memo } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,29 @@ import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 
 const { height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+
+const BackgroundVideo = memo(({ videoUrl }: { videoUrl: string | undefined }) => {
+  return (
+    <>
+      <Video
+        useTextureView={true}
+        source={{ uri: videoUrl }}
+        style={styles.backgroundVideo}
+        resizeMode="cover"
+        repeat
+        muted
+        playInBackground={false}
+        playWhenInactive={false}
+        ignoreSilentSwitch="obey"
+      />
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
+        style={styles.overlayGradient}
+      />
+    </>
+  );
+});
 
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
@@ -228,7 +251,7 @@ const StartLoginScreen = () => {
     }
 
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = value.slice(-1);
     setOtp(newOtp);
 
     if (value && index < 3) {
@@ -240,6 +263,7 @@ const StartLoginScreen = () => {
     }
 
     if (newOtp.every(d => d !== '')) {
+      Keyboard.dismiss();
       verifyOtpMutation.mutate({
         phone: getFullPhoneNumber(),
         otp: newOtp.join(''),
@@ -336,7 +360,7 @@ const StartLoginScreen = () => {
       style={[
         styles.inputContainer,
         {
-          paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
+          paddingBottom: Platform.OS === 'ios' ? 20 : insets.bottom + 30,
         },
       ]}
     >
@@ -438,7 +462,7 @@ const StartLoginScreen = () => {
       style={[
         styles.inputContainer,
         {
-          paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
+          paddingBottom: Platform.OS === 'ios' ? 20 : insets.bottom + 30,
         },
       ]}
     >
@@ -461,7 +485,7 @@ const StartLoginScreen = () => {
               textContentType="oneTimeCode"
               autoComplete="sms-otp"
               autoFocus={index === 0}
-              maxLength={4}
+              maxLength={1}
               value={digit}
               onChangeText={value => handleOtpChange(value, index)}
               onKeyPress={({ nativeEvent }) => {
@@ -536,7 +560,10 @@ const StartLoginScreen = () => {
       >
         <View style={styles.sheetHandle} />
 
-        <KeyboardAvoidingView behavior={'padding'}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        >
           {isSignup && (
             <Controller
               control={control}
@@ -700,21 +727,13 @@ const StartLoginScreen = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
-        <Video
-          useTextureView={true}
-          source={{ uri: videoUrl }}
-          style={styles.backgroundVideo}
-          resizeMode="cover"
-          repeat
-          muted
-        />
+        <BackgroundVideo videoUrl={videoUrl} />
 
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
-          style={styles.overlayGradient}
-        />
-
-        <KeyboardAvoidingView behavior={'padding'} style={styles.mainContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          style={styles.mainContent}
+        >
           <View style={styles.topSection}>
             <Image
               source={require('../images/MainLogo.png')}
@@ -863,7 +882,7 @@ const styles = StyleSheet.create({
   submitCircle: {
     width: 40,
     height: 40,
-    borderRadius: '100%',
+    borderRadius: 20,
     backgroundColor: 'rgba(255,106,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
