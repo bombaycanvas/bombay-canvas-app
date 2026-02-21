@@ -97,8 +97,7 @@
 <key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>airplay</string>
-		<string>processing</string>
+		<!-- <string>processing</string> -->
 		<string>fetch</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
