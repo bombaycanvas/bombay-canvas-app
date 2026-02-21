@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, Fragment, memo } from 'react';
+import React, { useState, useRef, useEffect, Fragment } from 'react';
 import {
   View,
   Text,
@@ -45,29 +45,6 @@ import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 
 const { height } = Dimensions.get('window');
-const { width } = Dimensions.get('window');
-
-const BackgroundVideo = memo(({ videoUrl }: { videoUrl: string | undefined }) => {
-  return (
-    <>
-      <Video
-        useTextureView={true}
-        source={{ uri: videoUrl }}
-        style={styles.backgroundVideo}
-        resizeMode="cover"
-        repeat
-        muted
-        playInBackground={false}
-        playWhenInactive={false}
-        ignoreSilentSwitch="obey"
-      />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
-        style={styles.overlayGradient}
-      />
-    </>
-  );
-});
 
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
@@ -235,9 +212,9 @@ const StartLoginScreen = () => {
 
       setOtp(filledOtp);
 
-      const lastIndex = digits.length - 1;
+      const focusIndex = Math.min(digits.length, 3);
       requestAnimationFrame(() => {
-        otpInputs.current[lastIndex]?.focus();
+        otpInputs.current[focusIndex]?.focus();
       });
 
       if (digits.length === 4) {
@@ -263,7 +240,7 @@ const StartLoginScreen = () => {
     }
 
     if (newOtp.every(d => d !== '')) {
-      Keyboard.dismiss();
+
       verifyOtpMutation.mutate({
         phone: getFullPhoneNumber(),
         otp: newOtp.join(''),
@@ -360,7 +337,7 @@ const StartLoginScreen = () => {
       style={[
         styles.inputContainer,
         {
-          paddingBottom: Platform.OS === 'ios' ? 20 : insets.bottom + 30,
+          paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
         },
       ]}
     >
@@ -462,7 +439,7 @@ const StartLoginScreen = () => {
       style={[
         styles.inputContainer,
         {
-          paddingBottom: Platform.OS === 'ios' ? 20 : insets.bottom + 30,
+          paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
         },
       ]}
     >
@@ -482,10 +459,10 @@ const StartLoginScreen = () => {
               }}
               style={styles.otpCircle}
               keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="sms-otp"
+              textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+              autoComplete={index === 0 ? 'sms-otp' : 'off'}
               autoFocus={index === 0}
-              maxLength={1}
+              maxLength={index === 0 ? 4 : 1}
               value={digit}
               onChangeText={value => handleOtpChange(value, index)}
               onKeyPress={({ nativeEvent }) => {
@@ -560,10 +537,7 @@ const StartLoginScreen = () => {
       >
         <View style={styles.sheetHandle} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-        >
+        <View>
           {isSignup && (
             <Controller
               control={control}
@@ -664,7 +638,7 @@ const StartLoginScreen = () => {
               {isSignup ? 'Sign Up' : 'Login'}
             </Text>
           </TouchableOpacity>
-        </KeyboardAvoidingView>
+        </View>
 
         <TouchableOpacity activeOpacity={0.8} style={styles.toggleMethodsLink}>
           <Text style={styles.toggleMethodsText}>
@@ -727,11 +701,23 @@ const StartLoginScreen = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
-        <BackgroundVideo videoUrl={videoUrl} />
+        <Video
+          useTextureView={true}
+          source={{ uri: videoUrl }}
+          style={styles.backgroundVideo}
+          resizeMode="cover"
+          repeat
+          muted
+        />
+
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)']}
+          style={styles.overlayGradient}
+        />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
           style={styles.mainContent}
         >
           <View style={styles.topSection}>
@@ -882,7 +868,7 @@ const styles = StyleSheet.create({
   submitCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: '100%',
     backgroundColor: 'rgba(255,106,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
