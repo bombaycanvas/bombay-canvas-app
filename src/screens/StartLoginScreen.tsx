@@ -62,6 +62,7 @@ const StartLoginScreen = () => {
   const [timer, setTimer] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const otpInputs = useRef<Array<TextInput | null>>([]);
   const slideAnim = useRef(new Animated.Value(height)).current;
@@ -434,83 +435,146 @@ const StartLoginScreen = () => {
     </View>
   );
 
-  const renderOtpInput = () => (
-    <View
-      style={[
-        styles.inputContainer,
-        {
-          paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
-        },
-      ]}
-    >
-      <View style={styles.backWrapper}>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setFlow('phone')}>
-          <Ionicons name="arrow-back" size={25} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.otpPillWrapper}>
-        <View style={styles.otpCirclesWrapper}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={ref => {
-                otpInputs.current[index] = ref;
-              }}
-              style={styles.otpCircle}
-              keyboardType="number-pad"
-              textContentType={index === 0 ? 'oneTimeCode' : 'none'}
-              autoComplete={index === 0 ? 'sms-otp' : 'off'}
-              autoFocus={index === 0}
-              maxLength={index === 0 ? 4 : 1}
-              value={digit}
-              onChangeText={value => handleOtpChange(value, index)}
-              onKeyPress={({ nativeEvent }) => {
-                if (
-                  nativeEvent.key === 'Backspace' &&
-                  !otp[index] &&
-                  index > 0
-                ) {
-                  otpInputs.current[index - 1]?.focus();
-                }
-              }}
-            />
-          ))}
+  const renderOtpInput = () => {
+    return (
+      <View
+        style={[
+          styles.inputContainer,
+          {
+            paddingBottom:
+              insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
+          },
+        ]}
+      >
+        <View style={styles.backWrapper}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              setOtp(['', '', '', '']);
+              setFlow('phone');
+            }}
+          >
+            <Ionicons name="arrow-back" size={25} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.otpSentPill}
-          disabled={verifyOtpMutation.isPending}
-        >
-          {verifyOtpMutation.isPending ? (
-            <ActivityIndicator size="small" color="rgba(255, 106, 0, 1)" />
-          ) : (
-            <Text style={styles.otpSentPillText}>Submit</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.otpBottomInfo}>
-        <Text style={styles.otpSentToText}>
-          OTP sent to {selectedCountry?.callingCode} {phoneValue}
-        </Text>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          disabled={timer > 0 || sendOtpMutation.isPending}
-          onPress={() => {
-            const fullPhoneNumber = getFullPhoneNumber();
-            sendOtpMutation.mutate({ phone: fullPhoneNumber });
+        <TextInput
+          ref={ref => {
+            otpInputs.current[0] = ref;
           }}
-        >
-          <Text style={[styles.timerText, timer === 0 && styles.resendActive]}>
-            {timer > 0
-              ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer}`
-              : 'Resend OTP'}
+          value={otp.join('')}
+          onChangeText={text => {
+            const cleaned = text.replace(/\D/g, '').slice(0, 4);
+            console.log('OTP:', cleaned);
+            const otpArray = cleaned.split('');
+            while (otpArray.length < 4) otpArray.push('');
+            setOtp(otpArray);
+            if (cleaned.length < 4) {
+              setActiveIndex(cleaned.length);
+            } else {
+              setActiveIndex(3);
+            }
+            if (cleaned.length === 4) {
+              verifyOtpMutation.mutate({
+                phone: getFullPhoneNumber(),
+                otp: cleaned,
+              });
+            }
+          }}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          maxLength={4}
+          autoFocus
+          style={{
+            position: 'absolute',
+            opacity: 0,
+          }}
+        />
+        <View style={styles.otpPillWrapper}>
+          <View style={styles.otpCirclesWrapper}>
+            {[0, 1, 2, 3].map((_, index) => {
+              const isActive = index === activeIndex;
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    otpInputs.current[0]?.focus();
+                    setActiveIndex(index);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.otpCircle,
+                      isActive && styles.activeOtpCircle,
+                    ]}
+                  >
+                    <Text style={styles.otpText}>
+                      {otp[index] || ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.otpSentPill}
+            onPress={() => {
+              const fullOtp = otp.join('');
+              if (fullOtp.length === 4) {
+                verifyOtpMutation.mutate({
+                  phone: getFullPhoneNumber(),
+                  otp: fullOtp,
+                });
+              }
+            }}
+            disabled={
+              verifyOtpMutation.isPending ||
+              otp.join('').length !== 4
+            }
+          >
+            {verifyOtpMutation.isPending ? (
+              <ActivityIndicator
+                size="small"
+                color="rgba(255, 106, 0, 1)"
+              />
+            ) : (
+              <Text style={styles.otpSentPillText}>Submit</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        <View style={styles.otpBottomInfo}>
+          <Text style={styles.otpSentToText}>
+            OTP sent to {selectedCountry?.callingCode} {phoneValue}
           </Text>
-        </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={timer > 0 || sendOtpMutation.isPending}
+            onPress={() => {
+              const fullPhoneNumber = getFullPhoneNumber();
+              sendOtpMutation.mutate({ phone: fullPhoneNumber });
+            }}
+          >
+            <Text
+              style={[
+                styles.timerText,
+                timer === 0 && styles.resendActive,
+              ]}
+            >
+              {timer > 0
+                ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer
+                }`
+                : 'Resend OTP'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderOtherMethods = () => (
     <View
@@ -919,6 +983,7 @@ const styles = StyleSheet.create({
   },
   otpCircle: {
     width: 40,
+    height: 40,
     aspectRatio: 1,
     borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -931,6 +996,8 @@ const styles = StyleSheet.create({
     padding: 0,
     includeFontPadding: false,
     textAlignVertical: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   otpSentPill: {
     backgroundColor: 'rgba(255, 106, 0, 0.1)',
@@ -1159,5 +1226,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: 18,
     opacity: 0.4,
+  },
+  activeOtpCircle: {
+    borderColor: 'rgba(255,106,0,1)',
+    borderWidth: 2,
+    shadowColor: 'rgba(255,106,0,0.8)',
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+
+  otpText: {
+    color: '#fff',
+    fontSize: 20,
+    textAlign: 'center',
+    fontFamily: 'HelveticaNowDisplay-Bold',
   },
 });

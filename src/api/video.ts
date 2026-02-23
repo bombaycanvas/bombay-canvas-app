@@ -414,3 +414,33 @@ export const useApplyCoupon = () => {
     },
   });
 };
+
+export const trackEpisodeView = async ({
+  episodeId,
+  guestId,
+}: {
+  episodeId: string;
+  guestId?: string | null;
+} = {} as any) => {
+  try {
+    console.log('Tracking Episode View:', { episodeId, guestId });
+    const response = await api(`/api/dashboard/track-view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        episodeId,
+        guestId,
+      }),
+    });
+
+    return await response;
+  } catch (error) {
+    console.log('Track View Error:', error);
+    return null;
+  }
+};
+
+export const useTrackEpisodeView = () =>
+  useMutation({
+    mutationFn: trackEpisodeView,
+  });

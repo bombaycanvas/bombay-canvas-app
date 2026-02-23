@@ -16,7 +16,7 @@ import {
   Animated,
   TouchableOpacity,
 } from 'react-native';
-import { usePlayVideoWithId, getPlayVideoWithID } from '../api/video';
+import { usePlayVideoWithId, getPlayVideoWithID, useTrackEpisodeView } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
@@ -167,6 +167,19 @@ const VideoScreen = () => {
 
   const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
+
+  const { mutate: trackView } = useTrackEpisodeView();
+
+  useEffect(() => {
+    if (currentEpisodeId) {
+      console.log('VideoScreen: Triggering trackView for episode:', currentEpisodeId);
+      const payload: any = { episodeId: currentEpisodeId };
+      if (!globalAuth) {
+        payload.guestId = `guest-${Date.now()}`;
+      }
+      trackView(payload);
+    }
+  }, [currentEpisodeId, trackView, globalAuth]);
 
   useEffect(() => {
     if (episodes?.length > 0 && !currentEpisodeId) {
