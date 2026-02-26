@@ -16,6 +16,7 @@ import SearchScreen from '../screens/SearchScreen';
 import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import { Platform } from 'react-native';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
+import RecommendationScreen from "../screens/RecommendationScreen";
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -69,6 +70,21 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen
+  name="ForYou"
+  component={RecommendationScreen}
+  options={{
+    tabBarLabel: "Discover",
+    tabBarIcon: ({ focused, color, size }) => (
+      <Ionicons
+        name={focused ? "sparkles" : "sparkles-outline"}
+        size={size}
+        color={focused ? "#FF6A00" : "#777"}
+      />
+    ),
+  }}
+/>
+
       <Tab.Screen name="Search" component={SearchScreen} />
       {token != null ? (
         <Tab.Screen name="Profile" component={ProfileScreen} />

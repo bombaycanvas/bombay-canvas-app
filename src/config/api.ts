@@ -1,0 +1,1 @@
+export const API_BASE_URL = "https://movie-recommendation-backend-sgnj.onrender.com/api";
