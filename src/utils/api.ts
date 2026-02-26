@@ -56,6 +56,7 @@ export const api = async (endpoint: string, config: any = {}) => {
 
   try {
     const apiUrl = NEXT_PUBLIC_BASE_URL;
+    console.log("BASE URL:", NEXT_PUBLIC_BASE_URL);
 
     const response = await fetch(
       `${apiUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
