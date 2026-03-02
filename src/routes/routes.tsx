@@ -155,6 +155,7 @@ const AppStack = () => {
           headerShown: true,
           headerStyle: { backgroundColor: '#202020' },
           headerTintColor: '#fff',
+          headerBackTitle: ' ',
         }}
       />
 

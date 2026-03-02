@@ -590,175 +590,180 @@ const StartLoginScreen = () => {
         <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]} />
       </TouchableWithoutFeedback>
 
-      <Animated.View
-        style={[
-          styles.methodsSheet,
-          {
-            paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.methodsSheetKAV}
       >
-        <View style={styles.sheetHandle} />
+        <Animated.View
+          style={[
+            styles.methodsSheet,
+            {
+              // paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 10 : 20),
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.sheetHandle} />
 
-        <View>
-          {isSignup && (
+          <View>
+            {isSignup && (
+              <Controller
+                control={control}
+                name="fullname"
+                rules={{ required: 'Fullname is required' }}
+                render={({ field: { onChange, value } }) => (
+                  <>
+                    <TextInput
+                      style={styles.emailInput}
+                      placeholder="Full Name"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={value}
+                      onChangeText={onChange}
+                      autoCapitalize="words"
+                    />
+                    {errors.fullname && (
+                      <Text style={styles.errorText}>
+                        {errors.fullname.message as string}
+                      </Text>
+                    )}
+                  </>
+                )}
+              />
+            )}
+
             <Controller
               control={control}
-              name="fullname"
-              rules={{ required: 'Fullname is required' }}
+              name="email"
+              rules={{
+                required: 'Email is required',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Invalid email address',
+                },
+              }}
               render={({ field: { onChange, value } }) => (
                 <>
                   <TextInput
                     style={styles.emailInput}
-                    placeholder="Full Name"
+                    placeholder="Email"
                     placeholderTextColor="rgba(255,255,255,0.3)"
                     value={value}
                     onChangeText={onChange}
-                    autoCapitalize="words"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                   />
-                  {errors.fullname && (
+                  {errors.email?.message && (
                     <Text style={styles.errorText}>
-                      {errors.fullname.message as string}
+                      {errors.email.message as string}
                     </Text>
                   )}
                 </>
               )}
             />
-          )}
 
-          <Controller
-            control={control}
-            name="email"
-            rules={{
-              required: 'Email is required',
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: 'Invalid email address',
-              },
-            }}
-            render={({ field: { onChange, value } }) => (
-              <>
-                <TextInput
-                  style={styles.emailInput}
-                  placeholder="Email"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  value={value}
-                  onChangeText={onChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                {errors.email?.message && (
-                  <Text style={styles.errorText}>
-                    {errors.email.message as string}
+            <Controller
+              control={control}
+              name="password"
+              rules={{
+                required: 'Password is required',
+                minLength: {
+                  value: 8,
+                  message: 'Password must be at least 8 characters',
+                },
+              }}
+              render={({ field: { onChange, value } }) => (
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.emailInput}
+                    placeholder="Password"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    secureTextEntry={!showPassword}
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+            {errors.password && (
+              <Text style={styles.errorText}>
+                {errors.password?.message as string}
+              </Text>
+            )}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.emailLoginBtn}
+              onPress={handleSubmit(onEmailSubmit)}
+            >
+              <Text style={styles.emailLoginBtnText}>
+                {isSignup ? 'Sign Up' : 'Login'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.8} style={styles.toggleMethodsLink}>
+            <Text style={styles.toggleMethodsText}>
+              {isSignup ? (
+                <Fragment>
+                  Already have an account?{' '}
+                  <Text
+                    onPress={() => setIsSignup(!isSignup)}
+                    style={styles.link}
+                  >
+                    Login
                   </Text>
-                )}
-              </>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="password"
-            rules={{
-              required: 'Password is required',
-              minLength: {
-                value: 8,
-                message: 'Password must be at least 8 characters',
-              },
-            }}
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.emailInput}
-                  placeholder="Password"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  secureTextEntry={!showPassword}
-                  value={value}
-                  onChangeText={onChange}
-                />
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          {errors.password && (
-            <Text style={styles.errorText}>
-              {errors.password?.message as string}
+                </Fragment>
+              ) : (
+                <Fragment>
+                  Don't have an account?{' '}
+                  <Text
+                    onPress={() => setIsSignup(!isSignup)}
+                    style={styles.link}
+                  >
+                    Sign Up
+                  </Text>
+                </Fragment>
+              )}
             </Text>
+          </TouchableOpacity>
+
+          {Platform.OS === 'ios' && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.socialButton}
+                onPress={handleAppleLogin}
+              >
+                <AppleLogin />
+                <Text style={styles.socialButtonText}>
+                  {isSignup ? 'Sign up using Apple' : 'Login using Apple'}
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
 
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.emailLoginBtn}
-            onPress={handleSubmit(onEmailSubmit)}
+            style={styles.cancelLink}
+            onPress={() => setFlow('phone')}
           >
-            <Text style={styles.emailLoginBtnText}>
-              {isSignup ? 'Sign Up' : 'Login'}
-            </Text>
+            <Text style={styles.cancelLinkText}>Cancel</Text>
           </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity activeOpacity={0.8} style={styles.toggleMethodsLink}>
-          <Text style={styles.toggleMethodsText}>
-            {isSignup ? (
-              <Fragment>
-                Already have an account?{' '}
-                <Text
-                  onPress={() => setIsSignup(!isSignup)}
-                  style={styles.link}
-                >
-                  Login
-                </Text>
-              </Fragment>
-            ) : (
-              <Fragment>
-                Don't have an account?{' '}
-                <Text
-                  onPress={() => setIsSignup(!isSignup)}
-                  style={styles.link}
-                >
-                  SignUp
-                </Text>
-              </Fragment>
-            )}
-          </Text>
-        </TouchableOpacity>
-
-        {Platform.OS === 'ios' && (
-          <>
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.socialButton}
-              onPress={handleAppleLogin}
-            >
-              <AppleLogin />
-              <Text style={styles.socialButtonText}>
-                {isSignup ? 'Sign up using Apple' : 'Login using Apple'}
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.cancelLink}
-          onPress={() => setFlow('phone')}
-        >
-          <Text style={styles.cancelLinkText}>Cancel</Text>
-        </TouchableOpacity>
-      </Animated.View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </View>
   );
 
@@ -772,6 +777,7 @@ const StartLoginScreen = () => {
           resizeMode="cover"
           repeat
           muted
+          playWhenInactive={true}
         />
 
         <LinearGradient
@@ -1032,15 +1038,21 @@ const styles = StyleSheet.create({
   resendActive: {
     textDecorationLine: 'underline',
   },
+  methodsSheetKAV: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   methodsSheet: {
     backgroundColor: '#1C1C1E',
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     padding: 25,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    // position: 'absolute',
+    // bottom: 0,
+    // left: 0,
+    // right: 0,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },

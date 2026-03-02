@@ -55,7 +55,7 @@ const SettingsScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
+        {/* <Text style={styles.sectionTitle}>About</Text> */}
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 18,
+    fontSize: 16,
     color: '#fff',
     paddingHorizontal: 20,
     marginBottom: 10,

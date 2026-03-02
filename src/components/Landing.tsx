@@ -62,6 +62,7 @@ const Landing = () => {
           resizeMode="cover"
           repeat
           paused={!isPlaying}
+          playWhenInactive={true}
         />
       )}
       <LinearGradient

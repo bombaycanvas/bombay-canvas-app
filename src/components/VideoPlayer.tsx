@@ -327,6 +327,7 @@ export default function VideoPlayer({
               <Video
                 useTextureView={true}
                 key={episode?.videoUrl}
+                playWhenInactive={true}
                 ref={videoRef}
                 source={{ uri: episode?.videoUrl }}
                 style={styles.video}
@@ -338,7 +339,7 @@ export default function VideoPlayer({
                 onProgress={handleProgress}
                 onError={handleError}
                 onReadyForDisplay={() => setIsReady(true)}
-                poster={movie?.posterUrl}
+                // poster={movie?.posterUrl}
                 posterResizeMode="cover"
                 onEnd={onVideoEnd}
                 bufferConfig={bufferConfig}

@@ -201,6 +201,7 @@ const SeriesDetailScreen: React.FC = () => {
             poster={series?.posterUrl}
             posterResizeMode="cover"
             repeat
+            playWhenInactive={true}
           />
         )}
         {!isReady && series && (
