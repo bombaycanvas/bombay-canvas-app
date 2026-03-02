@@ -64,19 +64,18 @@ const ProfileScreen = () => {
             style={styles.coverPhoto}
           >
             <View style={styles.overlay} />
-            {userProfile?.userData?.profiles[0]?.avatarUrl && (
-              <FastImage
-                source={{
-                  uri:
-                    userProfile?.userData?.profiles[0]?.avatarUrl ||
-                    'https://via.placeholder.com/150',
-                  priority: FastImage.priority.high,
-                  cache: FastImage.cacheControl.immutable,
-                }}
-                style={styles.avatar}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            )}
+
+            <FastImage
+              source={{
+                uri:
+                  userProfile?.userData?.profiles[0]?.avatarUrl ||
+                  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.avatar}
+              resizeMode={FastImage.resizeMode.cover}
+            />
           </ImageBackground>
           <View style={styles.profileInfo}>
             {userProfile?.userData && (

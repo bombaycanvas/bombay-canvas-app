@@ -210,6 +210,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
+    paddingBottom: 50,
     height: '60%',
   },
   modalHeader: {

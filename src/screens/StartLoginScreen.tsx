@@ -98,6 +98,8 @@ const StartLoginScreen = () => {
 
   const sendOtpMutation = useSendOtpMutation(response => {
     setFlow('otp');
+    setOtp(['', '', '', '']);
+    setActiveIndex(0);
     setTimer(30);
     Toast.show({
       type: 'success',
@@ -451,6 +453,7 @@ const StartLoginScreen = () => {
             activeOpacity={0.8}
             onPress={() => {
               setOtp(['', '', '', '']);
+              setActiveIndex(0);
               setFlow('phone');
             }}
           >
@@ -487,8 +490,12 @@ const StartLoginScreen = () => {
           autoFocus
           style={{
             position: 'absolute',
+            width: 1,
+            height: 1,
             opacity: 0,
+            left: -1000,
           }}
+          pointerEvents="none"
         />
         <View style={styles.otpPillWrapper}>
           <View style={styles.otpCirclesWrapper}>
@@ -787,7 +794,7 @@ const StartLoginScreen = () => {
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
           style={styles.mainContent}
         >
           <View style={styles.topSection}>
