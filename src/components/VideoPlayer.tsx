@@ -6,6 +6,7 @@ import {
   Image,
   Animated,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
@@ -295,6 +296,12 @@ export default function VideoPlayer({
     if (episode && isVisible && !isBuffering) showControls();
   }, [episode, isVisible, showControls, isBuffering]);
 
+  useEffect(() => {
+    if (!isVisible) {
+      videoRef.current = null;
+    }
+  }, [isVisible]);
+
   const hasValidVideoUrl =
     episode?.videoUrl &&
     typeof episode.videoUrl === 'string' &&
@@ -325,13 +332,13 @@ export default function VideoPlayer({
           <>
             {!locked && isVisible && hasValidVideoUrl ? (
               <Video
-                useTextureView={true}
-                key={episode?.videoUrl}
+                useTextureView={Platform.OS === 'android'}
+                key={`${episode.id}-${isVisible}`}
                 playWhenInactive={true}
                 ref={videoRef}
-                source={{ uri: episode?.videoUrl }}
+                source={isVisible ? { uri: episode?.videoUrl } : undefined}
                 style={styles.video}
-                paused={!isPlaying}
+                paused={!isPlaying || !isVisible}
                 resizeMode="contain"
                 onLoadStart={handleLoadStart}
                 onLoad={handleLoad}

@@ -88,6 +88,8 @@ const VideoListItem = React.memo(
 
     const episodeData =
       data?.episode && data?.episode?.videoUrl ? data?.episode : item;
+
+
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer
@@ -318,6 +320,7 @@ const VideoScreen = () => {
   }
 
   const activeEpisode = episodes?.find(e => e.id === currentEpisodeId);
+  ;
 
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
@@ -336,15 +339,15 @@ const VideoScreen = () => {
           offset: ITEM_HEIGHT * index,
           index,
         })}
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
         windowSize={2}
         snapToOffsets={episodes.map((_, i) => i * ITEM_HEIGHT)}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
         snapToAlignment="start"
         disableIntervalMomentum={true}
         scrollEventThrottle={16}
-        removeClippedSubviews={false}
+        removeClippedSubviews={Platform.OS === 'ios'}
         overScrollMode="never"
       />
       <EpisodesBottomSheet

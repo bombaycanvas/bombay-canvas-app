@@ -236,10 +236,11 @@ const styles = StyleSheet.create({
   movieItem: { flex: 0.48 },
   poster: {
     width: '100%',
-    height: 160,
-    borderRadius: 10,
+    height: 195,
+    borderRadius: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(205,106,0,0.25)',
+    borderColor: 'rgba(255,106,0,0.25)',
+    backgroundColor: 'rgba(0, 0, 0, 0.36)',
   },
   title: {
     color: 'white',
