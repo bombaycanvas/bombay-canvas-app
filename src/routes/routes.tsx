@@ -22,11 +22,13 @@ import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
+import RecommendationScreen from '../screens/RecommendationScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
   Search: undefined;
   Profile: undefined;
+  Discover: undefined;
 };
 
 export type RootStackParamList = {
@@ -78,6 +80,8 @@ const MainTabs = () => {
             iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person-circle' : 'person-circle-outline';
+          } else if (route.name === 'Discover') {
+            iconName = focused ? 'sparkles' : 'sparkles-outline';
           }
 
           return <Ionicons name={iconName} size={24} color={color} />;
@@ -85,6 +89,7 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Discover" component={RecommendationScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen
         name="Profile"
