@@ -4,8 +4,8 @@ import {
     Text,
     TouchableOpacity,
     Dimensions,
-    ScrollView,
     StatusBar,
+    ScrollView,
     Animated,
     Modal,
     StyleSheet,
@@ -95,28 +95,34 @@ const FilterModal: React.FC<FilterModalProps> = ({
                         style={styles.gradient}
                     />
 
-                    <TouchableOpacity
-                        onPress={handleClose}
-                        style={[styles.closeButton, { top: insets.top + 10 }]}
-                    >
-                        <X color="#fff" size={24} />
-                    </TouchableOpacity>
-
                     <ScrollView
+                        scrollEnabled={true}
+                        style={{ flex: 1 }}
                         contentContainerStyle={[
                             styles.scrollContent,
-                            Platform.OS === "ios" ? { paddingTop: insets.top + 10 } : null
+                            Platform.OS === "ios"
+                                ? { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 4 }
+                                : { paddingTop: 16, paddingBottom: 30 }
                         ]}
                         showsVerticalScrollIndicator={false}
                     >
                         <View style={styles.headerSection}>
-                            <Text style={styles.title}>
-                                What are you in the{"\n"}
-                                <Text style={styles.highlight}>mood for today?</Text>
-                            </Text>
-                            <Text style={styles.subtitle}>
+                            <View style={styles.headerTitleRow}>
+                                <Text style={styles.title}>
+                                    What are you in the{"\n"}
+                                    <Text style={styles.highlight}>mood for today?</Text>
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={handleClose}
+                                    style={styles.closeButton}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                                >
+                                    <X color="#fff" size={24} />
+                                </TouchableOpacity>
+                                {/* <Text style={styles.subtitle}>
                                 Personalize your feed by choosing your preferences below.
-                            </Text>
+                            </Text> */}
+                            </View>
                         </View>
 
                         <Text style={styles.sectionLabel}>Content Type</Text>
@@ -172,7 +178,9 @@ const FilterModal: React.FC<FilterModalProps> = ({
 
                         <TouchableOpacity
                             onPress={handleApply}
-                            style={styles.applyButton}
+                            style={[
+                                styles.applyButton,
+                            ]}
                         >
                             <Text style={styles.applyButtonText}>
                                 Apply & Recommend
@@ -180,8 +188,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                         </TouchableOpacity>
                     </ScrollView>
                 </Animated.View>
-            </View>
-        </Modal>
+            </View >
+        </Modal >
     );
 };
 
@@ -203,56 +211,62 @@ const styles = StyleSheet.create({
         height: 300,
         opacity: 0.5,
     },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    headerTitleRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+    },
     closeButton: {
-        position: "absolute",
-        right: 20,
-        zIndex: 10,
-        padding: 10,
-        backgroundColor: "rgba(0,0,0,0.3)",
-        borderRadius: 20,
+        padding: 4,
+        marginTop: -4,
+        marginRight: -4,
     },
     scrollContent: {
-        padding: 24,
-        paddingBottom: 60,
+        padding: 16,
     },
     headerSection: {
-        marginBottom: 32,
+        marginBottom: 16,
     },
     title: {
-        fontSize: 32,
+        fontSize: 28,
         fontWeight: "800",
         color: "#fff",
-        lineHeight: 40,
+        lineHeight: 34,
     },
     highlight: {
         color: "#FF6A00",
     },
-    subtitle: {
-        marginTop: 12,
-        color: "#888",
-        fontSize: 16,
-    },
+    // subtitle: {
+    //     marginTop: 12,
+    //     color: "#888",
+    //     fontSize: 16,
+    // },
     sectionLabel: {
         color: "#aaa",
         fontSize: 14,
         fontWeight: "600",
         textTransform: 'uppercase',
         letterSpacing: 1,
-        marginTop: 28,
+        marginTop: 20,
     },
     chipRow: {
         flexDirection: "row",
-        marginTop: 12,
+        marginTop: 10,
     },
     chipWrapRow: {
         flexDirection: "row",
         flexWrap: "wrap",
-        marginTop: 12,
+        marginTop: 10,
     },
     applyButton: {
-        marginTop: 48,
+        marginTop: 32,
         backgroundColor: "#FF6A00",
-        padding: 18,
+        padding: 16,
         borderRadius: 16,
         alignItems: "center",
         shadowColor: "#FF6A00",
@@ -263,7 +277,7 @@ const styles = StyleSheet.create({
     },
     applyButtonText: {
         color: "#fff",
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "700",
     },
 });

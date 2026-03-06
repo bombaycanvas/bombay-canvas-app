@@ -22,7 +22,9 @@ export const getRecommendations = async (payload: {
         throw new Error("Failed to fetch recommendations");
     }
 
-    return res.json();
+    const data = await res.json();
+    console.log(`FETCHED RECOMMENDATIONS COUNT: ${data?.data?.length || 0}`);
+    return data;
 };
 export const getContentDetails = async (
     type: string,
@@ -41,4 +43,3 @@ export const getContentDetails = async (
 
     return res.json();
 };
- 

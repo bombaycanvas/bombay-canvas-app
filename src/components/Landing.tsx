@@ -87,8 +87,9 @@ const Landing = () => {
         </Text>
 
         <Text style={styles.para}>
-          From microdramas to series in travel, food, fashion, culture and much
-          more — discover it all in vertical
+          For those who have commitment issues.
+          An OTT platform for Micro-Series.
+
         </Text>
 
         <View style={styles.ctaWrapper}>

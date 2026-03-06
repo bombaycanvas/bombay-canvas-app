@@ -10,20 +10,20 @@ import {
     Linking,
     StatusBar,
     StyleSheet,
+    useWindowDimensions,
     ScrollView,
+    PixelRatio,
 } from "react-native";
+
+const scale = PixelRatio.getFontScale();
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SlidersHorizontal, Play } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { SlidersHorizontal, Play, TvMinimalPlay } from "lucide-react-native";
 
 import FilterModal from "../components/FilterModal";
+import WatchProviders from "../components/WatchProviders";
 import { getRecommendations, getContentDetails } from "../api/recommendation";
 import { trackEvent } from "../api/events";
-
-const { width, height } = Dimensions.get("window");
-
-const HEADER_HEIGHT = 56;
-const TAB_BAR_HEIGHT = 70;
-const CARD_HEIGHT = height - HEADER_HEIGHT - TAB_BAR_HEIGHT;
 
 /* ---------------- TYPES ---------------- */
 type RecommendationItem = {
@@ -38,7 +38,9 @@ type RecommendationItem = {
 };
 
 const RecommendationScreen = () => {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
     const [types, setTypes] = useState<string[]>(["movie"]);
     const [genre, setGenre] = useState("action");
     const [language, setLanguage] = useState("english");
@@ -52,6 +54,8 @@ const RecommendationScreen = () => {
     const [detailsMap, setDetailsMap] = useState<Record<string, any>>({});
     const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
     const [isPreferencesVisible, setIsPreferencesVisible] = useState(false);
+    const [expandedOverviews, setExpandedOverviews] = useState<Record<string, boolean>>({});
+    const [activeProviderTabs, setActiveProviderTabs] = useState<Record<string, string>>({});
 
     const openModal = () => {
         setIsPreferencesVisible(true);
@@ -87,7 +91,7 @@ const RecommendationScreen = () => {
         } finally {
             setLoadingDetails(null);
         }
-    }, [detailsMap]);
+    }, [detailsMap, loadingDetails, expandedOverviews, activeProviderTabs]);
 
     const fetchRecommendations = async (reset = false) => {
         if (loading) return;
@@ -106,7 +110,7 @@ const RecommendationScreen = () => {
                 language,
                 mood,
                 page: reset ? 1 : page,
-                limit: 10,
+                limit: 2,
             });
 
             const newData: RecommendationItem[] = res.data || [];
@@ -127,6 +131,12 @@ const RecommendationScreen = () => {
 
             const item: RecommendationItem = viewableItems[0].item;
             fetchDetails(item);
+
+            // Pre-fetch next item if it exists
+            const currentIndex = data.findIndex(d => d.id === item.id);
+            if (currentIndex !== -1 && currentIndex < data.length - 1) {
+                fetchDetails(data[currentIndex + 1]);
+            }
 
             const now = Date.now();
 
@@ -160,7 +170,7 @@ const RecommendationScreen = () => {
             offset: height * index,
             index,
         }),
-        []
+        [height]
     );
 
     const renderItem = useCallback(
@@ -174,14 +184,20 @@ const RecommendationScreen = () => {
                 <View
                     style={[
                         styles.itemContainer,
-                        { paddingTop: insets.top + 60 }
+                        { width, height, paddingTop: insets.top + 60 }
                     ]}
                 >
                     <View style={styles.posterContainer}>
                         {item.poster && (
                             <Image
                                 source={{ uri: item.poster }}
-                                style={styles.poster}
+                                style={[
+                                    styles.poster,
+                                    {
+                                        width: width * 0.45,
+                                        height: (width * 0.45) * 1.2
+                                    }
+                                ]}
                                 resizeMode="cover"
                             />
                         )}
@@ -204,115 +220,113 @@ const RecommendationScreen = () => {
                             </Text>
                         )}
 
-                        <ScrollView
-                            style={styles.scrollContent}
-                            contentContainerStyle={styles.scrollContentContainer}
-                            showsVerticalScrollIndicator={false}
-                            nestedScrollEnabled={true}
-                        >
-                            <Text style={styles.overview}>
-                                {item.overview}
-                            </Text>
-
-                            {/* WHERE TO WATCH */}
-                            {details?.watchProviders && (
-                                <View style={styles.watchProvidersContainer}>
-                                    <Text style={styles.watchProvidersTitle}>
-                                        📍 Where to Watch
-                                    </Text>
-
-                                    {details.watchProviders.inApp && (
-                                        <View style={styles.providerGroup}>
-                                            <Text style={styles.providerTypeTitle}>BOMBAY</Text>
-                                            <ScrollView
-                                                horizontal
-                                                showsHorizontalScrollIndicator={false}
-                                                contentContainerStyle={styles.providersScrollContent}
-                                            >
-                                                <View style={styles.providersRow}>
-                                                    <View style={styles.providerItem}>
-                                                        <Image
-                                                            source={require("../images/MainLogo.png")}
-                                                            style={styles.providerLogo}
-                                                            resizeMode="contain"
-                                                        />
-                                                        <Text style={styles.providerName}>Canvas</Text>
-                                                    </View>
-                                                </View>
-                                            </ScrollView>
-                                        </View>
-                                    )}
-
-                                    {/* TMDB Groups */}
-                                    {["flatrate", "rent", "buy"].map((type) =>
-                                        details.watchProviders[type]?.length ? (
-                                            <View key={type} style={styles.providerGroup}>
-                                                <Text style={styles.providerTypeTitle}>
-                                                    {type === "flatrate" ? "STREAM" : type.toUpperCase()}
-                                                </Text>
-                                                <ScrollView
-                                                    horizontal
-                                                    showsHorizontalScrollIndicator={false}
-                                                    contentContainerStyle={styles.providersScrollContent}
-                                                >
-                                                    <View style={styles.providersRow}>
-                                                        {details.watchProviders[type].map((provider: any) => (
-                                                            <View
-                                                                key={`${type}-${provider.provider_id}`}
-                                                                style={styles.providerItem}
-                                                            >
-                                                                <Image
-                                                                    source={{
-                                                                        uri: `https://image.tmdb.org/t/p/w92${provider.logo_path}`,
-                                                                    }}
-                                                                    style={styles.providerLogo}
-                                                                />
-                                                                <Text style={styles.providerName}>
-                                                                    {provider.provider_name}
-                                                                </Text>
-                                                            </View>
-                                                        ))}
-                                                    </View>
-                                                </ScrollView>
-                                            </View>
-                                        ) : null
-                                    )}
-                                </View>
-                            )}
-                        </ScrollView>
+                        <View style={styles.overviewContainer}>
+                            <ScrollView
+                                style={{ maxHeight: 200 }}
+                                showsVerticalScrollIndicator={false}
+                                nestedScrollEnabled={true}
+                            >
+                                <Text
+                                    style={styles.overview}
+                                    numberOfLines={expandedOverviews[item.id.toString()] ? undefined : 3}
+                                >
+                                    {item.overview}
+                                </Text>
+                                {item.overview?.length > 150 && (
+                                    <TouchableOpacity
+                                        onPress={() => setExpandedOverviews(prev => ({
+                                            ...prev,
+                                            [item.id.toString()]: !prev[item.id.toString()]
+                                        }))}
+                                    >
+                                        <Text style={styles.readMoreText}>
+                                            {expandedOverviews[item.id.toString()] ? "Read Less" : "Read More"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </ScrollView>
+                        </View>
                     </View>
 
-                    <View style={styles.footerContainer}>
-                        {loadingDetails === item.id.toString() || !details ? (
-                            <View style={styles.logoFallbackContainer}>
-                                <ActivityIndicator color="#FF6A00" size="small" />
-                            </View>
-                        ) : details.trailer ? (
-                            <TouchableOpacity
-                                onPress={() => Linking.openURL(details.trailer)}
-                                style={styles.trailerButton}
-                            >
-                                <View style={styles.trailerButtonContent}>
-                                    <Play color="#ff6a00" size={18} fill="#ff6a00" />
-                                    <Text style={styles.trailerButtonText}>
-                                        Watch Trailer
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-                        ) : (
-                            <View style={styles.logoFallbackContainer}>
-                                <Image
-                                    source={require("../images/MainLogo.png")}
-                                    style={styles.fallbackLogo}
-                                    resizeMode="contain"
+                    <View style={styles.watchButtonWrapper}>
+                        {(() => {
+                            const isInternal = item.id.toString().startsWith("internal-");
+                            const isTargetLoading = loadingDetails === item.id.toString();
+
+                            if (isInternal) {
+                                return (
+                                    <TouchableOpacity
+                                        activeOpacity={0.8}
+                                        style={styles.trailerButton}
+                                        onPress={() => {
+                                            const cleanId = item.id.toString().replace("internal-", "");
+                                            navigation.navigate("SeriesDetail", { id: cleanId, posterUrl: item.poster });
+                                        }}
+                                    >
+                                        <View style={styles.trailerButtonContent}>
+                                            <Play color="#ff6a00" size={18} fill="#ff6a00" />
+                                            <Text style={styles.trailerButtonText}>Watch On Canvas</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }
+
+                            if (isTargetLoading || !details) {
+                                return (
+                                    <View style={styles.logoFallbackContainer}>
+                                        <ActivityIndicator color="#FF6A00" size="small" />
+                                    </View>
+                                );
+                            }
+
+                            if (details.watchProviders?.inApp) {
+                                return (
+                                    <TouchableOpacity
+                                        activeOpacity={0.8}
+                                        style={styles.trailerButton}
+                                        onPress={() => {
+                                            navigation.navigate("SeriesDetail", { id: item.id.toString(), posterUrl: item.poster });
+                                        }}
+                                    >
+                                        <View style={styles.trailerButtonContent}>
+                                            <Play color="#ff6a00" size={18} fill="#ff6a00" />
+                                            <Text style={styles.trailerButtonText}>Watch On Canvas</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }
+
+                            if (details.trailer) {
+                                return (
+                                    <TouchableOpacity
+                                        onPress={() => Linking.openURL(details.trailer)}
+                                        style={styles.trailerButton}
+                                    >
+                                        <View style={styles.trailerButtonContent}>
+                                            <Play color="#ff6a00" size={18} fill="#ff6a00" />
+                                            <Text style={styles.trailerButtonText}>Watch Trailer</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            }
+
+                            return null;
+                        })()}
+                        {details?.watchProviders && (
+                            <View style={styles.providersWrapper}>
+                                <WatchProviders
+                                    details={details}
+                                    itemId={item.id.toString()}
+                                    activeProviderTabs={activeProviderTabs}
+                                    setActiveProviderTabs={setActiveProviderTabs}
                                 />
                             </View>
                         )}
                     </View>
-                </View>
+                </View >
             );
         },
-        [detailsMap, loadingDetails]
+        [detailsMap, loadingDetails, expandedOverviews, activeProviderTabs, height, width, insets]
     );
 
     return (
@@ -338,6 +352,7 @@ const RecommendationScreen = () => {
                     viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
                     getItemLayout={getItemLayout}
                     contentInsetAdjustmentBehavior="never"
+                    disableIntervalMomentum={true}
                     onEndReached={() => {
                         if (hasMore) fetchRecommendations();
                     }}
@@ -353,7 +368,6 @@ const RecommendationScreen = () => {
                 style={[
                     styles.header,
                     {
-                        height: (insets.top || 44) + 60,
                         paddingTop: insets.top || 44,
                     }
                 ]}
@@ -396,13 +410,11 @@ const styles = StyleSheet.create({
         right: 0,
         zIndex: 9999,
         elevation: 10,
-        backgroundColor: "rgba(0,0,0,0.85)",
+        backgroundColor: "transparent",
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "flex-end",
         paddingHorizontal: 16,
-        borderBottomWidth: 0.5,
-        borderBottomColor: "rgba(255,106,0,0.2)",
     },
     filterButton: {
         padding: 10,
@@ -412,42 +424,50 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,106,0,0.3)",
     },
     itemContainer: {
-        width: width,
-        height: height,
         paddingHorizontal: 16,
+        paddingBottom: 200, // Increased space for footer and tab bar
     },
     posterContainer: {
         alignItems: "center",
-        marginBottom: 12,
+        marginBottom: 4,
     },
     poster: {
-        width: 160,
-        height: 240,
+        width: 200,
+        height: 300,
         borderRadius: 12,
     },
     infoContainer: {
-        flex: 1,
+        // flex: 1,
+        marginBottom: 4,
+    },
+    overviewContainer: {
+        maxHeight: 120,
+        marginTop: 6,
+        marginBottom: 8,
     },
     scrollContent: {
-        flex: 1,
+        marginTop: 4,
+        marginBottom: 4,
+    },
+    providersWrapper: {
         marginTop: 10,
     },
-    scrollContentContainer: {
-        paddingBottom: TAB_BAR_HEIGHT + 110,
-    },
     title: {
-        fontSize: 22,
-        fontWeight: "700",
+        fontSize: 24 * scale,
+        fontWeight: "800",
         color: "#fff",
+        letterSpacing: -0.5,
     },
     rating: {
-        color: "#f5c518",
+        color: "#aaa",
+        fontSize: 14 * scale,
         marginTop: 6,
     },
     overview: {
-        color: "#ccc",
+        color: "#ddd",
+        fontSize: 16 * scale,
         marginTop: 10,
-        lineHeight: 20,
+        lineHeight: 22 * scale,
     },
     detailsButton: {
         marginTop: 16,
@@ -466,30 +486,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 4,
     },
-    footerContainer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#000',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: TAB_BAR_HEIGHT + 50,
-        zIndex: 100,
+    watchButtonWrapper: {
+        width: '100%',
+        marginTop: 10,
+        marginBottom: 4,
     },
     trailerButton: {
+        width: '100%',
         backgroundColor: "rgba(255,106,0,0.15)",
-        padding: 14,
-        borderRadius: 12,
+        paddingVertical: 14,
+        borderRadius: 14,
         alignItems: "center",
         borderWidth: 2,
         borderColor: "rgba(255,106,0,0.3)",
     },
     trailerButtonText: {
         color: "#ff6a00",
-        fontSize: 16,
-        fontWeight: "600",
-        marginLeft: 8,
+        fontSize: 18 * scale,
+        fontWeight: "700",
+        marginLeft: 10,
     },
     trailerButtonContent: {
         flexDirection: "row",
@@ -504,52 +519,6 @@ const styles = StyleSheet.create({
         width: 120,
         height: 40,
     },
-    watchProvidersContainer: {
-        flexDirection: "column",
-        marginTop: 14,
-    },
-    watchProvidersTitle: {
-        color: "#fff",
-        fontWeight: "600",
-        marginBottom: 8,
-    },
-    inAppText: {
-        color: "#aaa",
-    },
-    providerTypeTitle: {
-        color: "#FF6A00",
-        fontSize: 10,
-        fontWeight: "700",
-        marginBottom: 6,
-        letterSpacing: 1,
-    },
-    providerGroup: {
-        marginBottom: 16,
-    },
-    providersScrollContent: {
-        paddingVertical: 5,
-    },
-    providersRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-    },
-    providerItem: {
-        alignItems: "center",
-        marginRight: 12,
-        marginBottom: 8,
-    },
-    providerLogo: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-    },
-    providerName: {
-        color: "#aaa",
-        fontSize: 10,
-        marginTop: 4,
-        maxWidth: 60,
-        textAlign: "center",
-    },
     centeredLoading: {
         flex: 1,
         justifyContent: "center",
@@ -560,6 +529,12 @@ const styles = StyleSheet.create({
         color: "#aaa",
         marginTop: 16,
         fontSize: 16,
+    },
+    readMoreText: {
+        color: "#FF6A00",
+        fontSize: 14,
+        fontWeight: "600",
+        marginTop: 4,
     },
 });
 
