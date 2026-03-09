@@ -13,6 +13,7 @@ import {
   Dimensions,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   BackHandler,
   Platform,
 } from 'react-native';
@@ -223,9 +224,13 @@ const SeriesDetailScreen: React.FC = () => {
       </View>
 
       <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
-        <TouchableOpacity activeOpacity={0.9} onPress={handleBack}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        >
           <ChevronLeft color="#ff6a00" size={28} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.contentContainer}>

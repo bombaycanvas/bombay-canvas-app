@@ -7,6 +7,7 @@ import {
   Platform,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { X } from 'lucide-react-native';
@@ -52,10 +53,15 @@ export const EpisodesBottomSheet = ({
       statusBarTranslucent
     >
       <View style={styles.modalContainer}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Episodes</Text>
-            <TouchableOpacity activeOpacity={0.9} onPress={onClose}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onClose}
+              style={{ padding: 10 }}
+            >
               <X color="white" size={24} />
             </TouchableOpacity>
           </View>

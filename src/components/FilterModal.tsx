@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
         alignItems: "flex-start",
     },
     closeButton: {
-        padding: 4,
+        padding: 10,
         marginTop: -4,
         marginRight: -4,
     },

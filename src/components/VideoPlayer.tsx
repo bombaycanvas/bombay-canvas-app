@@ -346,7 +346,7 @@ export default function VideoPlayer({
                 onProgress={handleProgress}
                 onError={handleError}
                 onReadyForDisplay={() => setIsReady(true)}
-                // poster={movie?.posterUrl}
+                poster={movie?.posterUrl}
                 posterResizeMode="cover"
                 onEnd={onVideoEnd}
                 bufferConfig={bufferConfig}
