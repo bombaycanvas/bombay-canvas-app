@@ -138,6 +138,10 @@ const AppStack = () => {
       <Stack.Screen
         name="SeriesDetail"
         component={SeriesDetailScreen}
+        options={{
+          gestureResponseDistance: 20,
+          animation: 'none'
+        }}
       />
 
       <Stack.Screen
@@ -145,6 +149,8 @@ const AppStack = () => {
         component={VideoScreen}
         options={{
           headerShown: false,
+          gestureResponseDistance: 20,
+          animation: 'none',
         }}
       />
 

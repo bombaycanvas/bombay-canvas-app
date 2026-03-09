@@ -145,7 +145,9 @@ const SeriesDetailScreen: React.FC = () => {
     }
   }, [isCasting, series?.userPurchased, authRedirect, loadQueue, isAuthenticated, setAuthRedirect]);
   const handleBack = useCallback(() => {
-    navigation.goBack();
+    // setIsPlaying(false);
+    // setIsReady(false);
+    setTimeout(() => navigation.goBack(), 50);
   }, [navigation]);
 
   useFocusEffect(
