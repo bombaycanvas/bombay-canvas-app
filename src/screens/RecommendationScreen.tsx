@@ -24,6 +24,7 @@ import FilterModal from "../components/FilterModal";
 import WatchProviders from "../components/WatchProviders";
 import { getRecommendations, getContentDetails } from "../api/recommendation";
 import { trackEvent } from "../api/events";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /* ---------------- TYPES ---------------- */
 type RecommendationItem = {
@@ -73,7 +74,16 @@ const RecommendationScreen = () => {
 
         if (detailsMap[key]) return;
 
+        const cacheKey = `content_details_${key}`;
+
         try {
+            // Try cache first for instant display
+            const cached = await AsyncStorage.getItem(cacheKey);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                setDetailsMap((prev) => ({ ...prev, [key]: parsed }));
+            }
+
             setLoadingDetails(key);
 
             const cleanId =
@@ -86,6 +96,8 @@ const RecommendationScreen = () => {
                 ...prev,
                 [key]: res,
             }));
+            // Save to cache
+            AsyncStorage.setItem(cacheKey, JSON.stringify(res)).catch(() => { });
         } catch (err) {
             console.log("Details error:", err);
         } finally {
@@ -110,7 +122,7 @@ const RecommendationScreen = () => {
                 language,
                 mood,
                 page: reset ? 1 : page,
-                limit: 2,
+                limit: 5,
             });
 
             const newData: RecommendationItem[] = res.data || [];
@@ -251,7 +263,6 @@ const RecommendationScreen = () => {
                     <View style={styles.watchButtonWrapper}>
                         {(() => {
                             const isInternal = item.id.toString().startsWith("internal-");
-                            const isTargetLoading = loadingDetails === item.id.toString();
 
                             if (isInternal) {
                                 return (
@@ -271,15 +282,7 @@ const RecommendationScreen = () => {
                                 );
                             }
 
-                            if (isTargetLoading || !details) {
-                                return (
-                                    <View style={styles.logoFallbackContainer}>
-                                        <ActivityIndicator color="#FF6A00" size="small" />
-                                    </View>
-                                );
-                            }
-
-                            if (details.watchProviders?.inApp) {
+                            if (details?.watchProviders?.inApp) {
                                 return (
                                     <TouchableOpacity
                                         activeOpacity={0.8}
@@ -296,7 +299,7 @@ const RecommendationScreen = () => {
                                 );
                             }
 
-                            if (details.trailer) {
+                            if (details?.trailer) {
                                 return (
                                     <TouchableOpacity
                                         onPress={() => Linking.openURL(details.trailer)}
@@ -310,7 +313,18 @@ const RecommendationScreen = () => {
                                 );
                             }
 
-                            return null;
+                            return (
+                                <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    style={styles.trailerButton}
+                                    onPress={() => { }}
+                                >
+                                    <View style={styles.trailerButtonContent}>
+                                        <Play color="#ff6a00" size={18} fill="#ff6a00" />
+                                        <Text style={styles.trailerButtonText}>Watch Trailer</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            );
                         })()}
                         {details?.watchProviders && (
                             <View style={styles.providersWrapper}>
@@ -326,7 +340,7 @@ const RecommendationScreen = () => {
                 </View >
             );
         },
-        [detailsMap, loadingDetails, expandedOverviews, activeProviderTabs, height, width, insets]
+        [detailsMap, expandedOverviews, activeProviderTabs, height, width, insets]
     );
 
     return (

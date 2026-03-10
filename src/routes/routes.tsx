@@ -2,8 +2,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
-import { TransitionPresets } from '@react-navigation/stack';
+// import { createStackNavigator } from '@react-navigation/stack';
+// import { TransitionPresets } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -51,7 +52,9 @@ export type RootStackParamList = {
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
-const Stack = createStackNavigator<RootStackParamList>();
+// const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
 
 const MainTabs = () => {
   const insets = useSafeAreaInsets();
@@ -122,8 +125,12 @@ const AppStack = () => {
       initialRouteName={token ? 'MainTabs' : 'StartLogin'}
       screenOptions={{
         headerShown: false,
-        ...TransitionPresets.SlideFromRightIOS,
-        cardStyle: { backgroundColor: '#000' },
+        // ...TransitionPresets.SlideFromRightIOS,
+        // cardStyle: { backgroundColor: '#000' },
+        animation: 'slide_from_right',
+        contentStyle: {
+          backgroundColor: '#000',
+        },
       }}
     >
       <Stack.Screen name="StartLogin" component={StartLoginScreen} />
@@ -138,10 +145,6 @@ const AppStack = () => {
       <Stack.Screen
         name="SeriesDetail"
         component={SeriesDetailScreen}
-        options={{
-          gestureResponseDistance: 20,
-          animation: 'none'
-        }}
       />
 
       <Stack.Screen
@@ -149,8 +152,6 @@ const AppStack = () => {
         component={VideoScreen}
         options={{
           headerShown: false,
-          gestureResponseDistance: 20,
-          animation: 'none',
         }}
       />
 

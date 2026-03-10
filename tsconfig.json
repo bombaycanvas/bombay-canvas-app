@@ -11,5 +11,8 @@
     "src/assets/ButtonIcon.js",
     "src/assets/ButtonPlay.js"
   ],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "exclude": [
+    "**/node_modules",
+    "**/Pods"
+  ]
 }

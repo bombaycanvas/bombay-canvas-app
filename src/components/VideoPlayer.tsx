@@ -391,10 +391,7 @@ export default function VideoPlayer({
                     <TouchableOpacity
                       activeOpacity={0.9}
                       style={[styles.backButton, { top: insets.top + 10 }]}
-                      onPress={() => {
-                        setPaused(true);
-                        setTimeout(() => navigation.goBack(), 50);
-                      }}
+                      onPress={() => navigation.goBack()}
                     >
                       <ChevronLeft size={28} color="white" />
                     </TouchableOpacity>

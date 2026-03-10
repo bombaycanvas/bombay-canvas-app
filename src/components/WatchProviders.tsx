@@ -7,6 +7,7 @@ import {
     Linking,
     StyleSheet
 } from "react-native";
+import FastImage from "@d11/react-native-fast-image";
 import { TvMinimalPlay } from "lucide-react-native";
 
 interface WatchProvidersProps {
@@ -22,17 +23,15 @@ const WatchProviders: React.FC<WatchProvidersProps> = ({
     activeProviderTabs,
     setActiveProviderTabs
 }) => {
-    if (!details) return null;
-
     const tabs = [
         { id: "flatrate", label: "Stream" },
         { id: "rent", label: "Rent" },
         { id: "buy", label: "Buy" }
     ];
 
-    const availableTabs = tabs.filter(tab => details.watchProviders?.[tab.id]?.length > 0);
+    const availableTabs = tabs.filter(tab => details?.watchProviders?.[tab.id]?.length > 0);
     const currentTab = activeProviderTabs[itemId] || (availableTabs.length > 0 ? availableTabs[0].id : "flatrate");
-    const providers = details.watchProviders?.[currentTab] || [];
+    const providers = details?.watchProviders?.[currentTab] || [];
 
     return (
         <View style={styles.watchProvidersContainer}>
@@ -75,8 +74,12 @@ const WatchProviders: React.FC<WatchProvidersProps> = ({
                             onPress={() => provider.link && Linking.openURL(provider.link)}
                             activeOpacity={0.7}
                         >
-                            <Image
-                                source={{ uri: `https://image.tmdb.org/t/p/w92${provider.logo_path}` }}
+                            <FastImage
+                                source={{
+                                    uri: `https://image.tmdb.org/t/p/w92${provider.logo_path}`,
+                                    priority: FastImage.priority.high,
+                                    cache: FastImage.cacheControl.immutable,
+                                }}
                                 style={styles.smallProviderLogo}
                             />
                         </TouchableOpacity>
