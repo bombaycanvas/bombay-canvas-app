@@ -14,7 +14,7 @@ import {
     ScrollView,
     PixelRatio,
 } from "react-native";
-
+import FastImage from "@d11/react-native-fast-image";
 const scale = PixelRatio.getFontScale();
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -201,7 +201,7 @@ const RecommendationScreen = () => {
                 >
                     <View style={styles.posterContainer}>
                         {item.poster && (
-                            <Image
+                            <FastImage
                                 source={{ uri: item.poster }}
                                 style={[
                                     styles.poster,
