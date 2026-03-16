@@ -25,8 +25,8 @@ interface FilterModalProps {
     onApply: () => void;
     types: string[];
     setTypes: (types: string[]) => void;
-    genre: string;
-    setGenre: (genre: string) => void;
+    genre: string[];
+    setGenre: (genre: string[]) => void;
     language: string;
     setLanguage: (language: string) => void;
     mood: string;
@@ -130,13 +130,13 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             <SelectionChip
                                 label="Movies"
                                 selected={types.includes("movie")}
-                                onPress={() => setTypes(["movie"])}
+                                onPress={() => setTypes(types.includes("movie") ? types.filter(t => t !== "movie") : [...types, "movie"])}
                             />
                             <View style={{ width: 10 }} />
                             <SelectionChip
                                 label="TV Shows"
                                 selected={types.includes("tv")}
-                                onPress={() => setTypes(["tv"])}
+                                onPress={() => setTypes(types.includes("tv") ? types.filter(t => t !== "tv") : [...types, "tv"])}
                             />
                         </View>
 
@@ -146,8 +146,13 @@ const FilterModal: React.FC<FilterModalProps> = ({
                                 <SelectionChip
                                     key={g.value}
                                     label={g.label}
-                                    selected={genre === g.value}
-                                    onPress={() => setGenre(g.value)}
+                                    selected={genre.includes(g.value)}
+                                    onPress={() => {
+                                        const newGenres = genre.includes(g.value)
+                                            ? genre.filter(v => v !== g.value)
+                                            : [...genre, g.value];
+                                        setGenre(newGenres);
+                                    }}
                                 />
                             ))}
                         </View>

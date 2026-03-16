@@ -43,7 +43,7 @@ const RecommendationScreen = () => {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<any>();
     const [types, setTypes] = useState<string[]>(["movie"]);
-    const [genre, setGenre] = useState("action");
+    const [genre, setGenre] = useState<string[]>(["action"]);
     const [language, setLanguage] = useState("english");
     const [mood, setMood] = useState("excited");
 
