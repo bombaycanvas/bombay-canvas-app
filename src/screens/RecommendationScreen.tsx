@@ -18,7 +18,7 @@ import FastImage from "@d11/react-native-fast-image";
 const scale = PixelRatio.getFontScale();
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { SlidersHorizontal, Play, TvMinimalPlay } from "lucide-react-native";
+import { SlidersHorizontal, Play, TvMinimalPlay, SearchX, Clapperboard } from "lucide-react-native";
 
 import FilterModal from "../components/FilterModal";
 import WatchProviders from "../components/WatchProviders";
@@ -45,7 +45,7 @@ const RecommendationScreen = () => {
     const [types, setTypes] = useState<string[]>(["movie"]);
     const [genre, setGenre] = useState<string[]>(["action"]);
     const [language, setLanguage] = useState("english");
-    const [mood, setMood] = useState("excited");
+    const [mood, setMood] = useState("chill");
 
     const [data, setData] = useState<RecommendationItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -351,6 +351,22 @@ const RecommendationScreen = () => {
                 <View style={styles.centeredLoading}>
                     <ActivityIndicator size="large" color="#FF6A00" />
                     <Text style={styles.loadingText}>Finding your matches...</Text>
+                </View>
+            ) : data.length === 0 ? (
+                <View style={styles.centeredLoading}>
+                    <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', width: 80, height: 80 }}>
+                        <Clapperboard color="#FF6A00" size={70} />
+                        <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#000', borderRadius: 10, padding: 2 }}>
+                            <SearchX color="#FF6A00" size={20} />
+                        </View>
+                    </View>
+                    <Text style={styles.loadingText}>No matches found</Text>
+                    <Text style={{ color: "#555", fontSize: 14, marginTop: 8 }}>
+                        Try different filters
+                    </Text>
+                    <TouchableOpacity onPress={openModal} style={[styles.filterButton, { marginTop: 20 }]}>
+                        <Text style={{ color: "#FF6A00", fontWeight: "700" }}>Change Filters</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <FlatList

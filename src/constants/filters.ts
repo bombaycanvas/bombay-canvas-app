@@ -27,9 +27,10 @@ export const LANGUAGES = [
 ];
 
 export const MOODS = [
-    { label: "🔥 Excited", value: "excited" },
     { label: "😌 Chill", value: "chill" },
-    { label: "💔 Emotional", value: "emotional" },
-    { label: "🎯 Focused", value: "focused" },
+    { label: "😊 Feel Good", value: "feel_good" },
+    { label: "🌑 Dark", value: "dark" },
+    { label: "🔥 Intense", value: "intense" },
+    { label: "💕 Romantic", value: "romantic" },
 ];
 
