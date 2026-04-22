@@ -54,7 +54,7 @@ const StartLoginScreen = () => {
   const { setHasSkipped } = useAuthStore();
   const { data } = useGetCoverVideo();
   const videoUrl = useVideoCache(data?.CoverUrlVideo?.url);
-
+  console.log('data', data);
   const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [phoneValue, setPhoneValue] = useState('');
@@ -181,7 +181,7 @@ const StartLoginScreen = () => {
     const callingCode = Array.isArray(selectedCountry?.callingCode)
       ? selectedCountry.callingCode[0]
       : selectedCountry?.callingCode ||
-      getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
 
     return `+${callingCode}${cleanedPhone}`;
   };
@@ -202,53 +202,6 @@ const StartLoginScreen = () => {
     sendOtpMutation.mutate({
       phone: fullPhoneNumber,
     });
-  };
-
-  const handleOtpChange = (value: string, index: number) => {
-    if (value.length > 1) {
-      const digits = value.replace(/\D/g, '').slice(0, 4).split('');
-      const filledOtp = ['', '', '', ''];
-
-      digits.forEach((d, i) => {
-        filledOtp[i] = d;
-      });
-
-      setOtp(filledOtp);
-
-      const focusIndex = Math.min(digits.length, 3);
-      requestAnimationFrame(() => {
-        otpInputs.current[focusIndex]?.focus();
-      });
-
-      if (digits.length === 4) {
-        verifyOtpMutation.mutate({
-          phone: getFullPhoneNumber(),
-          otp: digits.join(''),
-        });
-      }
-
-      return;
-    }
-
-    const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
-    setOtp(newOtp);
-
-    if (value && index < 3) {
-      otpInputs.current[index + 1]?.focus();
-    }
-
-    if (!value && index > 0) {
-      otpInputs.current[index - 1]?.focus();
-    }
-
-    if (newOtp.every(d => d !== '')) {
-
-      verifyOtpMutation.mutate({
-        phone: getFullPhoneNumber(),
-        otp: newOtp.join(''),
-      });
-    }
   };
 
   const handleOpenURL = async (url: string) => {
@@ -443,8 +396,7 @@ const StartLoginScreen = () => {
         style={[
           styles.inputContainer,
           {
-            paddingBottom:
-              insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
+            paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 20 : 30),
           },
         ]}
       >
@@ -517,9 +469,7 @@ const StartLoginScreen = () => {
                       isActive && styles.activeOtpCircle,
                     ]}
                   >
-                    <Text style={styles.otpText}>
-                      {otp[index] || ''}
-                    </Text>
+                    <Text style={styles.otpText}>{otp[index] || ''}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -538,16 +488,10 @@ const StartLoginScreen = () => {
                 });
               }
             }}
-            disabled={
-              verifyOtpMutation.isPending ||
-              otp.join('').length !== 4
-            }
+            disabled={verifyOtpMutation.isPending || otp.join('').length !== 4}
           >
             {verifyOtpMutation.isPending ? (
-              <ActivityIndicator
-                size="small"
-                color="rgba(255, 106, 0, 1)"
-              />
+              <ActivityIndicator size="small" color="rgba(255, 106, 0, 1)" />
             ) : (
               <Text style={styles.otpSentPillText}>Submit</Text>
             )}
@@ -567,14 +511,10 @@ const StartLoginScreen = () => {
             }}
           >
             <Text
-              style={[
-                styles.timerText,
-                timer === 0 && styles.resendActive,
-              ]}
+              style={[styles.timerText, timer === 0 && styles.resendActive]}
             >
               {timer > 0
-                ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer
-                }`
+                ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer}`
                 : 'Resend OTP'}
             </Text>
           </TouchableOpacity>
@@ -715,7 +655,10 @@ const StartLoginScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity activeOpacity={0.8} style={styles.toggleMethodsLink}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.toggleMethodsLink}
+          >
             <Text style={styles.toggleMethodsText}>
               {isSignup ? (
                 <Fragment>
@@ -806,9 +749,7 @@ const StartLoginScreen = () => {
 
             <Text style={styles.mainTitle}>
               World’s First{'\n'}
-              <Text style={styles.mainTitleBold}>
-                Creator-Led Vertical OTT Platform
-              </Text>
+              <Text style={styles.mainTitleBold}>Creator-Led OTT Platform</Text>
             </Text>
 
             <Text style={styles.para}>

@@ -16,7 +16,11 @@ import {
   Animated,
   TouchableOpacity,
 } from 'react-native';
-import { usePlayVideoWithId, getPlayVideoWithID, useTrackEpisodeView } from '../api/video';
+import {
+  usePlayVideoWithId,
+  getPlayVideoWithID,
+  useTrackEpisodeView,
+} from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
 import { useVideoStore } from '../store/videoStore';
@@ -88,7 +92,6 @@ const VideoListItem = React.memo(
 
     const episodeData =
       data?.episode && data?.episode?.videoUrl ? data?.episode : item;
-
 
     return (
       <View style={styles.videoContainer}>
@@ -174,7 +177,10 @@ const VideoScreen = () => {
 
   useEffect(() => {
     if (currentEpisodeId) {
-      console.log('VideoScreen: Triggering trackView for episode:', currentEpisodeId);
+      console.log(
+        'VideoScreen: Triggering trackView for episode:',
+        currentEpisodeId,
+      );
       const payload: any = { episodeId: currentEpisodeId };
       if (!globalAuth) {
         payload.guestId = `guest-${Date.now()}`;
@@ -292,13 +298,7 @@ const VideoScreen = () => {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      series,
-      isAuthenticated,
-      handlePressOnEpisodes,
-      handleVideoEnd,
-      posterUrl,
-    ],
+    [series, isAuthenticated, handlePressOnEpisodes, handleVideoEnd, posterUrl],
   );
 
   const isInitialMount = useRef(true);
@@ -320,8 +320,6 @@ const VideoScreen = () => {
   }
 
   const activeEpisode = episodes?.find(e => e.id === currentEpisodeId);
-  ;
-
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
       <FlatList

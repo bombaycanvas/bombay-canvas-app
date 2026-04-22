@@ -26,7 +26,7 @@ type ExploreProps = {
 
 type RootStackParamList = {
   SeriesDetail: { id: string | number; posterUrl: string };
-  Creator: { id: string | number; };
+  Creator: { id: string | number };
 };
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -66,11 +66,9 @@ const ExploreCard = React.memo(
 
         return () => loop.stop();
       }
-    }, [isImageLoaded]);
-
+    }, [isImageLoaded, shimmerAnim]);
 
     const shimmerTranslate = shimmerAnim;
-
 
     const handleLoad = () => {
       Animated.parallel([
@@ -92,7 +90,6 @@ const ExploreCard = React.memo(
       });
     };
 
-
     return (
       <View ref={cardRef} collapsable={false}>
         <TouchableOpacity
@@ -111,10 +108,7 @@ const ExploreCard = React.memo(
           {/* Skeleton */}
           {!isImageLoaded && (
             <Animated.View
-              style={[
-                styles.skeletonCard,
-                { opacity: skeletonOpacity }
-              ]}
+              style={[styles.skeletonCard, { opacity: skeletonOpacity }]}
             >
               <Animated.View
                 style={[
@@ -136,12 +130,10 @@ const ExploreCard = React.memo(
             </Animated.View>
           )}
 
-
           <Animated.View style={{ flex: 1, opacity }}>
             <FastImage
               source={{
-                uri:
-                  movie?.posterUrl || 'https://via.placeholder.com/300x400',
+                uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
                 priority: FastImage.priority.high,
                 cache: FastImage.cacheControl.immutable,
               }}
@@ -179,7 +171,6 @@ const ExploreCard = React.memo(
     );
   },
 );
-
 
 const Explore: React.FC<ExploreProps> = ({
   heading,
@@ -299,5 +290,4 @@ const styles = StyleSheet.create({
   shimmerGradient: {
     flex: 1,
   },
-
 });

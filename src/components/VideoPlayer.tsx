@@ -246,17 +246,11 @@ export default function VideoPlayer({
     return `${m}:${s < 10 ? '0' + s : s}`;
   };
 
-  // const bufferConfig = {
-  //   minBufferMs: 5000,
-  //   maxBufferMs: 50000,
-  //   bufferForPlaybackMs: 2500,
-  //   bufferForPlaybackAfterRebufferMs: 5000,
-  // };
   const bufferConfig = {
-    minBufferMs: 1500,
+    minBufferMs: 5000,
     maxBufferMs: 30000,
-    bufferForPlaybackMs: 500,
-    bufferForPlaybackAfterRebufferMs: 1000,
+    bufferForPlaybackMs: 1500,
+    bufferForPlaybackAfterRebufferMs: 2500,
   };
 
   const onVideoTap = () => {

@@ -134,7 +134,10 @@ export const EpisodesBottomSheet = ({
                       onClose();
                       if (locked) {
                         setAuthRedirect({
-                          screen: screenType === 'seriesDetail' ? 'SeriesDetail' : 'Video',
+                          screen:
+                            screenType === 'seriesDetail'
+                              ? 'SeriesDetail'
+                              : 'Video',
                           params: {
                             id: series?.id,
                             episodeId: item.id,

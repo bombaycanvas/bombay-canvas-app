@@ -21,7 +21,7 @@ import { Pause } from 'lucide-react-native';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 type RootStackParamList = {
-  Creator: { id: string | number; };
+  Creator: { id: string | number };
 };
 
 const { height } = Dimensions.get('window');
@@ -81,15 +81,12 @@ const Landing = () => {
 
         <Text style={styles.mainTitle}>
           World’s First{'\n'}
-          <Text style={styles.mainTitleBold}>
-            Creator-Led Vertical OTT Platform
-          </Text>
+          <Text style={styles.mainTitleBold}>Creator-Led OTT Platform</Text>
         </Text>
 
         <Text style={styles.para}>
-          For those who have commitment issues.
-          An OTT platform for Micro-Series.
-
+          For those who have commitment issues. An OTT platform for
+          Micro-Series.
         </Text>
 
         <View style={styles.ctaWrapper}>
@@ -98,7 +95,7 @@ const Landing = () => {
               activeOpacity={0.9}
               style={styles.infoCta}
               onPress={() => {
-                creatorRef.current?.measureInWindow((x, y, width, height) => {
+                creatorRef.current?.measureInWindow(() => {
                   navigation.navigate('Creator', {
                     id: data?.admin?.id,
                   });

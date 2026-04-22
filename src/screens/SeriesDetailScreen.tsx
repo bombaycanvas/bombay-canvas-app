@@ -1,10 +1,4 @@
-import React, {
-  useRef,
-  useState,
-  useCallback,
-  useEffect,
-  useMemo,
-} from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
   View,
@@ -14,8 +8,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Pressable,
-  BackHandler,
-  Platform,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -28,7 +20,13 @@ import {
   useIsFocused,
 } from '@react-navigation/native';
 import { useMoviesDataById } from '../api/video';
-import { ChevronLeft, Pause, Play, SkipBack, SkipForward } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
+} from 'lucide-react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
@@ -39,7 +37,6 @@ import { CastButton } from 'react-native-google-cast';
 import { useCastManager } from '../hooks/useCastManager';
 
 const { height, width } = Dimensions.get('window');
-const DRAG_THRESHOLD = 120;
 
 type RootStackParamList = {
   SeriesDetail: { id: string; posterUrl?: string };
@@ -124,8 +121,7 @@ const SeriesDetailScreen: React.FC = () => {
     if (!isCasting) {
       queueLoadedRef.current = false;
     }
-  }, [isCasting, series, currentEpisode, loadQueue]);
-
+  }, [isCasting, series, currentEpisode, loadQueue, isAuthenticated]);
 
   useEffect(() => {
     if (series) {
@@ -141,9 +137,20 @@ const SeriesDetailScreen: React.FC = () => {
       const purchasedEpisodeId = authRedirect.params.episodeId;
       loadQueue(series, purchasedEpisodeId, isAuthenticated);
       setAuthRedirect(null);
-      console.log('Post-purchase casting triggered for episode:', purchasedEpisodeId);
+      console.log(
+        'Post-purchase casting triggered for episode:',
+        purchasedEpisodeId,
+      );
     }
-  }, [isCasting, series?.userPurchased, authRedirect, loadQueue, isAuthenticated, setAuthRedirect]);
+  }, [
+    isCasting,
+    series?.userPurchased,
+    authRedirect,
+    loadQueue,
+    isAuthenticated,
+    setAuthRedirect,
+    series,
+  ]);
   const handleBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
@@ -187,9 +194,7 @@ const SeriesDetailScreen: React.FC = () => {
       />
 
       {/* Video Content */}
-      <View
-        style={styles.videoWrapper}
-      >
+      <View style={styles.videoWrapper}>
         {series && isFocused && (
           <Video
             useTextureView={true}
@@ -278,7 +283,10 @@ const SeriesDetailScreen: React.FC = () => {
                       <>
                         <TouchableOpacity
                           activeOpacity={0.9}
-                          style={[styles.watchButton, isCasting && styles.buttonDisabled]}
+                          style={[
+                            styles.watchButton,
+                            isCasting && styles.buttonDisabled,
+                          ]}
                           disabled={isCasting}
                           onPress={() => {
                             setIsPlaying(false);
@@ -342,9 +350,7 @@ const SeriesDetailScreen: React.FC = () => {
                 {/* Creator Info - FIXED: Ensure it shows */}
                 {isCasting ? (
                   <View style={styles.castingControlsContainer}>
-                    <Text style={styles.castingStatusText}>
-                      Casting to TV
-                    </Text>
+                    <Text style={styles.castingStatusText}>Casting to TV</Text>
                     <View style={styles.castingButtonsRow}>
                       <TouchableOpacity
                         activeOpacity={0.7}
@@ -356,16 +362,23 @@ const SeriesDetailScreen: React.FC = () => {
 
                       <TouchableOpacity
                         activeOpacity={0.7}
-                        style={[styles.castControlButton, styles.playPauseCastButton]}
+                        style={[
+                          styles.castControlButton,
+                          styles.playPauseCastButton,
+                        ]}
                         onPress={() => {
-                          if (playerState === MediaPlayerState.PLAYING || playerState === MediaPlayerState.BUFFERING) {
+                          if (
+                            playerState === MediaPlayerState.PLAYING ||
+                            playerState === MediaPlayerState.BUFFERING
+                          ) {
                             pause();
                           } else {
                             play();
                           }
                         }}
                       >
-                        {playerState === MediaPlayerState.PLAYING || playerState === MediaPlayerState.BUFFERING ? (
+                        {playerState === MediaPlayerState.PLAYING ||
+                        playerState === MediaPlayerState.BUFFERING ? (
                           <Pause color="#000" size={32} fill="#000" />
                         ) : (
                           <Play color="#000" size={32} fill="#000" />
@@ -432,8 +445,7 @@ const SeriesDetailScreen: React.FC = () => {
             >
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.episodesButton,
-                ]}
+                style={[styles.episodesButton]}
                 onPress={handleViewEpisodes}
               >
                 <Text style={styles.episodesButtonText}>View Episodes</Text>
