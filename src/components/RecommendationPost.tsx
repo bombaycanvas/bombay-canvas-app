@@ -35,9 +35,10 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
     }
     if (item.width && item.height) {
       const ratio = item.width / item.height;
-      return Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3)
-        ? 16 / 9
-        : 4 / 3;
+      if (ratio < 0.8) return 9 / 16;
+      if (ratio < 1.2) return 1;
+      if (ratio < 1.5) return 4 / 3;
+      return 16 / 9;
     }
     return 16 / 9;
   });
@@ -76,8 +77,16 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
       if (!width || !height) return;
 
       const ratio = width / height;
-      const newRatio =
-        Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3) ? 16 / 9 : 4 / 3;
+      let newRatio;
+      if (ratio < 0.8) {
+        newRatio = 9 / 16;
+      } else if (ratio < 1.2) {
+        newRatio = 1;
+      } else if (ratio < 1.5) {
+        newRatio = 4 / 3;
+      } else {
+        newRatio = 16 / 9;
+      }
 
       if (newRatio !== aspectRatio) {
         setAspectRatio(newRatio);
