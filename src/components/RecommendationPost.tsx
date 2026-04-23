@@ -5,11 +5,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Animated,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { Play, Volume2, VolumeX } from 'lucide-react-native';
 import Video, { OnLoadData } from 'react-native-video';
 import { useIsFocused } from '@react-navigation/native';
+import ShimmerLoader from './ShimmerLoader';
 
 interface RecommendationPostProps {
   item: any;
@@ -25,12 +27,47 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [aspectRatio, setAspectRatio] = useState(16 / 9);
+  const [aspectRatio, setAspectRatio] = useState(() => {
+    if (item.aspectRatio) {
+      return typeof item.aspectRatio === 'number'
+        ? item.aspectRatio
+        : parseFloat(item.aspectRatio);
+    }
+    if (item.width && item.height) {
+      const ratio = item.width / item.height;
+      return Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3)
+        ? 16 / 9
+        : 4 / 3;
+    }
+    return 16 / 9;
+  });
   const isFocused = useIsFocused();
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
 
+  const [isAvatarLoaded, setIsAvatarLoaded] = useState(false);
+  const [isMainMediaLoaded, setIsMainMediaLoaded] = useState(false);
+
+  const avatarOpacity = useRef(new Animated.Value(0)).current;
+  const mainMediaOpacity = useRef(new Animated.Value(0)).current;
+
+  const handleAvatarLoad = () => {
+    Animated.timing(avatarOpacity, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start(() => setIsAvatarLoaded(true));
+  };
+
+  const handleMainMediaLoad = () => {
+    Animated.timing(mainMediaOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => setIsMainMediaLoaded(true));
+  };
+
   const description = item.description || item.overview || '';
-  const videoUrl = item.trailerUrl || 'http://vjs.zencdn.net/v/oceans.mp4';
+  const videoUrl = item.trailerUrl;
 
   const handleVideoLoad = (data: OnLoadData) => {
     setIsVideoReady(true);
@@ -39,26 +76,39 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
       if (!width || !height) return;
 
       const ratio = width / height;
-      if (Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3)) {
-        setAspectRatio(16 / 9);
-      } else {
-        setAspectRatio(4 / 3);
+      const newRatio =
+        Math.abs(ratio - 16 / 9) < Math.abs(ratio - 4 / 3) ? 16 / 9 : 4 / 3;
+
+      if (newRatio !== aspectRatio) {
+        setAspectRatio(newRatio);
       }
     }
   };
-  console.log('item', item);
+
   return (
     <View style={styles.postContainer}>
       <View style={styles.postHeader}>
         <View style={styles.avatarContainer}>
-          <FastImage
-            source={{
-              uri:
-                item.uploader.profiles[0]?.avatarUrl ||
-                'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
-            }}
-            style={styles.avatar}
-          />
+          {!isAvatarLoaded && (
+            <ShimmerLoader
+              borderRadius={20}
+              containerBackgroundColor="rgba(255,255,255,0.08)"
+              style={StyleSheet.absoluteFillObject}
+            />
+          )}
+          <Animated.View style={{ flex: 1, opacity: avatarOpacity }}>
+            <FastImage
+              source={{
+                uri:
+                  item.uploader.profiles[0]?.avatarUrl ||
+                  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.avatar}
+              onLoad={handleAvatarLoad}
+            />
+          </Animated.View>
         </View>
         <View style={styles.titleContainer}>
           <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
@@ -88,52 +138,74 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
       </View>
 
       <View style={[styles.mediaContainer, { aspectRatio: aspectRatio }]}>
-        {videoUrl && isFocused && isActive ? (
-          <View style={styles.videoWrapper}>
-            <Video
-              ref={videoRef}
-              source={{ uri: videoUrl }}
-              style={styles.mainMedia}
-              paused={!isActive}
-              resizeMode="cover"
-              repeat
-              muted={isMuted}
-              playWhenInactive={false}
-              onLoad={handleVideoLoad}
-              onReadyForDisplay={() => setIsVideoReady(true)}
-              poster={item.posterUrl}
-              posterResizeMode="cover"
-              useTextureView={Platform.OS === 'android'}
-            />
-            {isVideoReady && (
-              <TouchableOpacity
-                style={styles.muteButton}
-                onPress={() => setIsMuted(prev => !prev)}
-              >
-                {isMuted ? (
-                  <VolumeX color="white" size={20} />
-                ) : (
-                  <Volume2 color="white" size={20} />
-                )}
-              </TouchableOpacity>
-            )}
-            {!isVideoReady && (
-              <FastImage
-                source={{ uri: item.posterUrl }}
-                style={[styles.mainMedia, StyleSheet.absoluteFill]}
-                resizeMode="cover"
-              />
-            )}
-          </View>
-        ) : (
-          item.posterUrl && (
-            <FastImage
-              source={{ uri: item.posterUrl }}
-              style={styles.mainMedia}
-              resizeMode="cover"
-            />
-          )
+        {!isMainMediaLoaded && (
+          <ShimmerLoader
+            style={StyleSheet.absoluteFillObject}
+            containerBackgroundColor="rgba(255,255,255,0.05)"
+          />
         )}
+
+        <Animated.View style={{ flex: 1, opacity: mainMediaOpacity }}>
+          {videoUrl && isFocused && isActive ? (
+            <View style={styles.videoWrapper}>
+              <Video
+                ref={videoRef}
+                source={{ uri: videoUrl }}
+                style={styles.mainMedia}
+                paused={!isActive}
+                resizeMode="cover"
+                repeat
+                muted={isMuted}
+                playWhenInactive={false}
+                onLoad={data => {
+                  handleVideoLoad(data);
+                  handleMainMediaLoad();
+                }}
+                onReadyForDisplay={() => setIsVideoReady(true)}
+                poster={item.posterUrl}
+                posterResizeMode="cover"
+                useTextureView={Platform.OS === 'android'}
+              />
+              {isVideoReady && (
+                <TouchableOpacity
+                  style={styles.muteButton}
+                  onPress={() => setIsMuted(prev => !prev)}
+                >
+                  {isMuted ? (
+                    <VolumeX color="white" size={20} />
+                  ) : (
+                    <Volume2 color="white" size={20} />
+                  )}
+                </TouchableOpacity>
+              )}
+              {!isVideoReady && (
+                <FastImage
+                  source={{
+                    uri: item.posterUrl,
+                    priority: FastImage.priority.high,
+                    cache: FastImage.cacheControl.immutable,
+                  }}
+                  style={[styles.mainMedia, StyleSheet.absoluteFill]}
+                  resizeMode="cover"
+                  onLoad={handleMainMediaLoad}
+                />
+              )}
+            </View>
+          ) : (
+            item.posterUrl && (
+              <FastImage
+                source={{
+                  uri: item.posterUrl,
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={styles.mainMedia}
+                resizeMode="cover"
+                onLoad={handleMainMediaLoad}
+              />
+            )
+          )}
+        </Animated.View>
       </View>
 
       <View style={styles.captionArea}>
@@ -209,7 +281,6 @@ const styles = StyleSheet.create({
   uploaderNameSmall: {
     color: '#aaa',
     fontSize: 14,
-    marginTop: 2,
     fontWeight: '500',
   },
   watchHeaderButton: {

@@ -13,7 +13,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { useVideoStore } from '../store/videoStore';
-import LinearGradient from 'react-native-linear-gradient';
+import ShimmerLoader from './ShimmerLoader';
 
 type Movie = any;
 
@@ -46,29 +46,7 @@ const ExploreCard = React.memo(
     const { setActiveCardRef } = useVideoStore();
 
     const [isImageLoaded, setIsImageLoaded] = React.useState(false);
-    const shimmerAnim = React.useRef(new Animated.Value(-1)).current;
     const skeletonOpacity = React.useRef(new Animated.Value(1)).current;
-
-    React.useEffect(() => {
-      if (!isImageLoaded) {
-        shimmerAnim.setValue(-150);
-
-        const loop = Animated.loop(
-          Animated.timing(shimmerAnim, {
-            toValue: 150,
-            duration: 1300,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
-        );
-
-        loop.start();
-
-        return () => loop.stop();
-      }
-    }, [isImageLoaded, shimmerAnim]);
-
-    const shimmerTranslate = shimmerAnim;
 
     const handleLoad = () => {
       Animated.parallel([
@@ -110,23 +88,15 @@ const ExploreCard = React.memo(
             <Animated.View
               style={[styles.skeletonCard, { opacity: skeletonOpacity }]}
             >
-              <Animated.View
-                style={[
-                  styles.shimmerContainer,
-                  { transform: [{ translateX: shimmerTranslate }] },
+              <ShimmerLoader
+                borderRadius={12}
+                containerBackgroundColor="rgba(255,255,255,0.08)"
+                colors={[
+                  'transparent',
+                  'rgba(255, 106, 0, 0.31)',
+                  'transparent',
                 ]}
-              >
-                <LinearGradient
-                  colors={[
-                    'transparent',
-                    'rgba(255, 106, 0, 0.31)',
-                    'transparent',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.shimmerGradient}
-                />
-              </Animated.View>
+              />
             </Animated.View>
           )}
 
@@ -277,17 +247,7 @@ const styles = StyleSheet.create({
   },
   skeletonCard: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
     borderRadius: 12,
-  },
-
-  shimmerContainer: {
-    width: 150,
-    height: '100%',
-  },
-
-  shimmerGradient: {
-    flex: 1,
   },
 });

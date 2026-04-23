@@ -13,7 +13,9 @@ const RecommendationScreen = () => {
   const navigation = useNavigation<any>();
 
   const { data: moviesResponse, isLoading: loading } = useMoviesData();
-  const data = moviesResponse?.series || [];
+  const data = (moviesResponse?.series || []).filter(
+    (item: any) => item.trailerUrl,
+  );
 
   const [activeId, setActiveId] = useState<string | number | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
@@ -77,7 +79,7 @@ const RecommendationScreen = () => {
       {data.length === 0 && loading ? (
         <LoadingDiscovery />
       ) : data.length === 0 ? (
-        <NoMatchesFound onOpenFilters={() => {}} />
+        <NoMatchesFound />
       ) : (
         <FlatList
           data={data}
