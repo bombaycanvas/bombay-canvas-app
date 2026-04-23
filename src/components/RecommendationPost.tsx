@@ -46,16 +46,28 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
       }
     }
   };
-
+  console.log('item', item);
   return (
     <View style={styles.postContainer}>
       <View style={styles.postHeader}>
         <View style={styles.avatarContainer}>
-          <FastImage source={{ uri: item.posterUrl }} style={styles.avatar} />
+          <FastImage
+            source={{
+              uri:
+                item.uploader.profiles[0]?.avatarUrl ||
+                'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
+            }}
+            style={styles.avatar}
+          />
         </View>
-        <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
-          {item.title}
-        </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
+            {item.title}
+          </Text>
+          <Text style={styles.uploaderNameSmall}>
+            {item.uploader.profiles[0]?.name}
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.watchHeaderButton}
           onPress={() => {
@@ -75,7 +87,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.mediaContainer, { aspectRatio }]}>
+      <View style={[styles.mediaContainer, { aspectRatio: aspectRatio }]}>
         {videoUrl && isFocused && isActive ? (
           <View style={styles.videoWrapper}>
             <Video
@@ -184,12 +196,21 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 20,
   },
+  titleContainer: {
+    flex: 1,
+    marginRight: 12,
+    justifyContent: 'center',
+  },
   username: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
-    flex: 1,
-    marginRight: 12,
+  },
+  uploaderNameSmall: {
+    color: '#aaa',
+    fontSize: 14,
+    marginTop: 2,
+    fontWeight: '500',
   },
   watchHeaderButton: {
     flexDirection: 'row',
@@ -211,6 +232,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     overflow: 'hidden',
     position: 'relative',
+    aspectRatio: 16 / 9,
   },
   videoWrapper: {
     width: '100%',
