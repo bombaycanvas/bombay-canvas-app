@@ -1,4 +1,5 @@
 import { NEXT_PUBLIC_BASE_URL } from '@env';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 
@@ -56,7 +57,13 @@ export const api = async (endpoint: string, config: any = {}) => {
   }
 
   try {
-    const apiUrl = NEXT_PUBLIC_BASE_URL;
+    // const apiUrl = NEXT_PUBLIC_BASE_URL;
+    let apiUrl = NEXT_PUBLIC_BASE_URL;
+    if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
+      apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
+    }
+
+    console.log(`[API] ${requestConfig.method} ${apiUrl}${endpoint}`);
 
     const response = await fetch(
       `${apiUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,

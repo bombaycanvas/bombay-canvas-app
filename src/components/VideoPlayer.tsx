@@ -248,7 +248,7 @@ export default function VideoPlayer({
 
   const bufferConfig = {
     minBufferMs: 5000,
-    maxBufferMs: 30000,
+    maxBufferMs: 15000,
     bufferForPlaybackMs: 1500,
     bufferForPlaybackAfterRebufferMs: 2500,
   };
@@ -344,6 +344,7 @@ export default function VideoPlayer({
                 posterResizeMode="cover"
                 onEnd={onVideoEnd}
                 bufferConfig={bufferConfig}
+                maxBitRate={2500000}
                 progressUpdateInterval={250}
                 onSeek={() => {
                   setIsBuffering(false);

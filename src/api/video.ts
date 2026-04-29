@@ -108,6 +108,7 @@ const getMoviesById = async (id: string) => {
     } else {
       console.log('Movies Error', error);
     }
+    return null;
   }
 };
 
@@ -149,6 +150,7 @@ export const getPlayVideoWithID = async (id: string) => {
     } else {
       console.log('Failed to fetch episode', error);
     }
+    return null;
   }
 };
 
@@ -175,6 +177,7 @@ const getCategories = async (): Promise<Category[] | any> => {
     } else {
       console.log('Movies Error', error);
     }
+    return [];
   }
 };
 
@@ -199,6 +202,7 @@ const getCoverVideo = async (): Promise<CoverVideo | any> => {
     } else {
       console.log('Movies Error', error);
     }
+    return null;
   }
 };
 

@@ -20,7 +20,6 @@ export default function HomeScreen() {
   React.useEffect(() => {
     const urlsToPreload: string[] = [];
 
-    // Limit to first 5 movies from 'New on canvas'
     if (data?.series) {
       data.series.slice(0, 5).forEach(movie => {
         if (movie.posterUrl) {
@@ -32,7 +31,6 @@ export default function HomeScreen() {
       });
     }
 
-    // Limit to first 5 movies from 'Recommended'
     if (recommendedSeriesData?.series) {
       recommendedSeriesData.series.slice(0, 5).forEach(movie => {
         if (movie.posterUrl) {
@@ -51,7 +49,7 @@ export default function HomeScreen() {
     if (urlsToPreload.length > 0) {
       const uniqueUrls = Array.from(new Set(urlsToPreload)).map(uri => ({
         uri,
-        priority: FastImage.priority.low, // Lower priority to save bandwidth
+        priority: FastImage.priority.low,
         cache: FastImage.cacheControl.immutable,
       }));
       FastImage.preload(uniqueUrls);
@@ -70,7 +68,7 @@ export default function HomeScreen() {
   };
 
   const genreMap = getMoviesByGenre();
-  const onCardPress = (movie: any,) => {
+  const onCardPress = (movie: any) => {
     navigation.navigate('SeriesDetail', {
       id: movie.id,
       posterUrl: movie.posterUrl,

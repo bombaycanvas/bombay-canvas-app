@@ -123,9 +123,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
           <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
             {item.title}
           </Text>
-          <Text style={styles.uploaderNameSmall}>
-            {item.uploader.profiles[0]?.name}
-          </Text>
+          <Text style={styles.uploaderNameSmall}>{item.uploader?.name}</Text>
         </View>
         <TouchableOpacity
           style={styles.watchHeaderButton}
@@ -174,6 +172,13 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
                 poster={item.posterUrl}
                 posterResizeMode="cover"
                 useTextureView={Platform.OS === 'android'}
+                maxBitRate={2000000}
+                bufferConfig={{
+                  minBufferMs: 2500,
+                  maxBufferMs: 5000,
+                  bufferForPlaybackMs: 1000,
+                  bufferForPlaybackAfterRebufferMs: 2000,
+                }}
               />
               {isVideoReady && (
                 <TouchableOpacity
