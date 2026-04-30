@@ -57,11 +57,11 @@ export const api = async (endpoint: string, config: any = {}) => {
   }
 
   try {
-    // const apiUrl = NEXT_PUBLIC_BASE_URL;
-    let apiUrl = NEXT_PUBLIC_BASE_URL;
-    if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
-      apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
-    }
+    const apiUrl = NEXT_PUBLIC_BASE_URL;
+    // let apiUrl = NEXT_PUBLIC_BASE_URL;
+    // if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
+    //   apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
+    // }
 
     console.log(`[API] ${requestConfig.method} ${apiUrl}${endpoint}`);
 
