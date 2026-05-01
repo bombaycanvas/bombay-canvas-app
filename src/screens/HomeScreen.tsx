@@ -16,7 +16,6 @@ export default function HomeScreen() {
     useRecommendedSeriesData();
   const { data: coverVideoData } = useGetCoverVideo();
   const navigation = useNavigation<any>();
-
   React.useEffect(() => {
     const urlsToPreload: string[] = [];
 

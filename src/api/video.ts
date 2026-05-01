@@ -228,7 +228,7 @@ export const createRazorpayOrder = async ({
     useAuthStore.getState().token ||
     (await AsyncStorage.getItem('accessToken'));
 
-  const res = await api(`/api/monetize/create-order`, {
+  const res = await api(`/api/monetize/create-order-v2`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -246,7 +246,7 @@ export const verifyRazorpayOrder = async (payload: any) => {
     (await AsyncStorage.getItem('accessToken'));
   const apiUrl = NEXT_PUBLIC_BASE_URL;
 
-  const verifyRes = await fetch(`${apiUrl}/api/monetize/verify-order`, {
+  const verifyRes = await fetch(`${apiUrl}/api/monetize/verify-order-v2`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -277,8 +277,8 @@ export const openRazorpayCheckout = async (orderData: any) => {
   const orderId = data?.orderId || data?.id;
   const amount = data?.finalAmount ?? data?.amount;
   const currency = data?.currency || 'INR';
-  const key = data?.key || data?.razorpayKey;
-  // const key = data?.key || data?.razorpayKey || 'rzp_test_123';
+  // const key = data?.key || data?.razorpayKey;
+  const key = data?.key || data?.razorpayKey || 'rzp_test_123';
   const purchaseId = data?.purchaseId;
 
   if (!amount || !orderId) {
@@ -351,17 +351,30 @@ export const useRazorpayPayment = () => {
       couponId?: string | null;
     }) => {
       const orderData = await createRazorpayOrder({ seriesId, couponId });
+      console.log('--- Order Data from API ---', orderData);
+
+      if (orderData?.free) {
+        return { status: 'FREE_SUCCESS' };
+      }
 
       const verification = await openRazorpayCheckout(orderData);
       return verification;
     },
 
-    onSuccess: () => {
-      Toast.show({
-        type: 'success',
-        text1: 'Payment Successful!',
-        text2: 'Your purchase has been verified 🎉',
-      });
+    onSuccess: (result: any) => {
+      if (result?.status === 'FREE_SUCCESS') {
+        Toast.show({
+          type: 'success',
+          text1: 'Access Granted! 🎉',
+          text2: 'This series is now unlocked for you.',
+        });
+      } else {
+        Toast.show({
+          type: 'success',
+          text1: 'Payment Successful!',
+          text2: 'Your purchase has been verified 🎉',
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
       queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
     },
@@ -419,13 +432,15 @@ export const useApplyCoupon = () => {
   });
 };
 
-export const trackEpisodeView = async ({
-  episodeId,
-  guestId,
-}: {
-  episodeId: string;
-  guestId?: string | null;
-} = {} as any) => {
+export const trackEpisodeView = async (
+  {
+    episodeId,
+    guestId,
+  }: {
+    episodeId: string;
+    guestId?: string | null;
+  } = {} as any,
+) => {
   try {
     console.log('Tracking Episode View:', { episodeId, guestId });
     const response = await api(`/api/dashboard/track-view`, {

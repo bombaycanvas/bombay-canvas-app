@@ -65,31 +65,32 @@ export function PurchaseModal() {
 
   const handlePayNow = () => {
     if (!purchaseSeries?.id) return;
+
+    const payload = { seriesId: purchaseSeries.id, couponId: couponId };
+    console.log('--- Purchase Payload ---', payload);
+
     setLoading(true);
 
-    payNow(
-      { seriesId: purchaseSeries.id, couponId: couponId },
-      {
-        onSuccess: () => {
-          setCoupon('');
-          setCouponId(null);
-          setFinalPrice(null);
-          setLoading(false);
+    payNow(payload, {
+      onSuccess: () => {
+        setCoupon('');
+        setCouponId(null);
+        setFinalPrice(null);
+        setLoading(false);
 
-          setTimeout(() => {
-            resetPurchaseState();
-            setPaused(false);
-            close();
-          }, 1000);
-        },
-        onError: () => {
-          setCoupon('');
-          setCouponId(null);
-          setFinalPrice(purchaseSeries?.price);
-          setLoading(false);
-        },
+        setTimeout(() => {
+          resetPurchaseState();
+          setPaused(false);
+          close();
+        }, 1000);
       },
-    );
+      onError: () => {
+        setCoupon('');
+        setCouponId(null);
+        setFinalPrice(purchaseSeries?.price);
+        setLoading(false);
+      },
+    });
   };
 
   const { firstLine, secondLine } = useMemo(() => {
@@ -173,7 +174,9 @@ export function PurchaseModal() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.payBtnText}>
-                  Unlock Now for ₹{finalPrice ?? purchaseSeries?.price}
+                  {finalPrice === 0
+                    ? 'Unlock Free Access'
+                    : `Unlock Now for ₹${finalPrice ?? purchaseSeries?.price}`}
                 </Text>
               )}
             </TouchableOpacity>
