@@ -469,8 +469,6 @@ const SeriesDetailScreen: React.FC = () => {
           onEpisodeSelect={(ep: any) => {
             if (isCasting) {
               switchEpisode(series, ep.id, isAuthenticated);
-            } else {
-              setCurrentEpisode(ep);
             }
           }}
           isAuthenticated={isAuthenticated}

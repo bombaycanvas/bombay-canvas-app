@@ -77,7 +77,7 @@ export const api = async (endpoint: string, config: any = {}) => {
       if ([401, 414].includes(response.status)) {
         await removeToken('accessToken');
         await removeToken('isAuthenticated');
-        useAuthStore.getState().removeToken();
+        useAuthStore.getState().logout();
       }
 
       throw new Error(message);

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState } from '../types/auth';
 import { logoutApple, logoutGoogle } from '../utils/authService';
+import queryClient from '../config/queryClient';
+import { useVideoStore } from './videoStore';
 
 export const useAuthStore = create<AuthState>(set => {
   const loadAuthState = async () => {
@@ -35,6 +37,9 @@ export const useAuthStore = create<AuthState>(set => {
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('hasSkipped');
+      queryClient.clear();
+      useVideoStore.getState().resetPlayer();
+      useVideoStore.getState().resetPurchaseState();
       set({ isAuthenticated: false, token: null, user: null, hasSkipped: false });
     },
 
