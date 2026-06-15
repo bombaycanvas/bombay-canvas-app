@@ -310,6 +310,26 @@ const StartLoginScreen = () => {
           placeholder="Enter Phone number"
           placeholderTextColor="rgba(255,255,255,0.4)"
           selectionColor="rgb(255,106,0)"
+          customFlag={country => {
+            const cca2 = country?.cca2;
+            if (!cca2) {
+              return null;
+            }
+            return (
+              <Image
+                source={{
+                  uri: `https://flagcdn.com/w80/${cca2.toLowerCase()}.png`,
+                }}
+                style={{
+                  width: 24,
+                  height: 16,
+                  marginRight: 6,
+                  borderRadius: 2,
+                }}
+                resizeMode="contain"
+              />
+            );
+          }}
           phoneInputStyles={{
             container: styles.phoneInputContainer,
             flagContainer: styles.flagContainer,

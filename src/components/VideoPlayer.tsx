@@ -305,7 +305,7 @@ export default function VideoPlayer({
   return (
     <>
       <View style={styles.container}>
-        {isVisible && (locked || isPaidEpisode || isPlaybackLoading) ? (
+        {isVisible && (locked || isPaidEpisode || (isPlaybackLoading && !hasValidVideoUrl)) ? (
           <Pressable
             style={styles.posterContainer}
             onPress={onVideoTap}
@@ -376,7 +376,7 @@ export default function VideoPlayer({
                 {/* {(isBuffering || !isReady || isPlaybackLoading) && !error && (
                   <BufferingIndicator />
                 )} */}
-                {(isBuffering || !isReady || isPlaybackLoading) && !error && (
+                {(isBuffering || !isReady) && !error && (
                   <BufferingIndicator />
                 )}
                 <Animated.View

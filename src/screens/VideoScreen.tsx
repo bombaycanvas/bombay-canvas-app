@@ -15,11 +15,13 @@ import {
   Platform,
   Animated,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {
   usePlayVideoWithId,
   getPlayVideoWithID,
   useTrackEpisodeView,
+  useMoviesDataById,
 } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
@@ -85,7 +87,8 @@ const VideoListItem = React.memo(
     const isPaidEpisode =
       !locked && item?.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
-    const shouldFetch = !locked && !isPaidEpisode && !!videoId;
+    const hasExistingUrl = !!(item?.videoUrl && typeof item.videoUrl === 'string' && item.videoUrl.trim().length > 0);
+    const shouldFetch = !locked && !isPaidEpisode && !!videoId && !hasExistingUrl;
     const { data, isLoading: isPlaybackLoading } = usePlayVideoWithId(
       shouldFetch ? videoId : null,
     );
@@ -161,9 +164,19 @@ const VideoListItem = React.memo(
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
-  const { episodeId, posterUrl } = route.params ?? {};
-  const { series, episodes, setCurrentEpisodeId, currentEpisodeId, setPaused } =
-    useVideoStore();
+  const { id, episodeId, posterUrl } = route.params ?? {};
+  const {
+    series,
+    episodes,
+    setCurrentEpisodeId,
+    currentEpisodeId,
+    setPaused,
+    setSeries,
+    setEpisodes,
+  } = useVideoStore();
+
+  const { data: seriesData, isLoading: isSeriesLoading } = useMoviesDataById(id);
+  const seriesFromData = seriesData?.series;
 
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
 
@@ -174,6 +187,17 @@ const VideoScreen = () => {
   const flatListRef = useRef<FlatList>(null);
 
   const { mutate: trackView } = useTrackEpisodeView();
+
+  useEffect(() => {
+    if (seriesFromData) {
+      if (!series || series.id !== seriesFromData.id) {
+        setSeries(seriesFromData);
+        if (seriesFromData.episodes?.length) {
+          setEpisodes(seriesFromData.episodes);
+        }
+      }
+    }
+  }, [seriesFromData, series, setSeries, setEpisodes]);
 
   useEffect(() => {
     if (currentEpisodeId) {
@@ -190,9 +214,12 @@ const VideoScreen = () => {
   }, [currentEpisodeId, trackView, globalAuth]);
 
   useEffect(() => {
-    if (episodes?.length > 0 && !currentEpisodeId) {
-      const defaultEpisodeId = episodeId || episodes[0].id;
-      setCurrentEpisodeId(defaultEpisodeId);
+    if (episodes?.length > 0) {
+      const isCurrentIdValid = episodes.some(ep => ep.id === currentEpisodeId);
+      const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes[0].id);
+      if (currentEpisodeId !== targetEpisodeId) {
+        setCurrentEpisodeId(targetEpisodeId);
+      }
     }
   }, [episodes, episodeId, currentEpisodeId, setCurrentEpisodeId]);
 
@@ -251,26 +278,31 @@ const VideoScreen = () => {
     [episodes, isAuthenticated, series, queryClient],
   );
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: any) => {
-      if (viewableItems.length > 0) {
-        const visibleItem = viewableItems[0];
-        if (visibleItem.isViewable) {
-          const currentIndex = visibleItem.index;
-          setCurrentEpisodeId(visibleItem.item.id);
-          prefetchNextEpisode(currentIndex + 1);
-        }
+  const onViewableItemsChangedHandler = ({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      const visibleItem = viewableItems[0];
+      if (visibleItem.isViewable) {
+        const currentIndex = visibleItem.index;
+        setCurrentEpisodeId(visibleItem.item.id);
+        prefetchNextEpisode(currentIndex + 1);
       }
-    },
-    [setCurrentEpisodeId, prefetchNextEpisode],
-  );
+    }
+  };
+
+  const onViewableItemsChangedRef = useRef(onViewableItemsChangedHandler);
+  onViewableItemsChangedRef.current = onViewableItemsChangedHandler;
+
+  const onViewableItemsChanged = useCallback((params: any) => {
+    onViewableItemsChangedRef.current(params);
+  }, []);
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50,
   }).current;
 
-  const validIndex =
-    episodes?.findIndex(ep => ep.id === (currentEpisodeId || episodeId)) ?? 0;
+  const isCurrentIdValid = episodes?.some(ep => ep.id === currentEpisodeId);
+  const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes?.[0]?.id);
+  const validIndex = episodes?.findIndex(ep => ep.id === targetEpisodeId) ?? 0;
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
   const handleVideoEnd = useCallback(() => {
@@ -280,10 +312,6 @@ const VideoScreen = () => {
       const nextIndex = (currentIndex + 1) % episodes.length;
       scrollToEpisode(nextIndex);
     }
-    // if (currentIndex !== -1 && currentIndex < episodes.length - 1) {
-    //   const nextIndex = currentIndex + 1;
-    //   scrollToEpisode(nextIndex);
-    // }
   }, [episodes, currentEpisodeId, scrollToEpisode]);
 
   const renderItem = useCallback(
@@ -310,6 +338,14 @@ const VideoScreen = () => {
       isInitialMount.current = false;
     }
   }, [episodes, safeIndex, scrollToEpisode]);
+
+  if (isSeriesLoading && (!episodes || episodes.length === 0)) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#ff6a00" />
+      </View>
+    );
+  }
 
   if (!episodes || episodes.length === 0) {
     return (

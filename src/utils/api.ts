@@ -1,5 +1,4 @@
 import { NEXT_PUBLIC_BASE_URL } from '@env';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 
@@ -75,9 +74,12 @@ export const api = async (endpoint: string, config: any = {}) => {
       const message = errorData.error || 'Something went wrong';
 
       if ([401, 414].includes(response.status)) {
-        await removeToken('accessToken');
-        await removeToken('isAuthenticated');
-        useAuthStore.getState().logout();
+        const token = await getToken('accessToken');
+        if (token) {
+          await removeToken('accessToken');
+          await removeToken('isAuthenticated');
+          useAuthStore.getState().logout();
+        }
       }
 
       throw new Error(message);
