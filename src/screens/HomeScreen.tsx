@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import Explore from '../components/Explore';
-import Landing from '../components/Landing';
+import HeroSlider from '../components/HeroSlider';
 import {
   useMoviesData,
   useRecommendedSeriesData,
@@ -16,6 +16,13 @@ export default function HomeScreen() {
     useRecommendedSeriesData();
   const { data: coverVideoData } = useGetCoverVideo();
   const navigation = useNavigation<any>();
+  const [isSliderVisible, setIsSliderVisible] = useState(true);
+
+  const handleScroll = (event: any) => {
+    const yOffset = event.nativeEvent.contentOffset.y;
+    setIsSliderVisible(yOffset < 200);
+  };
+
   React.useEffect(() => {
     const urlsToPreload: string[] = [];
 
@@ -75,8 +82,11 @@ export default function HomeScreen() {
   };
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <ScrollView>
-        <Landing />
+      <ScrollView
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <HeroSlider isVisible={isSliderVisible} />
         <Explore
           heading={'Recommended for you'}
           movieData={recommendedSeriesData?.series ?? []}
