@@ -186,18 +186,30 @@ const VideoScreen = () => {
   const ITEM_HEIGHT = windowHeight;
   const flatListRef = useRef<FlatList>(null);
 
+  const scrollToEpisode = useCallback(
+    (index: number) => {
+      try {
+        flatListRef.current?.scrollToIndex({ index, animated: true });
+      } catch (e) {
+        flatListRef.current?.scrollToOffset({
+          offset: ITEM_HEIGHT * index,
+          animated: true,
+        });
+      }
+    },
+    [ITEM_HEIGHT],
+  );
+
   const { mutate: trackView } = useTrackEpisodeView();
 
   useEffect(() => {
     if (seriesFromData) {
-      if (!series || series.id !== seriesFromData.id) {
-        setSeries(seriesFromData);
-        if (seriesFromData.episodes?.length) {
-          setEpisodes(seriesFromData.episodes);
-        }
+      setSeries(seriesFromData);
+      if (seriesFromData.episodes?.length) {
+        setEpisodes(seriesFromData.episodes);
       }
     }
-  }, [seriesFromData, series, setSeries, setEpisodes]);
+  }, [seriesFromData, setSeries, setEpisodes]);
 
   useEffect(() => {
     if (currentEpisodeId) {
@@ -213,29 +225,27 @@ const VideoScreen = () => {
     }
   }, [currentEpisodeId, trackView, globalAuth]);
 
+  const lastProcessedRoute = useRef<{ id: string; episodeId?: string } | null>(null);
+
   useEffect(() => {
     if (episodes?.length > 0) {
-      const isCurrentIdValid = episodes.some(ep => ep.id === currentEpisodeId);
-      const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes[0].id);
-      if (currentEpisodeId !== targetEpisodeId) {
+      const routeIdChanged = lastProcessedRoute.current?.id !== id;
+      const routeEpisodeIdChanged = lastProcessedRoute.current?.episodeId !== episodeId;
+
+      if (routeIdChanged || routeEpisodeIdChanged) {
+        const isCurrentIdValid = episodes.some(ep => ep.id === currentEpisodeId);
+        const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes[0].id);
+
         setCurrentEpisodeId(targetEpisodeId);
+        lastProcessedRoute.current = { id, episodeId };
+
+        const targetIndex = episodes.findIndex(ep => ep.id === targetEpisodeId);
+        if (targetIndex !== -1) {
+          requestAnimationFrame(() => scrollToEpisode(targetIndex));
+        }
       }
     }
-  }, [episodes, episodeId, currentEpisodeId, setCurrentEpisodeId]);
-
-  const scrollToEpisode = useCallback(
-    (index: number) => {
-      try {
-        flatListRef.current?.scrollToIndex({ index, animated: true });
-      } catch (e) {
-        flatListRef.current?.scrollToOffset({
-          offset: ITEM_HEIGHT * index,
-          animated: true,
-        });
-      }
-    },
-    [ITEM_HEIGHT],
-  );
+  }, [episodes, id, episodeId, setCurrentEpisodeId, scrollToEpisode, currentEpisodeId]);
 
   const handleEpisodeSelect = (episode: Episode, index: number) => {
     setCurrentEpisodeId(episode.id);
@@ -329,15 +339,7 @@ const VideoScreen = () => {
     [series, isAuthenticated, handlePressOnEpisodes, handleVideoEnd, posterUrl],
   );
 
-  const isInitialMount = useRef(true);
 
-  useEffect(() => {
-    if (!episodes || episodes.length === 0) return;
-    if (isInitialMount.current) {
-      requestAnimationFrame(() => scrollToEpisode(safeIndex));
-      isInitialMount.current = false;
-    }
-  }, [episodes, safeIndex, scrollToEpisode]);
 
   if (isSeriesLoading && (!episodes || episodes.length === 0)) {
     return (

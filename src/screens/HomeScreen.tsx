@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import Explore from '../components/Explore';
 import HeroSlider from '../components/HeroSlider';
+import Landing from '../components/Landing';
 import {
   useMoviesData,
   useRecommendedSeriesData,
   useGetCoverVideo,
+  useCarouselSeriesData,
 } from '../api/video';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -15,6 +17,7 @@ export default function HomeScreen() {
   const { data: recommendedSeriesData, isLoading: isRecommendedLoading } =
     useRecommendedSeriesData();
   const { data: coverVideoData } = useGetCoverVideo();
+  const { data: carouselData } = useCarouselSeriesData();
   const navigation = useNavigation<any>();
   const [isSliderVisible, setIsSliderVisible] = useState(true);
 
@@ -86,7 +89,11 @@ export default function HomeScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <HeroSlider isVisible={isSliderVisible} />
+        {(carouselData?.series && carouselData?.series?.length > 0) ? (
+          <HeroSlider isVisible={isSliderVisible} />
+        ) : (
+          <Landing />
+        )}
         <Explore
           heading={'Recommended for you'}
           movieData={recommendedSeriesData?.series ?? []}

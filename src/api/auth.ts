@@ -42,12 +42,7 @@ export const verifyOtpRequest = async (data: any) => {
     const resp = await response;
     return resp;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Please check your mobile number and try again.";
-    Toast.show({
-      type: "error",
-      text1: "OTP Failed",
-      text2: errorMessage,
-    });
+    throw error;
   }
 };
 
@@ -63,12 +58,7 @@ export const sendOtpRequest = async (data: any) => {
     const resp = await response;
     return resp;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Please check your mobile number and try again.";
-    Toast.show({
-      type: "error",
-      text1: "OTP Failed",
-      text2: errorMessage,
-    });
+    throw error;
   }
 };
 
@@ -184,14 +174,16 @@ export const useVerifyOtpMutation = (redirect?: {
 
 export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
   return useMutation({
-    mutationFn: async (data: { phone: string }) => {
+    mutationFn: async (data: any) => {
       const response = await sendOtpRequest(data);
       return response;
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       if (data?.success) {
-        onSuccessCallback?.(data);
-      } else {
+        if (onSuccessCallback) {
+          onSuccessCallback(data);
+        }
+      } else if (data) {
         Toast.show({
           type: "error",
           text1: "OTP Failed",
@@ -203,8 +195,7 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
       Toast.show({
         type: "error",
         text1: "OTP Failed",
-        text2: `${error.message || "Please check your mobile number and try again."
-          }`,
+        text2: error.message || "Failed to send OTP",
       });
     },
   });
@@ -255,16 +246,7 @@ export const login = async (data: any) => {
     const resp = await response;
     return resp;
   } catch (error) {
-    if (error instanceof Error) {
-    } else {
-      console.log("login Error", error);
-      Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: `${error || "Please verify your email and password, then try again"
-          }`,
-      });
-    }
+    throw error;
   }
 };
 
@@ -290,11 +272,11 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
         }
       }
     },
-    onError: () => {
+    onError: (error: any) => {
       Toast.show({
         type: "error",
         text1: "Login Failed",
-        text2: "Please verify your email and password, then try again.",
+        text2: error.message || "Please verify your email and password, then try again.",
       });
     },
   });
@@ -330,8 +312,13 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
         }
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.log("Login Failed", error.message);
+      Toast.show({
+        type: "error",
+        text1: "Google login failed",
+        text2: error.message || "Please try again.",
+      });
     },
   });
 };
@@ -412,12 +399,6 @@ export const appleAuthApi = async (idToken: string) => {
 
     return response;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Please verify your account, then try again.";
-    Toast.show({
-      type: "error",
-      text1: "Apple login failed",
-      text2: errorMessage,
-    });
     throw error;
   }
 };

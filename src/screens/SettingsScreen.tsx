@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,22 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
+import { useMySubscription, useCancelSubscription } from '../api/subscription';
+import { useFocusEffect } from '@react-navigation/native';
 
 const SettingsScreen = () => {
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
-  const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
+  const [isCancelSubModal, setIsCancelSubModal] = useState(false);
 
+  const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
+  const { data: subscription, refetch } = useMySubscription();
+  const { mutate: cancelSub, isPending: isCancelPending } = useCancelSubscription();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
   const handleOpenURL = async (url: string) => {
     try {
       await Linking.openURL(url);
@@ -52,10 +63,45 @@ const SettingsScreen = () => {
     });
   };
 
+  const handleConfirmCancelSubscription = () => {
+    if (!subscription?.id) return;
+    cancelSub(subscription.id, {
+      onSuccess: () => {
+        setIsCancelSubModal(false);
+      },
+      onError: () => {
+        setIsCancelSubModal(false);
+      },
+    });
+  };
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const isActive = subscription &&
+    (subscription.status === 'ACTIVE' || subscription.status === 'PENDING') &&
+    subscription.currentPeriodEnd &&
+    new Date(subscription.currentPeriodEnd) > new Date();
+
+  const isNearExpiry = useMemo(() => {
+    if (!isActive || !subscription?.currentPeriodEnd) return false;
+    const expiryDate = new Date(subscription.currentPeriodEnd);
+    const currentDate = new Date();
+    const diffTime = expiryDate.getTime() - currentDate.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 10;
+  }, [isActive, subscription?.currentPeriodEnd]);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
-        {/* <Text style={styles.sectionTitle}>About</Text> */}
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
@@ -74,6 +120,7 @@ const SettingsScreen = () => {
         >
           <Text style={styles.rowLabel}>Terms of Service</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
@@ -83,7 +130,88 @@ const SettingsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Use Account delete Modal */}
+      {isActive && (
+        <View style={styles.subscriptionCard}>
+          <Text style={styles.cardTitle}>Subscription Details</Text>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Active Plan</Text>
+            <Text style={styles.cardValue}>
+              {subscription.planCode === 'ANNUAL' ? 'Annual Plan' : 'Monthly Plan'}
+            </Text>
+          </View>
+
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Duration</Text>
+            <Text style={styles.cardValue}>
+              {subscription.currentPeriodStart ? `${formatDate(subscription.currentPeriodStart)} - ` : ''}
+              {formatDate(subscription.currentPeriodEnd)}
+            </Text>
+          </View>
+
+          {isNearExpiry && (
+            <View style={styles.cardWarningContainer}>
+              <Text style={styles.cardWarningText}>
+                Your plan expires on {formatDate(subscription.currentPeriodEnd)}
+              </Text>
+            </View>
+          )}
+
+          {!subscription.cancelAtPeriodEnd ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.cancelSubButton}
+              onPress={() => setIsCancelSubModal(true)}
+            >
+              <Text style={styles.cancelSubButtonText}>Cancel Subscription</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Your subscription is cancelled</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      <Modal
+        transparent={true}
+        visible={isCancelSubModal}
+        animationType="fade"
+        onRequestClose={() => setIsCancelSubModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Cancel Subscription</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to cancel your Premium subscription? You will continue to have access to all premium content until {formatDate(subscription?.currentPeriodEnd)}.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIsCancelSubModal(false)}
+              >
+                <Text style={styles.cancelText}>Keep Subscription</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={handleConfirmCancelSubscription}
+                disabled={isCancelPending}
+              >
+                {isCancelPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteText}>Cancel Plan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         transparent={true}
         visible={isDeleteAccountModal}
@@ -153,6 +281,78 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontFamily: 'HelveticaNowDisplay-Regular',
     fontSize: 16,
+    color: '#fff',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  infoValue: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+    color: '#ff6a00',
+  },
+  subscriptionCard: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 30,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ff6a00',
+    backgroundColor: 'rgba(255, 106, 0, 0.15)',
+  },
+  cardTitle: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 18,
+    color: '#fff',
+    marginBottom: 15,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  cardLabel: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  cardValue: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 15,
+    color: '#fff',
+  },
+  cardWarningContainer: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 68, 68, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 68, 68, 0.4)',
+    alignItems: 'center',
+  },
+  cardWarningText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+    color: '#ff4444',
+    textAlign: 'center',
+  },
+  cancelSubButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: '#ff6a00',
+    alignItems: 'center',
+  },
+  cancelSubButtonText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
     color: '#fff',
   },
   modalOverlay: {

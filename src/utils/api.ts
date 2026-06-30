@@ -1,6 +1,7 @@
 import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
+// import { Platform } from 'react-native';
 
 export const getToken = async (key: string): Promise<string | null> => {
   try {
@@ -41,8 +42,8 @@ export const api = async (endpoint: string, config: any = {}) => {
     body: isFormData
       ? body
       : typeof body === 'string'
-      ? body
-      : JSON.stringify(body),
+        ? body
+        : JSON.stringify(body),
     ...customConfig,
   };
 
@@ -71,7 +72,19 @@ export const api = async (endpoint: string, config: any = {}) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(e => ({ message: e }));
-      const message = errorData.error || 'Something went wrong';
+
+      let message = 'Something went wrong';
+      if (errorData) {
+        if (typeof errorData.error === 'string') {
+          message = errorData.error;
+        } else if (errorData.error && typeof errorData.error.message === 'string') {
+          message = errorData.error.message;
+        } else if (typeof errorData.message === 'string') {
+          message = errorData.message;
+        } else if (errorData.error) {
+          message = JSON.stringify(errorData.error);
+        }
+      }
 
       if ([401, 414].includes(response.status)) {
         const token = await getToken('accessToken');

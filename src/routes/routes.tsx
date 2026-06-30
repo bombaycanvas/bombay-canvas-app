@@ -2,8 +2,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-// import { createStackNavigator } from '@react-navigation/stack';
-// import { TransitionPresets } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
@@ -22,7 +20,8 @@ import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
-import { PurchaseModal } from '../components/videoPlayer/PurchaseModal';
+import { SubscribePopup } from '../components/videoPlayer/SubscribePopup';
+import SubscriptionScreen from '../screens/SubscriptionScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
 
 export type MainTabsParamList = {
@@ -49,10 +48,10 @@ export type RootStackParamList = {
   Creator: { id: string | number };
   Settings: undefined;
   CategoryMovies: { category: string };
+  SubscriptionScreen: { series?: any } | undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
-// const Stack = createStackNavigator<RootStackParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 
@@ -125,8 +124,6 @@ const AppStack = () => {
       initialRouteName={token ? 'MainTabs' : 'StartLogin'}
       screenOptions={{
         headerShown: false,
-        // ...TransitionPresets.SlideFromRightIOS,
-        // cardStyle: { backgroundColor: '#000' },
         animation: 'slide_from_right',
         contentStyle: {
           backgroundColor: '#000',
@@ -187,6 +184,10 @@ const AppStack = () => {
           };
         }}
       />
+      <Stack.Screen
+        name="SubscriptionScreen"
+        component={SubscriptionScreen}
+      />
     </Stack.Navigator>
   );
 };
@@ -202,7 +203,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       <AppStack />
       <LockedOverlay />
-      <PurchaseModal />
+      <SubscribePopup />
       <Toast config={{ BaseToast, ErrorToast }} topOffset={30} position="top" />
     </NavigationContainer>
   );

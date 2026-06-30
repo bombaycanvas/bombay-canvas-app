@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NEXT_PUBLIC_BASE_URL } from '@env';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
+// import { Platform } from 'react-native';
 
 export const getMovies = async (): Promise<{ series: Movie[] }> => {
   try {
@@ -30,6 +31,66 @@ export const useMoviesData = () => {
   return useQuery({
     queryKey: ['moviesData'],
     queryFn: getMovies,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+};
+
+export const getCarouselSeries = async (): Promise<{ series: Movie[] }> => {
+  try {
+    const response = await api(`/api/carousel-series`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response) {
+      throw new Error('No carousel series found');
+    }
+
+    const data = await response;
+    return data ?? [];
+  } catch (error) {
+    console.error('Carousel Series Error', error);
+    throw error;
+  }
+};
+
+export const useCarouselSeriesData = () => {
+  return useQuery({
+    queryKey: ['carouselSeriesData'],
+    queryFn: getCarouselSeries,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+};
+
+export const getUpcomingSeries = async (): Promise<any> => {
+  try {
+    const response = await api(`/api/public-upcoming-series`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response) {
+      throw new Error('No upcoming series found');
+    }
+
+    const data = await response;
+    return data ?? { upcomingSeries: [] };
+  } catch (error) {
+    console.error('Upcoming Series Error', error);
+    throw error;
+  }
+};
+
+export const useUpcomingSeriesData = () => {
+  return useQuery({
+    queryKey: ['upcomingSeriesData'],
+    queryFn: getUpcomingSeries,
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
@@ -245,6 +306,10 @@ export const verifyRazorpayOrder = async (payload: any) => {
     useAuthStore.getState().token ||
     (await AsyncStorage.getItem('accessToken'));
   const apiUrl = NEXT_PUBLIC_BASE_URL;
+  // let apiUrl = NEXT_PUBLIC_BASE_URL;
+  // if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
+  //   apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
+  // }
 
   const verifyRes = await fetch(`${apiUrl}/api/monetize/verify-order-v2`, {
     method: 'POST',

@@ -260,11 +260,11 @@ const StartLoginScreen = () => {
     try {
       const idToken = await signInWithGoogle();
       googleLoginMutate(idToken);
-    } catch (error) {
+    } catch (error: any) {
       Toast.show({
         type: 'error',
-        text1: 'Google login',
-        text2: 'Something went wrong, Please try again!',
+        text1: 'Google login failed',
+        text2: error?.message || 'Something went wrong, Please try again!',
       });
     }
   };

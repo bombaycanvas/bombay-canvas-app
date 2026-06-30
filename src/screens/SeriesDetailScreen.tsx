@@ -60,7 +60,7 @@ const SeriesDetailScreen: React.FC = () => {
   const id = params?.id;
   const posterUrl = params?.posterUrl;
 
-  const { data, isLoading, isError } = useMoviesDataById(id);
+  const { data, isLoading, isError, refetch } = useMoviesDataById(id);
   const {
     loadQueue,
     switchEpisode,
@@ -92,8 +92,22 @@ const SeriesDetailScreen: React.FC = () => {
   const queueLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (series?.episodes?.length && !currentEpisode) {
-      setCurrentEpisode(series.episodes[0]);
+    if (series?.episodes?.length) {
+      if (!currentEpisode) {
+        setCurrentEpisode(series.episodes[0]);
+      } else {
+        const updatedEpisode = series.episodes.find(
+          (ep: any) => ep.id === currentEpisode.id,
+        );
+        if (updatedEpisode) {
+          if (
+            updatedEpisode.locked !== currentEpisode.locked ||
+            updatedEpisode.videoUrl !== currentEpisode.videoUrl
+          ) {
+            setCurrentEpisode(updatedEpisode);
+          }
+        }
+      }
     }
   }, [series, currentEpisode]);
 
@@ -158,11 +172,12 @@ const SeriesDetailScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       setIsPlaying(true);
+      refetch();
       return () => {
         setIsPlaying(false);
         setIsReady(false);
       };
-    }, []),
+    }, [refetch]),
   );
 
   const togglePlay = () => {
@@ -463,7 +478,10 @@ const SeriesDetailScreen: React.FC = () => {
       {series && (
         <EpisodesBottomSheet
           visible={isEpisodesSheetOpen}
-          onClose={() => setIsEpisodesSheetOpen(false)}
+          onClose={() => {
+            setIsEpisodesSheetOpen(false);
+            setIsPlaying(true);
+          }}
           episodes={series.episodes}
           activeEpisode={currentEpisode}
           onEpisodeSelect={(ep: any) => {
