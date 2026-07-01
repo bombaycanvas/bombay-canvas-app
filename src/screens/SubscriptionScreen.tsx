@@ -17,7 +17,6 @@ import {
 } from '../api/subscription';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
-import SubscriptionBenefits from '../components/subscription/SubscriptionBenefits';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
 import SubscriptionComingSoon from '../components/subscription/SubscriptionComingSoon';
 import SubscriptionTrustBadges from '../components/subscription/SubscriptionTrustBadges';
@@ -195,8 +194,6 @@ export default function SubscriptionScreen() {
           onClose={close}
           paddingTop={insets.top}
         />
-
-        <SubscriptionBenefits />
 
         <SubscriptionPlans
           selectedPlan={selectedPlan}
