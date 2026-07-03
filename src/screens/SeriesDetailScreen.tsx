@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Pressable,
+  Animated,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -115,6 +116,23 @@ const SeriesDetailScreen: React.FC = () => {
     ? encodeURI(previewEpisode.videoUrl)
     : undefined;
 
+  const videoOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    setIsReady(false);
+    videoOpacity.setValue(0);
+  }, [previewVideoUrl, videoOpacity]);
+
+  useEffect(() => {
+    if (isReady) {
+      Animated.timing(videoOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isReady, videoOpacity]);
+
   const isFocused = useIsFocused();
   const { isAuthenticated: globalAuth } = useAuthStore();
   const isAuthenticated = data?.isAuthenticated || globalAuth;
@@ -198,7 +216,6 @@ const SeriesDetailScreen: React.FC = () => {
   }
   return (
     <View style={styles.container}>
-      {/* Background */}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -208,24 +225,8 @@ const SeriesDetailScreen: React.FC = () => {
         ]}
       />
 
-      {/* Video Content */}
       <View style={styles.videoWrapper}>
-        {series && isFocused && (
-          <Video
-            useTextureView={true}
-            ref={videoRef}
-            source={previewVideoUrl ? { uri: previewVideoUrl } : undefined}
-            style={styles.video}
-            paused={!isPlaying || isCasting}
-            resizeMode="cover"
-            onReadyForDisplay={() => setIsReady(true)}
-            poster={series?.posterUrl}
-            posterResizeMode="cover"
-            repeat
-            playWhenInactive={true}
-          />
-        )}
-        {!isReady && series && (
+        {series && (
           <FastImage
             source={{
               uri: currentEpisode?.thumbnail || series.posterUrl,
@@ -234,6 +235,25 @@ const SeriesDetailScreen: React.FC = () => {
             style={StyleSheet.absoluteFill}
             resizeMode={FastImage.resizeMode.cover}
           />
+        )}
+        {series && isFocused && (
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { opacity: videoOpacity }]}
+          >
+            <Video
+              useTextureView={true}
+              ref={videoRef}
+              source={previewVideoUrl ? { uri: previewVideoUrl } : undefined}
+              style={styles.video}
+              paused={!isPlaying || isCasting}
+              resizeMode="cover"
+              onReadyForDisplay={() => setIsReady(true)}
+              poster={series?.posterUrl}
+              posterResizeMode="cover"
+              repeat
+              playWhenInactive={true}
+            />
+          </Animated.View>
         )}
         <LinearGradient
           colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
@@ -316,7 +336,6 @@ const SeriesDetailScreen: React.FC = () => {
                           <Text style={styles.watchText}>Watch Now</Text>
                         </TouchableOpacity>
 
-                        {/* Watch on TV Button - Styled like Play/Pause button */}
                         {series?.isTV && (
                           <View
                             style={[
@@ -393,7 +412,7 @@ const SeriesDetailScreen: React.FC = () => {
                         }}
                       >
                         {playerState === MediaPlayerState.PLAYING ||
-                        playerState === MediaPlayerState.BUFFERING ? (
+                          playerState === MediaPlayerState.BUFFERING ? (
                           <Pause color="#000" size={32} fill="#000" />
                         ) : (
                           <Play color="#000" size={32} fill="#000" />

@@ -1,4 +1,4 @@
-import React, { useState, useRef, memo } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,24 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
 
   const avatarOpacity = useRef(new Animated.Value(0)).current;
   const mainMediaOpacity = useRef(new Animated.Value(0)).current;
+  const videoOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isActive || !isFocused) {
+      setIsVideoReady(false);
+      videoOpacity.setValue(0);
+    }
+  }, [isActive, isFocused, videoOpacity]);
+
+  useEffect(() => {
+    if (isVideoReady && isActive && isFocused) {
+      Animated.timing(videoOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isVideoReady, isActive, isFocused, videoOpacity]);
 
   const handleAvatarLoad = () => {
     Animated.timing(avatarOpacity, {
@@ -155,31 +173,41 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
         <Animated.View style={{ flex: 1, opacity: mainMediaOpacity }}>
           {videoUrl && isFocused && isActive ? (
             <View style={styles.videoWrapper}>
-              <Video
-                ref={videoRef}
-                source={{ uri: videoUrl }}
-                style={styles.mainMedia}
-                paused={!isActive}
+              <FastImage
+                source={{
+                  uri: item.posterUrl,
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={[styles.mainMedia, StyleSheet.absoluteFill]}
                 resizeMode="cover"
-                repeat
-                muted={isMuted}
-                playWhenInactive={false}
-                onLoad={data => {
-                  handleVideoLoad(data);
-                  handleMainMediaLoad();
-                }}
-                onReadyForDisplay={() => setIsVideoReady(true)}
-                poster={item.posterUrl}
-                posterResizeMode="cover"
-                useTextureView={Platform.OS === 'android'}
-                maxBitRate={2000000}
-                bufferConfig={{
-                  minBufferMs: 2500,
-                  maxBufferMs: 5000,
-                  bufferForPlaybackMs: 1000,
-                  bufferForPlaybackAfterRebufferMs: 2000,
-                }}
+                onLoad={handleMainMediaLoad}
               />
+              <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoOpacity }]}>
+                <Video
+                  ref={videoRef}
+                  source={{ uri: videoUrl }}
+                  style={styles.mainMedia}
+                  paused={!isActive}
+                  resizeMode="cover"
+                  repeat
+                  muted={isMuted}
+                  playWhenInactive={false}
+                  onLoad={data => {
+                    handleVideoLoad(data);
+                    handleMainMediaLoad();
+                  }}
+                  onReadyForDisplay={() => setIsVideoReady(true)}
+                  useTextureView={Platform.OS === 'android'}
+                  maxBitRate={2000000}
+                  bufferConfig={{
+                    minBufferMs: 2500,
+                    maxBufferMs: 5000,
+                    bufferForPlaybackMs: 1000,
+                    bufferForPlaybackAfterRebufferMs: 2000,
+                  }}
+                />
+              </Animated.View>
               {isVideoReady && (
                 <TouchableOpacity
                   style={styles.muteButton}
@@ -191,18 +219,6 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
                     <Volume2 color="white" size={20} />
                   )}
                 </TouchableOpacity>
-              )}
-              {!isVideoReady && (
-                <FastImage
-                  source={{
-                    uri: item.posterUrl,
-                    priority: FastImage.priority.high,
-                    cache: FastImage.cacheControl.immutable,
-                  }}
-                  style={[styles.mainMedia, StyleSheet.absoluteFill]}
-                  resizeMode="cover"
-                  onLoad={handleMainMediaLoad}
-                />
               )}
             </View>
           ) : (
