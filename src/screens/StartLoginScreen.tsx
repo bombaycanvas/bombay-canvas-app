@@ -46,6 +46,22 @@ import EyeSlashIcon from '../assets/EyeSlashIcon';
 
 const { height } = Dimensions.get('window');
 
+const renderCustomFlag = (country: any) => {
+  const cca2 = country?.cca2;
+  if (!cca2) {
+    return null;
+  }
+  return (
+    <Image
+      source={{
+        uri: `https://flagcdn.com/w80/${cca2.toLowerCase()}.png`,
+      }}
+      style={styles.customFlagImage}
+      resizeMode="contain"
+    />
+  );
+};
+
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -310,26 +326,7 @@ const StartLoginScreen = () => {
           placeholder="Enter Phone number"
           placeholderTextColor="rgba(255,255,255,0.4)"
           selectionColor="rgb(255,106,0)"
-          customFlag={country => {
-            const cca2 = country?.cca2;
-            if (!cca2) {
-              return null;
-            }
-            return (
-              <Image
-                source={{
-                  uri: `https://flagcdn.com/w80/${cca2.toLowerCase()}.png`,
-                }}
-                style={{
-                  width: 24,
-                  height: 16,
-                  marginRight: 6,
-                  borderRadius: 2,
-                }}
-                resizeMode="contain"
-              />
-            );
-          }}
+          customFlag={renderCustomFlag}
           phoneInputStyles={{
             container: styles.phoneInputContainer,
             flagContainer: styles.flagContainer,
@@ -801,6 +798,12 @@ const StartLoginScreen = () => {
 export default StartLoginScreen;
 
 const styles = StyleSheet.create({
+  customFlagImage: {
+    width: 24,
+    height: 16,
+    marginRight: 6,
+    borderRadius: 2,
+  },
   container: {
     flex: 1,
     backgroundColor: '#000',

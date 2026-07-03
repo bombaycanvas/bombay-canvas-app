@@ -17,6 +17,7 @@ import { useVideoStore } from '../store/videoStore';
 import { SkeletonEpisodeItem } from './videoPlayer/SkeletonEpisodeItem';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
+import { imgUrl } from '../api/video';
 
 type RootRedirectVideo = {
   Video: { id: string; episodeId: string; posterUrl?: string };
@@ -87,7 +88,7 @@ export const EpisodesBottomSheet = ({
                     <View style={styles.thumbWrapper}>
                       <FastImage
                         source={{
-                          uri: item.thumbnail,
+                          uri: imgUrl(item.thumbnail, 320),
                           priority: FastImage.priority.high,
                           cache: FastImage.cacheControl.immutable,
                         }}

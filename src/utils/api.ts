@@ -1,7 +1,7 @@
 import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
-// import { Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 export const getToken = async (key: string): Promise<string | null> => {
   try {
@@ -18,6 +18,15 @@ const removeToken = async (key: string) => {
   } catch (error) {
     console.error('Error removing token:', error);
   }
+};
+
+export const getApiUrl = (endpoint: string): string => {
+  let apiUrl = NEXT_PUBLIC_BASE_URL || '';
+  if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
+    apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
+  }
+  const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+  return `${cleanBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 };
 
 export const api = async (endpoint: string, config: any = {}) => {
@@ -57,18 +66,11 @@ export const api = async (endpoint: string, config: any = {}) => {
   }
 
   try {
-    const apiUrl = NEXT_PUBLIC_BASE_URL;
-    // let apiUrl = NEXT_PUBLIC_BASE_URL;
-    // if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
-    //   apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
-    // }
+    const url = getApiUrl(endpoint);
 
-    console.log(`[API] ${requestConfig.method} ${apiUrl}${endpoint}`);
+    console.log(`[API] ${requestConfig.method} ${url}`);
 
-    const response = await fetch(
-      `${apiUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`,
-      requestConfig,
-    );
+    const response = await fetch(url, requestConfig);
 
     if (!response.ok) {
       const errorData = await response.json().catch(e => ({ message: e }));

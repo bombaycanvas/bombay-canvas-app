@@ -20,7 +20,7 @@ import {
   NavigationProp,
   useIsFocused,
 } from '@react-navigation/native';
-import { useMoviesDataById } from '../api/video';
+import { useMoviesDataById, imgUrl } from '../api/video';
 import {
   ChevronLeft,
   Pause,
@@ -229,7 +229,7 @@ const SeriesDetailScreen: React.FC = () => {
         {series && (
           <FastImage
             source={{
-              uri: currentEpisode?.thumbnail || series.posterUrl,
+              uri: imgUrl(currentEpisode?.thumbnail || series.posterUrl, 640),
               priority: FastImage.priority.high,
             }}
             style={StyleSheet.absoluteFill}
@@ -248,7 +248,7 @@ const SeriesDetailScreen: React.FC = () => {
               paused={!isPlaying || isCasting}
               resizeMode="cover"
               onReadyForDisplay={() => setIsReady(true)}
-              poster={series?.posterUrl}
+              poster={imgUrl(series?.posterUrl, 640)}
               posterResizeMode="cover"
               repeat
               playWhenInactive={true}
@@ -443,7 +443,7 @@ const SeriesDetailScreen: React.FC = () => {
                         <FastImage
                           source={{
                             uri:
-                              series.uploader?.profiles?.[0]?.avatarUrl ||
+                              imgUrl(series.uploader?.profiles?.[0]?.avatarUrl, 100) ||
                               'https://via.placeholder.com/40',
                             priority: FastImage.priority.high,
                             cache: FastImage.cacheControl.immutable,

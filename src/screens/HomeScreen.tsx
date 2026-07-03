@@ -8,6 +8,7 @@ import {
   useRecommendedSeriesData,
   useGetCoverVideo,
   useCarouselSeriesData,
+  imgUrl,
 } from '../api/video';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -25,17 +26,17 @@ export default function HomeScreen() {
     const yOffset = event.nativeEvent.contentOffset.y;
     setIsSliderVisible(yOffset < 200);
   };
-
+  console.log(data, "data>>>>>>>>>>")
   React.useEffect(() => {
     const urlsToPreload: string[] = [];
 
     if (data?.series) {
       data.series.slice(0, 5).forEach(movie => {
         if (movie.posterUrl) {
-          urlsToPreload.push(movie.posterUrl);
+          urlsToPreload.push(imgUrl(movie.posterUrl, 640));
         }
         if (movie.uploader?.profiles?.[0]?.avatarUrl) {
-          urlsToPreload.push(movie.uploader.profiles[0].avatarUrl);
+          urlsToPreload.push(imgUrl(movie.uploader.profiles[0].avatarUrl, 100));
         }
       });
     }
@@ -43,16 +44,16 @@ export default function HomeScreen() {
     if (recommendedSeriesData?.series) {
       recommendedSeriesData.series.slice(0, 5).forEach(movie => {
         if (movie.posterUrl) {
-          urlsToPreload.push(movie.posterUrl);
+          urlsToPreload.push(imgUrl(movie.posterUrl, 640));
         }
         if (movie.uploader?.profiles?.[0]?.avatarUrl) {
-          urlsToPreload.push(movie.uploader.profiles[0].avatarUrl);
+          urlsToPreload.push(imgUrl(movie.uploader.profiles[0].avatarUrl, 100));
         }
       });
     }
 
     if (coverVideoData?.admin?.profiles?.[0]?.avatarUrl) {
-      urlsToPreload.push(coverVideoData.admin.profiles[0].avatarUrl);
+      urlsToPreload.push(imgUrl(coverVideoData.admin.profiles[0].avatarUrl, 100));
     }
 
     if (urlsToPreload.length > 0) {

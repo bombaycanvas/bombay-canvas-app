@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { useVideoStore } from '../store/videoStore';
 import ShimmerLoader from './ShimmerLoader';
+import { imgUrl } from '../api/video';
 
 type Movie = any;
 
@@ -103,7 +104,7 @@ const ExploreCard = React.memo(
           <Animated.View style={{ flex: 1, opacity }}>
             <FastImage
               source={{
-                uri: movie?.posterUrl || 'https://via.placeholder.com/300x400',
+                uri: imgUrl(movie?.posterUrl, 640) || 'https://via.placeholder.com/300x400',
                 priority: FastImage.priority.high,
                 cache: FastImage.cacheControl.immutable,
               }}
@@ -126,7 +127,7 @@ const ExploreCard = React.memo(
               <FastImage
                 source={{
                   uri:
-                    movie?.uploader?.profiles?.[0]?.avatarUrl ||
+                    imgUrl(movie?.uploader?.profiles?.[0]?.avatarUrl, 100) ||
                     'https://via.placeholder.com/50',
                 }}
                 style={styles.avatar}

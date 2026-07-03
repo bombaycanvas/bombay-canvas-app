@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useMoviesData } from '../api/video';
+import { useMoviesData, imgUrl } from '../api/video';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Movie } from '../types/movie';
@@ -36,6 +36,31 @@ const useDebounce = (value: string, delay: number) => {
 
   return debouncedValue;
 };
+
+const SearchMovieCard = React.memo(({ item, navigation }: { item: Movie; navigation: any }) => {
+  const cardRef = React.useRef<View>(null);
+  return (
+    <View ref={cardRef}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.movieItem}
+        onPress={() => {
+          cardRef.current?.measureInWindow((_x, _y, _width, _height) => {
+            navigation.navigate('SeriesDetail', {
+              id: item.id,
+              posterUrl: item.posterUrl,
+            });
+          });
+        }}
+      >
+        <Image source={{ uri: imgUrl(item.posterUrl, 320) }} style={styles.poster} />
+        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+          {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 const SearchScreen = () => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
@@ -71,31 +96,6 @@ const SearchScreen = () => {
   };
 
   const genreMap = getMoviesByGenre();
-
-  const SearchMovieCard = React.memo(({ item, navigation }: { item: Movie; navigation: any }) => {
-    const cardRef = React.useRef<View>(null);
-    return (
-      <View ref={cardRef}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.movieItem}
-          onPress={() => {
-            cardRef.current?.measureInWindow((x, y, width, height) => {
-              navigation.navigate('SeriesDetail', {
-                id: item.id,
-                posterUrl: item.posterUrl,
-              });
-            });
-          }}
-        >
-          <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-            {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  });
 
   const getItemURL = (item: string) => {
     if (item in SearchListDataImage) {

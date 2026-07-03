@@ -22,6 +22,7 @@ import {
   getPlayVideoWithID,
   useTrackEpisodeView,
   useMoviesDataById,
+  imgUrl,
 } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import VideoPlayer from '../components/VideoPlayer';
@@ -122,7 +123,7 @@ const VideoListItem = React.memo(
             <View>
               <View style={styles.userInfo}>
                 <Image
-                  source={{ uri: movie?.uploader?.profiles?.[0]?.avatarUrl }}
+                  source={{ uri: imgUrl(movie?.uploader?.profiles?.[0]?.avatarUrl, 100) }}
                   style={styles.avatar}
                 />
                 <Text

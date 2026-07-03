@@ -18,6 +18,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native-gesture-handler';
+import { imgUrl } from '../api/video';
 
 const { width, height } = Dimensions.get('window');
 
@@ -312,7 +313,7 @@ export default function VideoPlayer({
             disabled={isPlaybackLoading}
           >
             <Image
-              source={{ uri: movie?.posterUrl }}
+              source={{ uri: imgUrl(movie?.posterUrl, 640) }}
               style={styles.poster}
               resizeMode="cover"
             />
@@ -340,7 +341,7 @@ export default function VideoPlayer({
                 onProgress={handleProgress}
                 onError={handleError}
                 onReadyForDisplay={() => setIsReady(true)}
-                poster={movie?.posterUrl}
+                poster={imgUrl(movie?.posterUrl, 640)}
                 posterResizeMode="cover"
                 onEnd={onVideoEnd}
                 bufferConfig={bufferConfig}

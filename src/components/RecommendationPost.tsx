@@ -12,6 +12,7 @@ import { Play, Volume2, VolumeX } from 'lucide-react-native';
 import Video, { OnLoadData } from 'react-native-video';
 import { useIsFocused } from '@react-navigation/native';
 import ShimmerLoader from './ShimmerLoader';
+import { imgUrl } from '../api/video';
 
 interface RecommendationPostProps {
   item: any;
@@ -175,7 +176,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
             <View style={styles.videoWrapper}>
               <FastImage
                 source={{
-                  uri: item.posterUrl,
+                  uri: imgUrl(item.posterUrl, 640),
                   priority: FastImage.priority.high,
                   cache: FastImage.cacheControl.immutable,
                 }}
@@ -225,7 +226,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
             item.posterUrl && (
               <FastImage
                 source={{
-                  uri: item.posterUrl,
+                  uri: imgUrl(item.posterUrl, 640),
                   priority: FastImage.priority.high,
                   cache: FastImage.cacheControl.immutable,
                 }}

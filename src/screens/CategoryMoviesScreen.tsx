@@ -19,37 +19,37 @@ type SearchScreenNavigationProp = NativeStackNavigationProp<
   'Search'
 >;
 
+const MovieCard = React.memo(
+  ({ item, navigation }: { item: Movie; navigation: any }) => {
+    const cardRef = React.useRef<View>(null);
+    return (
+      <View ref={cardRef}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.movieItem}
+          onPress={() => {
+            cardRef.current?.measureInWindow((_x, _y, _width, _height) => {
+              navigation.navigate('SeriesDetail', {
+                id: item.id,
+                posterUrl: item.posterUrl,
+              });
+            });
+          }}
+        >
+          <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  },
+);
+
 const CategoryMoviesScreen = () => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
   const route = useRoute<RouteProp<CategoryMoviesRoute, 'params'>>();
   const { movies = [] } = route.params || { movies: [] };
-
-  const MovieCard = React.memo(
-    ({ item, navigation }: { item: Movie; navigation: any }) => {
-      const cardRef = React.useRef<View>(null);
-      return (
-        <View ref={cardRef}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.movieItem}
-            onPress={() => {
-              cardRef.current?.measureInWindow((x, y, width, height) => {
-                navigation.navigate('SeriesDetail', {
-                  id: item.id,
-                  posterUrl: item.posterUrl,
-                });
-              });
-            }}
-          >
-            <Image source={{ uri: item.posterUrl }} style={styles.poster} />
-            <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-              {item.title.charAt(0).toUpperCase() + item.title.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    },
-  );
 
   return (
     <SafeAreaView style={styles.container}>

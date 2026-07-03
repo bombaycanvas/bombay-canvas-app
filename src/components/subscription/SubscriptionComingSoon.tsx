@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import FastImage from '@d11/react-native-fast-image';
+import { imgUrl } from '../../api/video';
 
 interface SubscriptionComingSoonProps {
   displayUpcoming: any[];
@@ -71,7 +72,7 @@ export default function SubscriptionComingSoon({ displayUpcoming }: Subscription
               ) : (
                 <FastImage
                   source={{
-                    uri: posterUrl,
+                    uri: imgUrl(posterUrl, 320),
                     priority: FastImage.priority.normal,
                     cache: FastImage.cacheControl.immutable,
                   }}

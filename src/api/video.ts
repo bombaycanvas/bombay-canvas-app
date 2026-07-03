@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../utils/api';
+import { api, getApiUrl } from '../utils/api';
 import { Movie, Category, CoverVideo } from '../types/movie';
 import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NEXT_PUBLIC_BASE_URL } from '@env';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
-// import { Platform } from 'react-native';
+
+export const imgUrl = (
+  path: string | undefined,
+  width: number = 640,
+  format: string = 'auto',
+): string => {
+  if (!path) return '';
+  return getApiUrl(`/api/img?path=${encodeURIComponent(path)}&w=${width}&f=${format}`);
+};
 
 export const getMovies = async (): Promise<{ series: Movie[] }> => {
   try {
@@ -305,13 +312,8 @@ export const verifyRazorpayOrder = async (payload: any) => {
   const token =
     useAuthStore.getState().token ||
     (await AsyncStorage.getItem('accessToken'));
-  const apiUrl = NEXT_PUBLIC_BASE_URL;
-  // let apiUrl = NEXT_PUBLIC_BASE_URL;
-  // if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
-  //   apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
-  // }
 
-  const verifyRes = await fetch(`${apiUrl}/api/monetize/verify-order-v2`, {
+  const verifyRes = await fetch(getApiUrl('/api/monetize/verify-order-v2'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
