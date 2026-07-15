@@ -19,9 +19,9 @@ export function useHeroSlider() {
     const seriesList = data?.series || [];
     const withTrailer = seriesList.filter((item: any) => item.trailerUrl);
     if (withTrailer.length > 0) {
-      return withTrailer.slice(0, 5);
+      return withTrailer;
     }
-    return seriesList.slice(0, 5);
+    return seriesList;
   }, [data]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {

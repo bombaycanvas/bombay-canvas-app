@@ -1,20 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import Toast from 'react-native-toast-message';
+import { useAuthStore } from '../store/authStore';
 
 export interface Plan {
-  code: 'MONTHLY' | 'ANNUAL';
+  code: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
   name: string;
   description: string;
   period: 'monthly' | 'yearly';
   price: number;
   currency: string;
+  trial?: {
+    days: number;
+    upfrontAmount: number;
+  };
 }
 
 export interface Subscription {
   id: string;
-  planCode: 'MONTHLY' | 'ANNUAL';
-  status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
+  status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'TRIAL' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
   amountSnapshot: number;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
@@ -23,20 +28,28 @@ export interface Subscription {
   updatedAt: string;
 }
 
-export const getSubscriptionPlans = async (): Promise<Plan[]> => {
+export interface SubscriptionPlansResponse {
+  plans: Plan[];
+  trialEligible: boolean;
+}
+
+export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse> => {
   try {
-    const response = await api('/api/monetize/subscription/plans', {
+    const response = await api(`/api/monetize/subscription/plans?_cb=${Date.now()}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-    return response?.data?.plans ?? [];
+    return {
+      plans: response?.data?.plans ?? [],
+      trialEligible: response?.data?.trialEligible ?? false,
+    };
   } catch (error) {
     console.error('Fetch Plans Error:', error);
     throw error;
   }
 };
 
-export const createSubscription = async (planCode: 'MONTHLY' | 'ANNUAL') => {
+export const createSubscription = async (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => {
   try {
     const response = await api('/api/monetize/subscription/create', {
       method: 'POST',
@@ -98,10 +111,11 @@ export const cancelSubscription = async (subscriptionId: string) => {
 
 
 export const useSubscriptionPlans = () => {
+  const user = useAuthStore(state => state.user);
   return useQuery({
-    queryKey: ['subscriptionPlans'],
+    queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
     queryFn: getSubscriptionPlans,
-    staleTime: 1000 * 60 * 10,
+    staleTime: 0,
   });
 };
 
@@ -115,7 +129,7 @@ export const useMySubscription = () => {
 
 export const useCreateSubscription = () => {
   return useMutation({
-    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL') => createSubscription(planCode),
+    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => createSubscription(planCode),
   });
 };
 

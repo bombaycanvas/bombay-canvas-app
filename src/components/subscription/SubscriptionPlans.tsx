@@ -4,12 +4,13 @@ import LockOutlined from '../../assets/LockOutlined';
 import { Plan } from '../../api/subscription';
 
 interface SubscriptionPlansProps {
-  selectedPlan: 'monthly' | 'annual';
-  setSelectedPlan: (plan: 'monthly' | 'annual') => void;
-  handlePurchase: (plan: 'monthly' | 'annual') => void;
+  selectedPlan: 'trial' | 'monthly' | 'annual';
+  setSelectedPlan: (plan: 'trial' | 'monthly' | 'annual') => void;
+  handlePurchase: (plan: 'trial' | 'monthly' | 'annual') => void;
   loading: boolean;
-  activePlan?: 'MONTHLY' | 'ANNUAL' | null;
+  activePlan?: 'TRIAL' | 'MONTHLY' | 'ANNUAL' | null;
   plans?: Plan[];
+  trialEligible?: boolean;
 }
 
 export default function SubscriptionPlans({
@@ -19,14 +20,16 @@ export default function SubscriptionPlans({
   loading,
   activePlan,
   plans,
+  trialEligible,
 }: SubscriptionPlansProps) {
+  const isTrialActive = activePlan === 'TRIAL';
   const isMonthlyActive = activePlan === 'MONTHLY';
   const isAnnualActive = activePlan === 'ANNUAL';
-  const hasAnyActive = isMonthlyActive || isAnnualActive;
+  const hasAnyActive = isTrialActive || isMonthlyActive || isAnnualActive;
 
+  const trialPlan = plans?.find(p => p.code === 'TRIAL');
   const monthlyPlan = plans?.find(p => p.code === 'MONTHLY');
   const annualPlan = plans?.find(p => p.code === 'ANNUAL');
-
 
   const monthlyPrice = monthlyPlan ? monthlyPlan.price / 100 : 99;
   const annualPrice = annualPlan ? annualPlan.price / 100 : 499;
@@ -37,8 +40,81 @@ export default function SubscriptionPlans({
   const savingsPercent = monthlyPrice > 0
     ? Math.round(((monthlyPrice * 12 - annualPrice) / (monthlyPrice * 12)) * 100)
     : 58;
+
+  const showTrial = trialEligible || !!trialPlan;
   return (
     <View style={styles.plansWrapper}>
+      {showTrial && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={[
+            styles.trialCard,
+            selectedPlan === 'trial' && styles.planCardActive,
+          ]}
+          onPress={() => setSelectedPlan('trial')}
+        >
+          <View style={styles.recommendedBadge}>
+            <View style={styles.recommendedBadgeTextContainer}>
+              <Text style={styles.recommendedBadgeText}>RECOMMENDED</Text>
+            </View>
+          </View>
+
+          <View style={styles.trialMainContent}>
+            <View style={styles.trialLeftInfo}>
+              <View style={styles.trialRadioRow}>
+                <View style={[styles.radioOuter, selectedPlan === 'trial' && styles.radioOuterActive, { marginRight: 10 }]}>
+                  {selectedPlan === 'trial' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.trialTitleText}>{trialPlan?.name || '3-Day Trial'}</Text>
+              </View>
+
+              <View style={styles.trialPriceContainer}>
+                <Text style={styles.trialPriceCurrency}>₹</Text>
+                <Text style={styles.trialPriceText}>1</Text>
+                <Text style={styles.trialPricePeriod}> today</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.trialButton,
+                selectedPlan === 'trial' ? styles.trialButtonActive : styles.trialButtonInactive,
+                hasAnyActive && styles.trialButtonDisabled,
+              ]}
+              onPress={() => handlePurchase('trial')}
+              disabled={loading || hasAnyActive || selectedPlan !== 'trial'}
+            >
+              {loading && selectedPlan === 'trial' ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text
+                  style={[
+                    styles.trialButtonText,
+                    selectedPlan === 'trial' ? styles.trialButtonTextActive : styles.trialButtonTextInactive,
+                    hasAnyActive && styles.planButtonTextDisabled,
+                  ]}
+                >
+                  {isTrialActive ? 'Active' : 'Start for ₹1 →'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.trialBottomText}>
+            3 days full access, then ₹{annualPrice}/year. Cancel anytime. The ₹1 activation fee is non-refundable.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showTrial && (
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR PICK A PLAN</Text>
+          <View style={styles.dividerLine} />
+        </View>
+      )}
+
       <View style={styles.plansRow}>
         <TouchableOpacity
           activeOpacity={0.9}
@@ -277,7 +353,7 @@ const styles = StyleSheet.create({
   },
   planSavingsText: {
     color: '#ff6a00',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '800',
     marginTop: 4,
     fontFamily: 'HelveticaNowDisplay-Bold',
@@ -293,14 +369,13 @@ const styles = StyleSheet.create({
   },
   planSavingsBadgeText: {
     color: '#000',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     fontFamily: 'HelveticaNowDisplay-Bold',
   },
   planSubtext: {
     color: '#888',
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 13,
     marginTop: 4,
     fontFamily: 'HelveticaNowDisplay-Regular',
     textAlign: 'center',
@@ -351,5 +426,136 @@ const styles = StyleSheet.create({
   },
   planButtonTextDisabled: {
     color: '#666',
+  },
+  trialCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#222',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  recommendedBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  recommendedBadgeTextContainer: {
+    backgroundColor: '#ff4d00',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderBottomRightRadius: 8,
+  },
+  recommendedBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  trialMainContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  trialLeftInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  trialRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  trialTitleText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  trialPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginLeft: 30,
+  },
+  trialPriceCurrency: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  trialPriceText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    fontFamily: 'HelveticaNowDisplay-Black',
+  },
+  trialPricePeriod: {
+    color: '#aaa',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  trialButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 110,
+  },
+  trialButtonActive: {
+    backgroundColor: '#ff6a00',
+    borderColor: '#ff6a00',
+  },
+  trialButtonInactive: {
+    backgroundColor: 'transparent',
+    borderColor: '#ff6a00',
+  },
+  trialButtonDisabled: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#333',
+  },
+  trialButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  trialButtonTextActive: {
+    color: '#000',
+  },
+  trialButtonTextInactive: {
+    color: '#ff6a00',
+  },
+  trialBottomText: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 10,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#555',
+  },
+  dividerText: {
+    color: '#555',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginHorizontal: 12,
+    fontFamily: 'HelveticaNowDisplay-Bold',
   },
 });

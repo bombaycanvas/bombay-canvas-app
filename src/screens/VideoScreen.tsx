@@ -31,6 +31,10 @@ import { useAuthStore } from '../store/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
 import { capitalizeWords } from '../utils/capitalizeWords';
+import { Heart } from 'lucide-react-native';
+import { useToggleEpisodeLike } from '../api/engagement';
+import Toast from 'react-native-toast-message';
+import { useFlag } from '../api/settings';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -54,6 +58,16 @@ type Episode = {
 };
 
 const { width, height: windowHeight } = Dimensions.get('window');
+
+const formatLikes = (count: number): string => {
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+  }
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return count.toString();
+};
 
 const VideoListItem = React.memo(
   ({
@@ -97,6 +111,63 @@ const VideoListItem = React.memo(
     const episodeData =
       data?.episode && data?.episode?.videoUrl ? data?.episode : item;
 
+    const showLikes = useFlag('engagement.showLikes', true);
+    const showLikeCount = useFlag('engagement.showLikeCount', false);
+
+    const [liked, setLiked] = useState(!!episodeData?.likedByMe);
+    const [likeCount, setLikeCount] = useState(episodeData?.likeCount ?? 0);
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+      setLiked(!!episodeData?.likedByMe);
+      setLikeCount(episodeData?.likeCount ?? 0);
+    }, [episodeData?.likedByMe, episodeData?.likeCount]);
+
+    const { mutate: toggleLike } = useToggleEpisodeLike(episodeData?.id, movie?.id);
+
+    const handleLikePress = () => {
+      if (!isAuthenticated) {
+        Toast.show({
+          type: 'error',
+          text1: 'Authentication',
+          text2: 'Please login to like this episode',
+        });
+        return;
+      }
+
+      const nextLiked = !liked;
+      const nextLikeCount = nextLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+      setLiked(nextLiked);
+      setLikeCount(nextLikeCount);
+
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.3,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      toggleLike(undefined, {
+        onError: (_err: any) => {
+          setLiked(liked);
+          setLikeCount(likeCount);
+        },
+        onSuccess: (resData: any) => {
+          if (resData && typeof resData.liked === 'boolean') {
+            setLiked(resData.liked);
+            setLikeCount(resData.likeCount);
+          }
+        },
+      });
+    };
+
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer
@@ -110,6 +181,32 @@ const VideoListItem = React.memo(
           isPlaybackLoading={isPlaybackLoading}
           onVideoEnd={onVideoEnd}
         />
+
+        {showLikes && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.likePillTop,
+              { top: insets.top + 10 },
+              !showLikeCount && { paddingHorizontal: 8, paddingVertical: 8 },
+            ]}
+            onPress={handleLikePress}
+          >
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <Heart
+                size={Platform.OS === 'ios' ? 30 : 33}
+                color={liked ? '#ff4d6d' : '#ffffff'}
+                fill={liked ? '#ff4d6d' : 'none'}
+              />
+            </Animated.View>
+            {showLikeCount && (
+              <Text style={[styles.likeCount, liked && styles.likedText]}>
+                {formatLikes(likeCount)}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+
         <Animated.View
           style={[
             styles.overlay,
@@ -121,21 +218,24 @@ const VideoListItem = React.memo(
         >
           <View style={styles.leftOverlay}>
             <View>
-              <View style={styles.userInfo}>
-                <Image
-                  source={{ uri: imgUrl(movie?.uploader?.profiles?.[0]?.avatarUrl, 100) }}
-                  style={styles.avatar}
-                />
-                <Text
+              <View style={styles.creatorRow}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.creatorPill}
                   onPress={() =>
                     navigation.navigate('Creator', {
                       id: movie?.uploader?.id,
                     })
                   }
-                  style={styles.username}
                 >
-                  {capitalizeWords(movie?.uploader?.name)}
-                </Text>
+                  <Image
+                    source={{ uri: imgUrl(movie?.uploader?.profiles?.[0]?.avatarUrl, 100) }}
+                    style={styles.avatar}
+                  />
+                  <Text style={styles.username} numberOfLines={1}>
+                    {capitalizeWords(movie?.uploader?.name)}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <Text style={styles.title}>
                 E{item.episodeNo}: {item.title}
@@ -235,7 +335,8 @@ const VideoScreen = () => {
 
       if (routeIdChanged || routeEpisodeIdChanged) {
         const isCurrentIdValid = episodes.some(ep => ep.id === currentEpisodeId);
-        const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes[0].id);
+        const defaultEpisode = episodes.find((ep: any) => !ep.completed) || episodes[0];
+        const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode.id);
 
         setCurrentEpisodeId(targetEpisodeId);
         lastProcessedRoute.current = { id, episodeId };
@@ -312,7 +413,8 @@ const VideoScreen = () => {
   }).current;
 
   const isCurrentIdValid = episodes?.some(ep => ep.id === currentEpisodeId);
-  const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : episodes?.[0]?.id);
+  const defaultEpisode = episodes?.find((ep: any) => !ep.completed) || episodes?.[0];
+  const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode?.id);
   const validIndex = episodes?.findIndex(ep => ep.id === targetEpisodeId) ?? 0;
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
@@ -358,7 +460,7 @@ const VideoScreen = () => {
     );
   }
 
-  const activeEpisode = episodes?.find(e => e.id === currentEpisodeId);
+  const activeEpisode = episodes?.find(e => e.id === targetEpisodeId);
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
       <FlatList
@@ -440,21 +542,52 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   leftOverlay: { flex: 1 },
-  rightOverlay: { marginLeft: 16 },
-  userInfo: {
+  rightOverlay: {
+    marginLeft: 16,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  creatorRow: {
+    marginBottom: 12,
+  },
+  creatorPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  likePillTop: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'white',
-    marginRight: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 6,
   },
-  username: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  username: { color: '#ff6a00', fontSize: 14, fontWeight: 'bold' },
+  likeCount: {
+    color: '#ffffff',
+    fontSize: Platform.OS === 'ios' ? 16 : 17,
+    fontWeight: 'bold',
+    marginLeft: 6,
+  },
+  likedText: {
+    color: '#ff4d6d',
+  },
   title: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   description: { color: 'white', fontSize: 14 },
   episodesButton: {

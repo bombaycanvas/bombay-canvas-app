@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVideoStore } from '../store/videoStore';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useUpcomingSeriesData } from '../api/video';
@@ -30,13 +30,19 @@ export default function SubscriptionScreen() {
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
 
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
+  const [selectedPlan, setSelectedPlan] = useState<'trial' | 'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
+
+  useEffect(() => {
+    if (subscriptionPlans?.trialEligible) {
+      setSelectedPlan('trial');
+    }
+  }, [subscriptionPlans]);
   const { data: mySubscription } = useMySubscription();
   const activePlan =
-    mySubscription && mySubscription.status === 'ACTIVE'
+    mySubscription && (mySubscription.status === 'ACTIVE' || mySubscription.status === 'TRIAL' || mySubscription.status === 'CANCELLED')
       ? mySubscription.planCode
       : null;
 
@@ -59,8 +65,8 @@ export default function SubscriptionScreen() {
     return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
   };
 
-  const handlePurchase = async (plan: 'monthly' | 'annual') => {
-    const planCode = plan === 'annual' ? 'ANNUAL' : 'MONTHLY';
+  const handlePurchase = async (plan: 'trial' | 'monthly' | 'annual') => {
+    const planCode = plan === 'trial' ? 'TRIAL' : (plan === 'annual' ? 'ANNUAL' : 'MONTHLY');
     setLoading(true);
     try {
       const createRes = await createSubMutation.mutateAsync(planCode);
@@ -78,7 +84,7 @@ export default function SubscriptionScreen() {
         key: razorpayKeyId || 'rzp_test_123',
         subscription_id: razorpaySubscriptionId,
         name: 'Bombay Canvas',
-        description: `${planCode === 'ANNUAL' ? 'Annual' : 'Monthly'} Premium Subscription`,
+        description: `${planCode === 'TRIAL' ? '3-Day Trial' : (planCode === 'ANNUAL' ? 'Annual' : 'Monthly')} Premium Subscription`,
         prefill: {
           contact: mobile,
           email: user?.email,
@@ -114,7 +120,7 @@ export default function SubscriptionScreen() {
         attempts++;
         console.log(`Polling subscription status: attempt ${attempts}/${maxAttempts}`);
         const subData = await getMySubscription();
-        if (subData && subData.status === 'ACTIVE') {
+        if (subData && (subData.status === 'ACTIVE' || subData.status === 'TRIAL')) {
           isActivated = true;
           break;
         }
@@ -127,7 +133,7 @@ export default function SubscriptionScreen() {
         Toast.show({
           type: 'success',
           text1: 'Subscription Active!',
-          text2: `Welcome to Canvas Premium (${plan === 'annual' ? 'Annual' : 'Monthly'} Plan).`,
+          text2: `Welcome to Canvas Premium (${plan === 'trial' ? '3-Day Trial' : (plan === 'annual' ? 'Annual' : 'Monthly')} Plan).`,
         });
 
         if (series) {
@@ -201,7 +207,8 @@ export default function SubscriptionScreen() {
           handlePurchase={handlePurchase}
           loading={loading}
           activePlan={activePlan}
-          plans={subscriptionPlans}
+          plans={subscriptionPlans?.plans}
+          trialEligible={subscriptionPlans?.trialEligible}
         />
 
         <SubscriptionComingSoon displayUpcoming={displayUpcoming} />

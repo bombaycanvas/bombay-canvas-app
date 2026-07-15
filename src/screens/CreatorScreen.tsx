@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   View,
   Text,
+  ActivityIndicator,
 } from 'react-native';
 import CreatorLanding from '../components/CreatorLanding';
 import { useMoviesDataByCreator } from '../api/video';
@@ -26,7 +27,7 @@ const CreatorScreen = () => {
   const id = params?.id ?? 'cmfc48arw0002s60ex05k9w5c';
 
   const { data, isLoading, refetch, isFetching } = useMoviesDataByCreator(id);
-
+  console.log(data, "data")
   const handleBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
@@ -34,6 +35,23 @@ const CreatorScreen = () => {
   const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const isDataLoading = isLoading;
+
+  if (isDataLoading) {
+    return (
+      <View style={styles.mainContainer}>
+        <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleBack}>
+            <ChevronLeft color="#ff6a00" size={28} />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#ef8a4c" />
+        </View>
+      </View>
+    );
+  }
 
   const noSeries = !data?.series || data?.series?.length === 0;
 
@@ -76,7 +94,20 @@ const CreatorScreen = () => {
                 </Text>
               </View>
             ) : (
-              <CreatorGrids data={data} isLoading={isLoading} />
+              <>
+                <View style={styles.sectionHeaderContainer}>
+                  <Text style={styles.sectionTitle}>
+                    Explore More from{' '}
+                    <Text style={styles.highlightText}>{data?.creator?.name}</Text>
+                  </Text>
+                </View>
+                <CreatorGrids
+                  data={data}
+                  creatorName={data?.creator?.name}
+                  creatorAvatar={data?.creator?.profile?.avatarUrl}
+                  isLoading={isLoading}
+                />
+              </>
             )}
           </ScrollView>
         </View>
@@ -117,5 +148,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'HelveticaNowDisplay-Regular',
     textAlign: 'center',
+  },
+  sectionHeaderContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 4,
+    backgroundColor: 'black',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+    color: '#fff',
+  },
+  highlightText: {
+    color: '#ef8a4c',
   },
 });

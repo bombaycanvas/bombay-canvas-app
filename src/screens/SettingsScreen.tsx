@@ -13,6 +13,7 @@ import {
 import { useDeleteUserAccount } from '../api/auth';
 import { useMySubscription, useCancelSubscription } from '../api/subscription';
 import { useFocusEffect } from '@react-navigation/native';
+import { CreditCard } from 'lucide-react-native';
 
 const SettingsScreen = () => {
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
@@ -21,7 +22,7 @@ const SettingsScreen = () => {
   const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
   const { data: subscription, refetch } = useMySubscription();
   const { mutate: cancelSub, isPending: isCancelPending } = useCancelSubscription();
-
+  console.log(subscription, "subscription")
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -86,7 +87,7 @@ const SettingsScreen = () => {
   };
 
   const isActive = subscription &&
-    (subscription.status === 'ACTIVE' || subscription.status === 'PENDING') &&
+    (subscription.status === 'ACTIVE' || subscription.status === 'PENDING' || subscription.status === 'TRIAL') &&
     subscription.currentPeriodEnd &&
     new Date(subscription.currentPeriodEnd) > new Date();
 
@@ -134,11 +135,19 @@ const SettingsScreen = () => {
         <View style={styles.subscriptionCard}>
           <Text style={styles.cardTitle}>Subscription Details</Text>
 
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Active Plan</Text>
-            <Text style={styles.cardValue}>
-              {subscription.planCode === 'ANNUAL' ? 'Annual Plan' : 'Monthly Plan'}
-            </Text>
+          <View style={styles.planCardItem}>
+            <View style={styles.cardIconContainer}>
+              <CreditCard size={18} color="#ff6a00" />
+            </View>
+            <View style={styles.planDetails}>
+              <Text style={styles.planValue}>
+                {subscription.planCode === 'TRIAL'
+                  ? 'Trial ₹1 then ₹499/yr'
+                  : subscription.planCode === 'ANNUAL'
+                    ? 'Annual ₹499/yr'
+                    : 'Monthly ₹99/month'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.cardRow}>
@@ -301,7 +310,41 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ff6a00',
-    backgroundColor: 'rgba(255, 106, 0, 0.15)',
+    backgroundColor: 'rgba(255, 106, 0, 0.08)',
+  },
+  planCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#222',
+    marginBottom: 12,
+  },
+  cardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 106, 0, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  planDetails: {
+    flex: 1,
+  },
+  planLabel: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 10,
+    color: '#888',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  planValue: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 16,
+    color: '#fff',
   },
   cardTitle: {
     fontFamily: 'HelveticaNowDisplay-Bold',

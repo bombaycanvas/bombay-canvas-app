@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
+  Animated,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { X } from 'lucide-react-native';
+import { X, Check } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import SubscriptionOutlined from '../assets/SubscriptionOutlined';
 import { useVideoStore } from '../store/videoStore';
@@ -18,6 +19,63 @@ import { SkeletonEpisodeItem } from './videoPlayer/SkeletonEpisodeItem';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { imgUrl } from '../api/video';
+
+const EqualizerBar = ({ delay }: { delay: number }) => {
+  const animatedHeight = useRef(new Animated.Value(4)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedHeight, {
+          toValue: 16,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedHeight, {
+          toValue: 4,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+      ]),
+    );
+
+    const timeout = setTimeout(() => {
+      animation.start();
+    }, delay);
+
+    return () => {
+      clearTimeout(timeout);
+      animation.stop();
+    };
+  }, [animatedHeight, delay]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 3,
+        height: animatedHeight,
+        backgroundColor: 'white',
+        borderRadius: 1.5,
+        marginHorizontal: 1,
+      }}
+    />
+  );
+};
+
+const EqualizerAnimation = () => {
+  return (
+    <View style={styles.equalizerContainer}>
+      <View style={styles.equalizerBadge}>
+        <View style={styles.equalizerBars}>
+          <EqualizerBar delay={0} />
+          <EqualizerBar delay={150} />
+          <EqualizerBar delay={300} />
+          <EqualizerBar delay={75} />
+        </View>
+      </View>
+    </View>
+  );
+};
 
 type RootRedirectVideo = {
   Video: { id: string; episodeId: string; posterUrl?: string };
@@ -111,12 +169,34 @@ export const EpisodesBottomSheet = ({
                           </View>
                         </View>
                       )}
+
+                      {!locked && !isPaidEpisode && isActive && (
+                        <EqualizerAnimation />
+                      )}
+
+                      {item.progress !== undefined && item.progress > 0 && !item.completed && (
+                        <View style={styles.thumbnailProgressBarBackground}>
+                          <View
+                            style={[
+                              styles.thumbnailProgressBarFill,
+                              { width: `${Math.min(100, Math.max(0, item.progress))}%` },
+                            ]}
+                          />
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.episodeInfo}>
-                      <Text style={styles.episodeTitleText}>
-                        E{item.episodeNo}: {item.title}
-                      </Text>
+                      <View style={styles.titleRow}>
+                        <Text style={styles.episodeTitleText}>
+                          E{item.episodeNo}: {item.title}
+                        </Text>
+                        {item.completed && (
+                          <View style={styles.completedBadge}>
+                            <Check color="#22c55e" size={10} strokeWidth={3} />
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.episodeDuration}>
                         {item.duration}m
                       </Text>
@@ -279,6 +359,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   episodeInfo: { marginLeft: 10, flex: 1 },
-  episodeTitleText: { color: 'white', fontSize: 16 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  episodeTitleText: { color: 'white', fontSize: 16, flexShrink: 1 },
+  completedBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
   episodeDuration: { color: '#aaa', fontSize: 12, marginTop: 4 },
+  equalizerContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  equalizerBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ff6a00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  equalizerBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 14,
+    justifyContent: 'center',
+  },
+  thumbnailProgressBarBackground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  thumbnailProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#ff6a00',
+  },
 });

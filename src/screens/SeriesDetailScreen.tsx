@@ -1,211 +1,78 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   ScrollView,
-  TouchableOpacity,
-  Pressable,
-  Animated,
 } from 'react-native';
-import Video from 'react-native-video';
-import LinearGradient from 'react-native-linear-gradient';
-import {
-  useNavigation,
-  useRoute,
-  RouteProp,
-  useFocusEffect,
-  NavigationProp,
-  useIsFocused,
-} from '@react-navigation/native';
-import { useMoviesDataById, imgUrl } from '../api/video';
-import {
-  ChevronLeft,
-  Pause,
-  Play,
-  SkipBack,
-  SkipForward,
-} from 'lucide-react-native';
-import FastImage from '@d11/react-native-fast-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ReviewModal } from '../components/ReviewModal';
+import { WatchRequiredModal } from '../components/WatchRequiredModal';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
-import { useVideoStore } from '../store/videoStore';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { BufferingIndicator } from '../components/videoPlayer/BufferingIndicator';
-import { CastButton } from 'react-native-google-cast';
-import { useCastManager } from '../hooks/useCastManager';
+import { BackButton } from '../components/seriesDetail/BackButton';
+import { VideoHeader } from '../components/seriesDetail/VideoHeader';
+import { SeriesActions } from '../components/seriesDetail/SeriesActions';
+import { CastingControls } from '../components/seriesDetail/CastingControls';
+import { CreatorRow } from '../components/seriesDetail/CreatorRow';
+import { CommentActions } from '../components/seriesDetail/CommentActions';
+import { SeriesFooter } from '../components/seriesDetail/SeriesFooter';
+import { useSeriesDetail } from '../hooks/useSeriesDetail';
+import { useFlag } from '../api/settings';
 
-const { height, width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-type RootStackParamList = {
-  SeriesDetail: { id: string; posterUrl?: string };
-  Video: {
-    id: string;
-    episodeId?: string;
-    posterUrl?: string;
-  };
-};
-
-type RootRedirectVideo = {
-  Creator: { id: string };
-  Video: { id: string; posterUrl?: string };
-};
 const SeriesDetailScreen: React.FC = () => {
-  const insets = useSafeAreaInsets();
-  const videoRef = useRef(null);
-  const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
-  const route = useRoute<RouteProp<RootStackParamList, 'SeriesDetail'>>();
-  const params = route.params as any;
-  const id = params?.id;
-  const posterUrl = params?.posterUrl;
-
-  const { data, isLoading, isError, refetch } = useMoviesDataById(id);
+  const showReviews = useFlag('engagement.showReviews', true);
   const {
-    loadQueue,
+    insets,
+    videoRef,
+    navigation,
+    id,
+    posterUrl,
+    isLoading,
+    isError,
     switchEpisode,
     isCasting,
-    play,
-    pause,
-    next,
-    previous,
-    playerState,
-    MediaPlayerState,
-  } = useCastManager();
-  const [isPlaying, setIsPlaying] = useState(true);
-
-  const [isReady, setIsReady] = useState(false);
-  const {
+    isPlaying,
+    setIsPlaying,
+    setIsReady,
     setIsLockedVisibleModal,
     setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
-    setSeries,
-    setEpisodes,
-    authRedirect,
-  } = useVideoStore();
-  const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
-
-  const [currentEpisode, setCurrentEpisode] = useState<any>(null);
-  const series = data?.series;
-  const previewEpisode = currentEpisode;
-  const queueLoadedRef = useRef(false);
-
-  useEffect(() => {
-    if (series?.episodes?.length) {
-      if (!currentEpisode) {
-        setCurrentEpisode(series.episodes[0]);
-      } else {
-        const updatedEpisode = series.episodes.find(
-          (ep: any) => ep.id === currentEpisode.id,
-        );
-        if (updatedEpisode) {
-          if (
-            updatedEpisode.locked !== currentEpisode.locked ||
-            updatedEpisode.videoUrl !== currentEpisode.videoUrl
-          ) {
-            setCurrentEpisode(updatedEpisode);
-          }
-        }
-      }
-    }
-  }, [series, currentEpisode]);
-
-  const previewVideoUrl = previewEpisode?.videoUrl
-    ? encodeURI(previewEpisode.videoUrl)
-    : undefined;
-
-  const videoOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    setIsReady(false);
-    videoOpacity.setValue(0);
-  }, [previewVideoUrl, videoOpacity]);
-
-  useEffect(() => {
-    if (isReady) {
-      Animated.timing(videoOpacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isReady, videoOpacity]);
-
-  const isFocused = useIsFocused();
-  const { isAuthenticated: globalAuth } = useAuthStore();
-  const isAuthenticated = data?.isAuthenticated || globalAuth;
-  const locked =
-    currentEpisode && !currentEpisode?.isPublic && !isAuthenticated;
-  const isPaidEpisode =
-    !locked &&
-    currentEpisode?.locked &&
-    series?.isPaidSeries &&
-    !series?.userPurchased;
-  const shouldFetch = !locked && !isPaidEpisode;
-  useEffect(() => {
-    if (!queueLoadedRef.current && isCasting && series && currentEpisode) {
-      loadQueue(series, currentEpisode.id, isAuthenticated);
-      queueLoadedRef.current = true;
-    }
-
-    if (!isCasting) {
-      queueLoadedRef.current = false;
-    }
-  }, [isCasting, series, currentEpisode, loadQueue, isAuthenticated]);
-
-  useEffect(() => {
-    if (series) {
-      setSeries(series);
-      if (series.episodes?.length) {
-        setEpisodes(series?.episodes);
-      }
-    }
-  }, [series, setSeries, setEpisodes]);
-
-  useEffect(() => {
-    if (isCasting && series?.userPurchased && authRedirect?.params?.episodeId) {
-      const purchasedEpisodeId = authRedirect.params.episodeId;
-      loadQueue(series, purchasedEpisodeId, isAuthenticated);
-      setAuthRedirect(null);
-      console.log(
-        'Post-purchase casting triggered for episode:',
-        purchasedEpisodeId,
-      );
-    }
-  }, [
-    isCasting,
-    series?.userPurchased,
-    authRedirect,
-    loadQueue,
-    isAuthenticated,
-    setAuthRedirect,
+    isEpisodesSheetOpen,
+    setIsEpisodesSheetOpen,
+    currentEpisode,
+    setCurrentEpisode,
     series,
-  ]);
-  const handleBack = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
-
-  useFocusEffect(
-    useCallback(() => {
-      setIsPlaying(true);
-      refetch();
-      return () => {
-        setIsPlaying(false);
-        setIsReady(false);
-      };
-    }, [refetch]),
-  );
-
-  const togglePlay = () => {
-    setIsPlaying(prev => !prev);
-  };
-
-  const handleViewEpisodes = () => {
-    setIsPlaying(false);
-    setIsEpisodesSheetOpen(true);
-  };
+    previewVideoUrl,
+    isReviewModalVisible,
+    setIsReviewModalVisible,
+    handleReviewSubmit,
+    myReview,
+    upsertReviewMutation,
+    isWatchRequiredModalVisible,
+    setIsWatchRequiredModalVisible,
+    handleWatchNow,
+    handleCommentPress,
+    videoOpacity,
+    isFocused,
+    isAuthenticated,
+    locked,
+    isPaidEpisode,
+    shouldFetch,
+    handleBack,
+    togglePlay,
+    handleViewEpisodes,
+    playerState,
+    MediaPlayerState,
+    previous,
+    next,
+    play,
+    pause,
+  } = useSeriesDetail();
 
   if (isError) {
     return (
@@ -225,53 +92,22 @@ const SeriesDetailScreen: React.FC = () => {
         ]}
       />
 
-      <View style={styles.videoWrapper}>
-        {series && (
-          <FastImage
-            source={{
-              uri: imgUrl(currentEpisode?.thumbnail || series.posterUrl, 640),
-              priority: FastImage.priority.high,
-            }}
-            style={StyleSheet.absoluteFill}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-        )}
-        {series && isFocused && (
-          <Animated.View
-            style={[StyleSheet.absoluteFill, { opacity: videoOpacity }]}
-          >
-            <Video
-              useTextureView={true}
-              ref={videoRef}
-              source={previewVideoUrl ? { uri: previewVideoUrl } : undefined}
-              style={styles.video}
-              paused={!isPlaying || isCasting}
-              resizeMode="cover"
-              onReadyForDisplay={() => setIsReady(true)}
-              poster={imgUrl(series?.posterUrl, 640)}
-              posterResizeMode="cover"
-              repeat
-              playWhenInactive={true}
-            />
-          </Animated.View>
-        )}
-        <LinearGradient
-          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
-          style={styles.gradient}
-          start={{ x: 0.5, y: 1 }}
-          end={{ x: 0.5, y: 0 }}
-        />
-      </View>
+      <VideoHeader
+        series={series}
+        currentEpisode={currentEpisode}
+        isFocused={isFocused}
+        videoOpacity={videoOpacity}
+        videoRef={videoRef}
+        previewVideoUrl={previewVideoUrl}
+        isPlaying={isPlaying}
+        isCasting={isCasting}
+        setIsReady={setIsReady}
+      />
 
-      <View style={[styles.backButtonContainer, { top: insets.top + 10 }]}>
-        <Pressable
-          onPress={handleBack}
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-        >
-          <ChevronLeft color="#ff6a00" size={28} />
-        </Pressable>
-      </View>
+      <BackButton
+        onPress={handleBack}
+        top={insets.top + 10}
+      />
 
       <View style={styles.contentContainer}>
         {series && (
@@ -287,93 +123,35 @@ const SeriesDetailScreen: React.FC = () => {
               <View style={styles.content}>
                 <Text style={styles.title}>{series.title}</Text>
 
-                <View style={styles.actionsRow}>
-                  {locked ? (
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      style={styles.watchButton}
-                      onPress={() => {
-                        setIsLockedVisibleModal(true);
-                        setAuthRedirect({
-                          screen: 'SeriesDetail',
-                          params: { id, posterUrl },
-                        });
-                      }}
-                    >
-                      <Text style={styles.watchText}>Unlock Episodes</Text>
-                    </TouchableOpacity>
-                  ) : isPaidEpisode ? (
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      style={styles.watchButton}
-                      onPress={() => {
-                        setPurchaseSeries(series);
-                        setIsPurchaseModal(true);
-                      }}
-                    >
-                      <Text style={styles.watchText}>Purchase Episodes</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    shouldFetch && (
-                      <>
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          style={[
-                            styles.watchButton,
-                            isCasting && styles.buttonDisabled,
-                          ]}
-                          disabled={isCasting}
-                          onPress={() => {
-                            setIsPlaying(false);
-                            setTimeout(() => {
-                              navigation.navigate('Video', {
-                                id,
-                                posterUrl,
-                              });
-                            }, 100);
-                          }}
-                        >
-                          <Text style={styles.watchText}>Watch Now</Text>
-                        </TouchableOpacity>
-
-                        {series?.isTV && (
-                          <View
-                            style={[
-                              styles.castButton,
-                              {
-                                width: 46,
-                                height: 46,
-                                overflow: 'hidden',
-                              },
-                            ]}
-                          >
-                            <CastButton
-                              style={
-                                {
-                                  width: 46,
-                                  height: 46,
-                                  backgroundColor: 'transparent',
-                                  tintColor: '#ff6a00',
-                                } as any
-                              }
-                            />
-                          </View>
-                        )}
-                      </>
-                    )
-                  )}
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    style={styles.playPauseButton}
-                    onPress={togglePlay}
-                  >
-                    {isPlaying ? (
-                      <Pause color="#ff6a00" size={22} />
-                    ) : (
-                      <Play color="#ff6a00" size={22} />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <SeriesActions
+                  locked={locked}
+                  isPaidEpisode={isPaidEpisode}
+                  shouldFetch={shouldFetch}
+                  isCasting={isCasting}
+                  series={series}
+                  isPlaying={isPlaying}
+                  togglePlay={togglePlay}
+                  onUnlockPress={() => {
+                    setIsLockedVisibleModal(true);
+                    setAuthRedirect({
+                      screen: 'SeriesDetail',
+                      params: { id, posterUrl },
+                    });
+                  }}
+                  onPurchasePress={() => {
+                    setPurchaseSeries(series);
+                    setIsPurchaseModal(true);
+                  }}
+                  onWatchPress={() => {
+                    setIsPlaying(false);
+                    setTimeout(() => {
+                      navigation.navigate('Video', {
+                        id,
+                        posterUrl,
+                      });
+                    }, 100);
+                  }}
+                />
 
                 <Text style={styles.metaText}>
                   {new Date(series.releaseDate).getFullYear()} •{' '}
@@ -381,85 +159,46 @@ const SeriesDetailScreen: React.FC = () => {
                   {series.episodes?.length || 0} Episodes
                 </Text>
 
-                {/* Creator Info - FIXED: Ensure it shows */}
                 {isCasting ? (
-                  <View style={styles.castingControlsContainer}>
-                    <Text style={styles.castingStatusText}>Casting to TV</Text>
-                    <View style={styles.castingButtonsRow}>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        style={styles.castControlButton}
-                        onPress={previous}
-                      >
-                        <SkipBack color="#fff" size={28} />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        style={[
-                          styles.castControlButton,
-                          styles.playPauseCastButton,
-                        ]}
-                        onPress={() => {
-                          if (
-                            playerState === MediaPlayerState.PLAYING ||
-                            playerState === MediaPlayerState.BUFFERING
-                          ) {
-                            pause();
-                          } else {
-                            play();
-                          }
-                        }}
-                      >
-                        {playerState === MediaPlayerState.PLAYING ||
-                          playerState === MediaPlayerState.BUFFERING ? (
-                          <Pause color="#000" size={32} fill="#000" />
-                        ) : (
-                          <Play color="#000" size={32} fill="#000" />
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        style={styles.castControlButton}
-                        onPress={next}
-                      >
-                        <SkipForward color="#fff" size={28} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <CastingControls
+                    previous={previous}
+                    next={next}
+                    play={play}
+                    pause={pause}
+                    playerState={playerState}
+                    MediaPlayerState={MediaPlayerState}
+                  />
                 ) : (
                   <>
                     {series.uploader && (
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        style={styles.creatorRow}
+                      <CreatorRow
+                        uploader={series.uploader}
                         onPress={() =>
                           navigation.navigate('Creator', {
                             id: series.uploader?.id,
                           })
                         }
-                      >
-                        <FastImage
-                          source={{
-                            uri:
-                              imgUrl(series.uploader?.profiles?.[0]?.avatarUrl, 100) ||
-                              'https://via.placeholder.com/40',
-                            priority: FastImage.priority.high,
-                            cache: FastImage.cacheControl.immutable,
-                          }}
-                          style={styles.avatar}
-                          resizeMode={FastImage.resizeMode.cover}
-                        />
-                        <Text
-                          style={styles.creatorName}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {capitalizeWords(series.uploader?.name || 'Unknown')}
-                        </Text>
-                      </TouchableOpacity>
+                      />
                     )}
+
+                    {showReviews && (
+                      <CommentActions
+                        isAuthenticated={isAuthenticated}
+                        myReview={myReview}
+                        onWriteComment={handleCommentPress}
+                        onShowComments={() =>
+                          navigation.navigate('Reviews', {
+                            seriesId: id,
+                            seriesTitle: series.title,
+                            posterUrl: series.posterUrl || posterUrl,
+                            hasViewed: series?.episodes?.some(
+                              (ep: any) => ep.completed || (ep.progress !== undefined && ep.progress > 0)
+                            ) || false,
+                          })
+                        }
+                      />
+                    )}
+
                     {series.description && (
                       <Text
                         style={styles.description}
@@ -471,20 +210,14 @@ const SeriesDetailScreen: React.FC = () => {
                     )}
                   </>
                 )}
+
                 <View style={{ height: 100 }} />
               </View>
             </ScrollView>
-            <View
-              style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.episodesButton]}
-                onPress={handleViewEpisodes}
-              >
-                <Text style={styles.episodesButtonText}>View Episodes</Text>
-              </TouchableOpacity>
-            </View>
+            <SeriesFooter
+              onPress={handleViewEpisodes}
+              paddingBottom={insets.bottom + 10}
+            />
           </View>
         )}
       </View>
@@ -506,6 +239,7 @@ const SeriesDetailScreen: React.FC = () => {
           onEpisodeSelect={(ep: any) => {
             if (isCasting) {
               switchEpisode(series, ep.id, isAuthenticated);
+              setCurrentEpisode(ep);
             }
           }}
           isAuthenticated={isAuthenticated}
@@ -516,6 +250,28 @@ const SeriesDetailScreen: React.FC = () => {
           isCasting={isCasting}
         />
       )}
+      {series && (
+        <ReviewModal
+          visible={isReviewModalVisible}
+          onClose={() => {
+            setIsReviewModalVisible(false);
+          }}
+          seriesTitle={series.title}
+          posterUrl={series.posterUrl || posterUrl}
+          onSubmit={handleReviewSubmit}
+          initialRating={0}
+          initialText=""
+          isSubmitting={upsertReviewMutation.isPending}
+        />
+      )}
+      {series && (
+        <WatchRequiredModal
+          visible={isWatchRequiredModalVisible}
+          onClose={() => setIsWatchRequiredModalVisible(false)}
+          onWatchPress={handleWatchNow}
+          seriesTitle={series.title}
+        />
+      )}
     </View>
   );
 };
@@ -524,36 +280,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  backButtonContainer: {
-    position: 'absolute',
-    left: 0,
-    zIndex: 20,
-    justifyContent: 'center',
-    padding: 12,
-  },
-  videoWrapper: {
-    position: 'absolute',
-    width: width,
-    height: height * 0.5,
-    backgroundColor: '#111',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 10,
-    elevation: 8,
-    overflow: 'hidden',
-    zIndex: 10,
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-  gradient: {
-    position: 'absolute',
-    bottom: 0,
-    height: '45%',
-    width: '100%',
   },
   contentContainer: {
     flex: 1,
@@ -581,86 +307,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    gap: 10,
-  },
-  watchButton: {
-    flex: 1,
-    backgroundColor: '#ff6a00',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  watchText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  playPauseButton: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 10,
-    padding: 12,
-  },
-  castButton: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   metaText: {
     color: '#aaa',
     fontSize: 14,
     marginBottom: 16,
   },
-  creatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.25)',
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 8,
-  },
-  creatorName: { color: '#fff', fontSize: 15, fontWeight: '500' },
   description: {
     color: '#ddd',
     fontSize: 16,
     lineHeight: 22,
     marginTop: 8,
-  },
-  footer: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 0,
-    backgroundColor: '#000',
-    paddingTop: 10,
-  },
-  episodesButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.4)',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  episodesButtonText: {
-    color: '#ff6a00',
-    fontSize: 16,
-    fontWeight: '700',
   },
   loader: {
     flex: 1,
@@ -675,44 +331,91 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     zIndex: 25,
   },
-  castingControlsContainer: {
-    backgroundColor: 'rgba(255,106,0,0.1)',
-    borderRadius: 20,
-    padding: 15,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.3)',
-  },
-  castingStatusText: {
-    color: '#ff6a00',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  castingButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  castControlButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playPauseCastButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#ff6a00',
-  },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 20,
+  },
+  reviewsSection: {
+    marginTop: 5,
+    paddingBottom: 20,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  reviewsTitle: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 18,
+    color: '#fff',
+  },
+  addReviewButton: {
+    borderWidth: 1,
+    borderColor: '#ff6a00',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addReviewButtonText: {
+    fontFamily: 'HelveticaNowDisplay-Medium',
+    color: '#ff6a00',
+    fontSize: 13,
+  },
+  reviewsLoader: {
+    marginVertical: 15,
+  },
+  noReviewsText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  reviewItem: {
+    backgroundColor: '#0c0c0d',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.03)',
+  },
+  reviewUserRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewUserLeft: {
+    flexDirection: 'column',
+  },
+  reviewUserName: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ownReviewActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  reviewActionButton: {
+    padding: 4,
+  },
+  reviewText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
 

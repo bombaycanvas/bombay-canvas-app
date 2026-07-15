@@ -27,6 +27,8 @@ type Series = {
 
 type CreatorGridsProps = {
   data?: { series?: Series[] };
+  creatorName?: string;
+  creatorAvatar?: string;
   isLoading?: boolean;
   onNavigateVideo?: (id: string) => void;
   onNavigateCreator?: (id: string) => void;
@@ -43,7 +45,17 @@ const NUM_COLUMNS = 3;
 const CARD_WIDTH = (width - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
 const CreatorCard = React.memo(
-  ({ item, navigation }: { item: Series; navigation: any }) => {
+  ({
+    item,
+    navigation,
+    creatorName,
+    creatorAvatar,
+  }: {
+    item: Series;
+    navigation: any;
+    creatorName?: string;
+    creatorAvatar?: string;
+  }) => {
     const cardRef = React.useRef<View>(null);
     return (
       <View ref={cardRef}>
@@ -77,17 +89,12 @@ const CreatorCard = React.memo(
           >
             <Image
               source={{
-                uri:
-                  item?.uploader?.profiles &&
-                  item.uploader.profiles.length > 0 &&
-                  item.uploader.profiles[0]?.avatarUrl
-                    ? item.uploader.profiles[0].avatarUrl
-                    : undefined,
+                uri: creatorAvatar || 'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
               }}
               style={styles.avatar}
             />
             <Text style={styles.name}>
-              {capitalizeWords(item?.uploader?.name)}
+              {capitalizeWords(creatorName)}
             </Text>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -96,7 +103,12 @@ const CreatorCard = React.memo(
   },
 );
 
-const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
+const CreatorGrids: React.FC<CreatorGridsProps> = ({
+  data,
+  creatorName,
+  creatorAvatar,
+  isLoading,
+}) => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
 
   if (isLoading) {
@@ -125,7 +137,12 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({ data, isLoading }) => {
       contentContainerStyle={styles.wrapper}
       scrollEnabled={false}
       renderItem={({ item }) => (
-        <CreatorCard item={item} navigation={navigation} />
+        <CreatorCard
+          item={item}
+          navigation={navigation}
+          creatorName={creatorName}
+          creatorAvatar={creatorAvatar}
+        />
       )}
     />
   );

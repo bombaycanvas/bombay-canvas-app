@@ -18,7 +18,8 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native-gesture-handler';
-import { imgUrl } from '../api/video';
+import { imgUrl, useSaveEpisodeProgress } from '../api/video';
+import { useQueryClient } from '@tanstack/react-query';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,6 +41,10 @@ type VideoPlayerProps = {
   isPlaybackLoading?: boolean;
   onVideoEnd?: () => void;
 };
+
+const MIN_REPORT_INTERVAL_S = 5;
+const MAX_REPORT_INTERVAL_S = 15;
+const COMPLETED_THRESHOLD_PCT = 90;
 
 export default function VideoPlayer({
   episode,
@@ -88,6 +93,88 @@ export default function VideoPlayer({
   const [isBuffering, setIsBuffering] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const lastReportedTimeRef = useRef(0);
+  const { mutate: saveProgress } = useSaveEpisodeProgress();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    lastReportedTimeRef.current = 0;
+  }, [episode?.id]);
+
+  const reportProgress = useCallback((time: number, force: boolean = false) => {
+    if (locked || isPaidEpisode || !episode?.id || duration <= 0) return;
+    if (time <= 0) return;
+
+    const pct = Math.min(
+      100,
+      Math.max(0, Math.round((time / duration) * 100)),
+    );
+
+    const reportInterval = Math.min(
+      MAX_REPORT_INTERVAL_S,
+      Math.max(MIN_REPORT_INTERVAL_S, duration * 0.1),
+    );
+
+    if (force || time - lastReportedTimeRef.current >= reportInterval) {
+      lastReportedTimeRef.current = time;
+      const completed = pct >= COMPLETED_THRESHOLD_PCT;
+
+      saveProgress({
+        episodeId: episode.id,
+        progress: pct,
+        completed,
+      });
+
+      if (movie?.id) {
+        queryClient.setQueryData(['moviesDataById', movie.id.toString()], (old: any) => {
+          if (!old?.series?.episodes) return old;
+          return {
+            ...old,
+            series: {
+              ...old.series,
+              episodes: old.series.episodes.map((ep: any) =>
+                ep.id === episode.id
+                  ? {
+                    ...ep,
+                    progress: Math.max(ep.progress ?? 0, pct),
+                    completed: ep.completed || completed,
+                  }
+                  : ep,
+              ),
+            },
+          };
+        });
+      }
+
+      const currentEpisodes = useVideoStore.getState().episodes;
+      if (currentEpisodes?.length) {
+        useVideoStore.getState().setEpisodes(
+          currentEpisodes.map((ep: any) =>
+            ep.id === episode.id
+              ? {
+                ...ep,
+                progress: Math.max(ep.progress ?? 0, pct),
+                completed: ep.completed || completed,
+              }
+              : ep,
+          ),
+        );
+      }
+    }
+  }, [locked, isPaidEpisode, episode?.id, duration, movie?.id, saveProgress, queryClient]);
+
+  const wasPlayingRef = useRef(false);
+  useEffect(() => {
+    if (isPlaying) {
+      wasPlayingRef.current = true;
+    } else {
+      if (wasPlayingRef.current) {
+        wasPlayingRef.current = false;
+        reportProgress(currentTime, true);
+      }
+    }
+  }, [isPlaying, currentTime, reportProgress]);
 
   useEffect(() => {
     return () => {
@@ -199,14 +286,26 @@ export default function VideoPlayer({
     setCurrentTime(current);
     if (duration > 0) {
       setProgress(current / duration);
+      reportProgress(current);
     }
   };
 
   const handleLoad = (data: OnLoadData) => {
-    setDuration(data.duration);
+    const dur = data.duration;
+    setDuration(dur);
     setIsBuffering(false);
     setIsReady(true);
     setError(null);
+
+    const progressPct = (episode as any)?.progress ?? 0;
+    if (dur > 0 && progressPct > 0 && progressPct < COMPLETED_THRESHOLD_PCT) {
+      const resumeAt = (progressPct / 100) * dur;
+      if (resumeAt < dur - 10) {
+        videoRef.current?.seek(resumeAt);
+        setCurrentTime(resumeAt);
+        setProgress(resumeAt / dur);
+      }
+    }
   };
 
   const handleLoadStart = () => {
@@ -239,6 +338,11 @@ export default function VideoPlayer({
       setIsBuffering(false);
       console.log('Video Error:', e);
     }
+  };
+
+  const handleVideoEnd = () => {
+    reportProgress(duration, true);
+    onVideoEnd?.();
   };
 
   const formatTime = (time: number) => {
@@ -343,7 +447,7 @@ export default function VideoPlayer({
                 onReadyForDisplay={() => setIsReady(true)}
                 poster={imgUrl(movie?.posterUrl, 640)}
                 posterResizeMode="cover"
-                onEnd={onVideoEnd}
+                onEnd={handleVideoEnd}
                 bufferConfig={bufferConfig}
                 maxBitRate={2500000}
                 progressUpdateInterval={250}

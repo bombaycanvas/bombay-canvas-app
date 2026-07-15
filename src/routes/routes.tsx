@@ -23,6 +23,7 @@ import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { SubscribePopup } from '../components/videoPlayer/SubscribePopup';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
+import ReviewsScreen from '../screens/ReviewsScreen';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -49,6 +50,12 @@ export type RootStackParamList = {
   Settings: undefined;
   CategoryMovies: { category: string };
   SubscriptionScreen: { series?: any } | undefined;
+  Reviews: {
+    seriesId: string;
+    seriesTitle: string;
+    posterUrl?: string;
+    hasViewed: boolean;
+  };
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -187,6 +194,10 @@ const AppStack = () => {
       <Stack.Screen
         name="SubscriptionScreen"
         component={SubscriptionScreen}
+      />
+      <Stack.Screen
+        name="Reviews"
+        component={ReviewsScreen}
       />
     </Stack.Navigator>
   );
