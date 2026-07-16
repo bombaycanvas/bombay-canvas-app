@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,12 @@ import {
   Platform,
   Keyboard,
   Pressable,
+  Animated,
+  Dimensions,
 } from 'react-native';
-import FastImage from '@d11/react-native-fast-image';
 import { X, Star } from 'lucide-react-native';
-import { imgUrl } from '../api/video';
 
+const { height } = Dimensions.get('window');
 
 interface ReviewModalProps {
   visible: boolean;
@@ -31,8 +32,6 @@ interface ReviewModalProps {
 export const ReviewModal: React.FC<ReviewModalProps> = ({
   visible,
   onClose,
-  seriesTitle,
-  posterUrl,
   onSubmit,
   initialRating = 0,
   initialText = '',
@@ -41,12 +40,67 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [rating, setRating] = useState<number>(0);
   const [text, setText] = useState<string>('');
 
+  const [showLocalModal, setShowLocalModal] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(height)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShowLocalModal(true);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (showLocalModal) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: height,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowLocalModal(false);
+      });
+    }
+  }, [visible, showLocalModal, fadeAnim, slideAnim]);
+
   useEffect(() => {
     if (visible) {
       setRating(initialRating);
       setText(initialText);
     }
   }, [visible, initialRating, initialText]);
+
+  const [androidBehavior, setAndroidBehavior] = useState<'height' | undefined>(undefined);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+        setAndroidBehavior('height');
+      });
+      const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+        setAndroidBehavior(undefined);
+      });
+
+      return () => {
+        showSubscription.remove();
+        hideSubscription.remove();
+      };
+    }
+  }, []);
 
   const handleSubmit = () => {
     if (rating === 0) {
@@ -55,113 +109,100 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     onSubmit(rating, text);
   };
 
-  const isEditing = initialRating > 0;
-
   return (
     <Modal
-      visible={visible}
+      visible={showLocalModal}
       transparent={true}
-      animationType="fade"
-      presentationStyle="overFullScreen"
+      animationType="none"
       onRequestClose={onClose}
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : androidBehavior}
         style={styles.keyboardAvoid}
       >
-        <Pressable style={styles.overlay} onPress={Keyboard.dismiss}>
-          <View style={styles.container} onStartShouldSetResponder={() => true}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.closeButton}
-              onPress={onClose}
-              disabled={isSubmitting}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <X color="rgba(255,255,255,0.7)" size={20} />
-            </TouchableOpacity>
-
-            {posterUrl ? (
-              <FastImage
-                source={{
-                  uri: imgUrl(posterUrl, 300),
-                  priority: FastImage.priority.high,
-                }}
-                style={styles.poster}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            ) : null}
-
-            <Text style={styles.title}>
-              {isEditing
-                ? `Edit your review for "${seriesTitle}" !`
-                : `Add your review for "${seriesTitle}" !`}
-            </Text>
-            <Text style={styles.subtitle}>How was it? Leave a rating.</Text>
-
-            <View style={styles.starsContainer}>
-              {[1, 2, 3, 4, 5].map((starIndex) => (
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              opacity: fadeAnim,
+            },
+          ]}
+        />
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Animated.View
+            style={[
+              styles.container,
+              {
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <Pressable style={{ width: '100%' }} onPress={Keyboard.dismiss}>
+              <View style={styles.headerRow}>
                 <TouchableOpacity
-                  key={starIndex}
                   activeOpacity={0.7}
-                  style={styles.starTouch}
-                  onPress={() => setRating(starIndex)}
+                  style={styles.headerButton}
+                  onPress={onClose}
                   disabled={isSubmitting}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                 >
-                  <Star
-                    size={36}
-                    color={starIndex <= rating ? '#f5b301' : 'rgba(255,255,255,0.5)'}
-                    fill={starIndex <= rating ? '#f5b301' : 'transparent'}
-                  />
+                  <X color="#fff" size={24} />
                 </TouchableOpacity>
-              ))}
-            </View>
 
-            <TextInput
-              style={styles.textInput}
-              placeholder="Share what you thought (optional)"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              multiline
-              numberOfLines={4}
-              value={text}
-              onChangeText={setText}
-              maxLength={500}
-              editable={!isSubmitting}
-            />
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.headerButton}
+                  onPress={handleSubmit}
+                  disabled={rating === 0 || isSubmitting}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={[styles.submitText, rating === 0 && styles.disabledSubmitText]}>
+                      Submit
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[
-                  styles.button,
-                  styles.submitButton,
-                  rating === 0 && styles.disabledButton,
-                ]}
-                onPress={handleSubmit}
-                disabled={rating === 0 || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {isEditing ? 'Save Review' : 'Post Review'}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              <Text style={styles.titleText}>Tap the stars to rate this drama</Text>
 
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.button, styles.skipButton]}
-                onPress={onClose}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.skipButtonText}>
-                  {isEditing ? 'Cancel' : 'Skip'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View style={styles.starsContainer}>
+                {[1, 2, 3, 4, 5].map((starIndex) => (
+                  <TouchableOpacity
+                    key={starIndex}
+                    activeOpacity={0.7}
+                    style={styles.starTouch}
+                    onPress={() => setRating(starIndex)}
+                    disabled={isSubmitting}
+                  >
+                    <Star
+                      size={40}
+                      color={starIndex <= rating ? '#f5b301' : 'rgba(255,255,255,0.4)'}
+                      fill={starIndex <= rating ? '#f5b301' : 'transparent'}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Share your thoughts on the story, subtitles, voice acting, or anything else"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  multiline
+                  value={text}
+                  onChangeText={setText}
+                  maxLength={800}
+                  editable={!isSubmitting}
+                />
+                <Text style={styles.charCounter}>{text.length}/800</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
         </Pressable>
       </KeyboardAvoidingView>
     </Modal>
@@ -174,104 +215,74 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   container: {
-    width: '85%',
     backgroundColor: '#121212',
-    borderRadius: 20,
-    padding: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    width: '100%',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 18,
-    top: 18,
-    zIndex: 10,
-  },
-  poster: {
-    width: 90,
-    height: 120,
-    borderRadius: 12,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  title: {
+  headerButton: {
+    padding: 4,
+  },
+  submitText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    color: '#fff',
+    fontSize: 16,
+  },
+  disabledSubmitText: {
+    color: 'rgba(255,255,255,0.3)',
+  },
+  titleText: {
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontSize: 18,
     color: '#fff',
     textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 24,
-    paddingHorizontal: 10,
-  },
-  subtitle: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   starsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 24,
   },
   starTouch: {
-    padding: 4,
+    padding: 6,
   },
-  textInput: {
-    width: '100%',
+  inputContainer: {
     backgroundColor: '#1c1c1e',
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    height: 160,
+    marginBottom: 20,
+  },
+  textInput: {
+    flex: 1,
     color: '#fff',
     fontSize: 15,
     fontFamily: 'HelveticaNowDisplay-Regular',
     textAlignVertical: 'top',
-    height: 90,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    padding: 0,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  submitButton: {
-    backgroundColor: '#ff6a00',
-  },
-  disabledButton: {
-    backgroundColor: 'rgba(255,106,0,0.4)',
-  },
-  submitButtonText: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    color: '#fff',
-    fontSize: 15,
-  },
-  skipButton: {
-    backgroundColor: '#262629',
-  },
-  skipButtonText: {
-    fontFamily: 'HelveticaNowDisplay-Medium',
-    color: '#aaa',
-    fontSize: 15,
+  charCounter: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    alignSelf: 'flex-end',
+    marginTop: 4,
   },
 });

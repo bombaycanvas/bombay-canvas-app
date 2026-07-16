@@ -5,7 +5,9 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
+import { Star } from 'lucide-react-native';
 import { ReviewModal } from '../components/ReviewModal';
 import { WatchRequiredModal } from '../components/WatchRequiredModal';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
@@ -16,7 +18,6 @@ import { VideoHeader } from '../components/seriesDetail/VideoHeader';
 import { SeriesActions } from '../components/seriesDetail/SeriesActions';
 import { CastingControls } from '../components/seriesDetail/CastingControls';
 import { CreatorRow } from '../components/seriesDetail/CreatorRow';
-import { CommentActions } from '../components/seriesDetail/CommentActions';
 import { SeriesFooter } from '../components/seriesDetail/SeriesFooter';
 import { useSeriesDetail } from '../hooks/useSeriesDetail';
 import { useFlag } from '../api/settings';
@@ -48,6 +49,7 @@ const SeriesDetailScreen: React.FC = () => {
     setCurrentEpisode,
     series,
     previewVideoUrl,
+    reviewsData,
     isReviewModalVisible,
     setIsReviewModalVisible,
     handleReviewSubmit,
@@ -73,6 +75,26 @@ const SeriesDetailScreen: React.FC = () => {
     play,
     pause,
   } = useSeriesDetail();
+
+  const averageRating = (() => {
+    if (series?.averageRating !== undefined && series?.averageRating !== null) {
+      return Number(series.averageRating);
+    }
+    if (series?.avgRating !== undefined && series?.avgRating !== null) {
+      return Number(series.avgRating);
+    }
+    if (reviewsData?.averageRating !== undefined && reviewsData?.averageRating !== null) {
+      return Number(reviewsData.averageRating);
+    }
+    if (reviewsData?.avgRating !== undefined && reviewsData?.avgRating !== null) {
+      return Number(reviewsData.avgRating);
+    }
+    const reviews = reviewsData?.reviews || [];
+    const totalReviews = reviews.length + (myReview ? 1 : 0);
+    if (totalReviews === 0) return 0;
+    const sum = reviews.reduce((acc: number, r: any) => acc + (r.rating || 0), 0) + (myReview?.rating || 0);
+    return sum / totalReviews;
+  })();
 
   if (isError) {
     return (
@@ -170,34 +192,52 @@ const SeriesDetailScreen: React.FC = () => {
                   />
                 ) : (
                   <>
-                    {series.uploader && (
-                      <CreatorRow
-                        uploader={series.uploader}
-                        onPress={() =>
-                          navigation.navigate('Creator', {
-                            id: series.uploader?.id,
-                          })
-                        }
-                      />
-                    )}
+                    <View style={styles.uploaderRatingRow}>
+                      {series.uploader && (
+                        <CreatorRow
+                          uploader={series.uploader}
+                          style={{ marginBottom: 0 }}
+                          onPress={() =>
+                            navigation.navigate('Creator', {
+                              id: series.uploader?.id,
+                            })
+                          }
+                        />
+                      )}
 
-                    {showReviews && (
-                      <CommentActions
-                        isAuthenticated={isAuthenticated}
-                        myReview={myReview}
-                        onWriteComment={handleCommentPress}
-                        onShowComments={() =>
-                          navigation.navigate('Reviews', {
-                            seriesId: id,
-                            seriesTitle: series.title,
-                            posterUrl: series.posterUrl || posterUrl,
-                            hasViewed: series?.episodes?.some(
-                              (ep: any) => ep.completed || (ep.progress !== undefined && ep.progress > 0)
-                            ) || false,
-                          })
-                        }
-                      />
-                    )}
+                      {showReviews && (() => {
+                        const handleRatePress = () => {
+                          if (myReview) {
+                            navigation.navigate('Reviews', {
+                              seriesId: id,
+                              seriesTitle: series.title,
+                              posterUrl: series.posterUrl || posterUrl,
+                              hasViewed: series?.episodes?.some(
+                                (ep: any) => ep.completed || (ep.progress !== undefined && ep.progress > 0)
+                              ) || false,
+                            });
+                          } else {
+                            handleCommentPress();
+                          }
+                        };
+
+                        return (
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={styles.rateButtonWithBg}
+                            onPress={handleRatePress}
+                          >
+                            <Star size={14} color="#f5b301" fill="#f5b301" style={averageRating > 0 ? styles.starIconWithRating : styles.starIconWithoutRating} />
+                            {averageRating > 0 && (
+                              <Text style={styles.rateRatingText}>
+                                ({averageRating.toFixed(1)})
+                              </Text>
+                            )}
+                            <Text style={styles.rateButtonWithBgText}>Comments</Text>
+                          </TouchableOpacity>
+                        );
+                      })()}
+                    </View>
 
                     {series.description && (
                       <Text
@@ -259,8 +299,8 @@ const SeriesDetailScreen: React.FC = () => {
           seriesTitle={series.title}
           posterUrl={series.posterUrl || posterUrl}
           onSubmit={handleReviewSubmit}
-          initialRating={0}
-          initialText=""
+          initialRating={myReview?.rating || 0}
+          initialText={myReview?.text || ''}
           isSubmitting={upsertReviewMutation.isPending}
         />
       )}
@@ -416,6 +456,41 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 14,
     lineHeight: 20,
+  },
+  uploaderRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  rateButtonWithBg: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,106,0,0.1)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rateButtonWithBgText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    color: '#ff6a00',
+    fontSize: 14,
+  },
+  rateRatingText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    color: '#ff6a00',
+    fontSize: 14,
+    marginRight: 6,
+  },
+  starIconWithRating: {
+    marginRight: 3,
+  },
+  starIconWithoutRating: {
+    marginRight: 4,
   },
 });
 

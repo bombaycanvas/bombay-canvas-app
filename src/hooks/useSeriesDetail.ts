@@ -78,6 +78,8 @@ export const useSeriesDetail = () => {
   const queueLoadedRef = useRef(false);
 
   const {
+    reviewsData,
+    isReviewsLoading,
     isReviewModalVisible,
     setIsReviewModalVisible,
     handleReviewSubmit,
@@ -295,6 +297,8 @@ export const useSeriesDetail = () => {
     setCurrentEpisode,
     series,
     previewEpisode,
+    reviewsData,
+    isReviewsLoading,
     isReviewModalVisible,
     setIsReviewModalVisible,
     handleReviewSubmit,

@@ -11,7 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { X, Check } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import SubscriptionOutlined from '../assets/SubscriptionOutlined';
 import { useVideoStore } from '../store/videoStore';
@@ -191,11 +191,6 @@ export const EpisodesBottomSheet = ({
                         <Text style={styles.episodeTitleText}>
                           E{item.episodeNo}: {item.title}
                         </Text>
-                        {item.completed && (
-                          <View style={styles.completedBadge}>
-                            <Check color="#22c55e" size={10} strokeWidth={3} />
-                          </View>
-                        )}
                       </View>
                       <Text style={styles.episodeDuration}>
                         {item.duration}m

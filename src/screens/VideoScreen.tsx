@@ -16,6 +16,7 @@ import {
   Animated,
   TouchableOpacity,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import {
   usePlayVideoWithId,
@@ -35,6 +36,8 @@ import { Heart } from 'lucide-react-native';
 import { useToggleEpisodeLike } from '../api/engagement';
 import Toast from 'react-native-toast-message';
 import { useFlag } from '../api/settings';
+import EpisodesIcon from '../assets/EpisodesIcon';
+import ShareIcon from '../assets/ShareIcon';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -168,6 +171,26 @@ const VideoListItem = React.memo(
       });
     };
 
+    const handleSharePress = async () => {
+      try {
+        const title = movie?.title || 'Bombay Canvas';
+        const epNo = item?.episodeNo ? `E${item.episodeNo}` : '';
+        const epTitle = item?.title ? `: ${item.title}` : '';
+        const desc = item?.description || '';
+        const shareLink = `https://www.canvasott.com/video/${movie?.id}?ep=${item?.episodeNo}`;
+
+        await Share.share({
+          message: `Watch ${title} ${epNo}${epTitle} on Bombay Canvas!\n${shareLink}\n\n${desc}`,
+        });
+      } catch (error: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Share',
+          text2: 'Failed to share this episode',
+        });
+      }
+    };
+
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer
@@ -182,41 +205,22 @@ const VideoListItem = React.memo(
           onVideoEnd={onVideoEnd}
         />
 
-        {showLikes && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.likePillTop,
-              { top: insets.top + 10 },
-              !showLikeCount && { paddingHorizontal: 8, paddingVertical: 8 },
-            ]}
-            onPress={handleLikePress}
-          >
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              <Heart
-                size={Platform.OS === 'ios' ? 30 : 33}
-                color={liked ? '#ff4d6d' : '#ffffff'}
-                fill={liked ? '#ff4d6d' : 'none'}
-              />
-            </Animated.View>
-            {showLikeCount && (
-              <Text style={[styles.likeCount, liked && styles.likedText]}>
-                {formatLikes(likeCount)}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        <Animated.View
+        <View
           style={[
             styles.overlay,
             {
               paddingBottom: insets.bottom + 10,
-              opacity: locked || isPaidEpisode ? 1 : fadeAnim,
             },
           ]}
         >
-          <View style={styles.leftOverlay}>
+          <Animated.View
+            style={[
+              styles.leftOverlay,
+              {
+                opacity: locked || isPaidEpisode ? 1 : fadeAnim,
+              },
+            ]}
+          >
             <View>
               <View style={styles.creatorRow}>
                 <TouchableOpacity
@@ -246,17 +250,46 @@ const VideoListItem = React.memo(
                 </Text>
               )}
             </View>
-          </View>
+          </Animated.View>
           <View style={styles.rightOverlay}>
+            {showLikes && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.rightActionBtn}
+                onPress={handleLikePress}
+              >
+                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                  <Heart
+                    size={Platform.OS === 'ios' ? 32 : 35}
+                    color={liked ? '#ff4d6d' : '#ffffff'}
+                    fill={liked ? '#ff4d6d' : 'none'}
+                  />
+                </Animated.View>
+                <Text style={[styles.actionText, liked && styles.likedText]} numberOfLines={1}>
+                  {!showLikeCount || likeCount === 0 ? 'Likes' : formatLikes(likeCount)}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              activeOpacity={0.9}
-              style={styles.episodesButton}
+              activeOpacity={0.8}
+              style={styles.rightActionBtn}
               onPress={onEpisodesPress}
             >
-              <Text style={styles.episodesButtonText}>Episodes</Text>
+              <EpisodesIcon size={Platform.OS === 'ios' ? 35 : 40} />
+              <Text style={styles.actionText} numberOfLines={1}>Episodes</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.rightActionBtn}
+              onPress={handleSharePress}
+            >
+              <ShareIcon />
+              <Text style={styles.actionText} numberOfLines={1}>Share</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       </View>
     );
   },
@@ -559,18 +592,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
-  likePillTop: {
-    position: 'absolute',
-    right: 20,
-    zIndex: 100,
-    flexDirection: 'row',
+  rightActionBtn: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    marginBottom: 20,
+    width: 60,
+  },
+  actionText: {
+    color: '#ffffff',
+    fontSize: Platform.OS === 'ios' ? 11 : 12,
+    fontWeight: 'bold',
+    marginTop: 4,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   avatar: {
     width: 24,
@@ -579,22 +614,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   username: { color: '#ff6a00', fontSize: 14, fontWeight: 'bold' },
-  likeCount: {
-    color: '#ffffff',
-    fontSize: Platform.OS === 'ios' ? 16 : 17,
-    fontWeight: 'bold',
-    marginLeft: 6,
-  },
   likedText: {
     color: '#ff4d6d',
   },
   title: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   description: { color: 'white', fontSize: 14 },
-  episodesButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  episodesButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

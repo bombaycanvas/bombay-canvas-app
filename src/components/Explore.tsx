@@ -140,7 +140,7 @@ const ExploreCard = React.memo(
           )}
           {showViews && isImageLoaded && movie?.views !== undefined && movie?.views !== null && movie.views >= viewBadgeThreshold && (
             <View style={styles.viewsBadge}>
-              <Ionicons name="play" size={10} color="#fff" style={styles.playIcon} />
+              <Ionicons name="play" size={12} color="#fff" style={styles.playIcon} />
               <Text style={styles.viewsText}>{movie.views}</Text>
             </View>
           )}
@@ -261,14 +261,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     paddingHorizontal: 5,
   },
   playIcon: {
     marginRight: 2,
   },
   viewsText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#fff',
   },
   skeletonCard: {
