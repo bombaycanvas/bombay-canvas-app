@@ -11,10 +11,12 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import { useVideoStore } from '../store/videoStore';
 import ShimmerLoader from './ShimmerLoader';
 import { imgUrl } from '../api/video';
+import { useFlag, useSetting } from '../api/settings';
 
 type Movie = any;
 
@@ -45,6 +47,8 @@ const ExploreCard = React.memo(
     const opacity = React.useRef(new Animated.Value(0)).current;
     const cardRef = React.useRef<View>(null);
     const { setActiveCardRef } = useVideoStore();
+    const showViews = useFlag('engagement.showViews', true);
+    const viewBadgeThreshold = useSetting('engagement.viewBadgeThreshold', 100);
 
     const [isImageLoaded, setIsImageLoaded] = React.useState(false);
     const skeletonOpacity = React.useRef(new Animated.Value(1)).current;
@@ -84,7 +88,6 @@ const ExploreCard = React.memo(
             });
           }}
         >
-          {/* Skeleton */}
           {!isImageLoaded && (
             <Animated.View
               style={[styles.skeletonCard, { opacity: skeletonOpacity }]}
@@ -113,8 +116,6 @@ const ExploreCard = React.memo(
               onLoad={handleLoad}
             />
           </Animated.View>
-
-          {/* Creator overlay show only after image loaded */}
           {isImageLoaded && (
             <TouchableOpacity
               activeOpacity={0.9}
@@ -136,6 +137,12 @@ const ExploreCard = React.memo(
                 {capitalizeWords(movie?.uploader?.name)}
               </Text>
             </TouchableOpacity>
+          )}
+          {showViews && isImageLoaded && movie?.views !== undefined && movie?.views !== null && movie.views >= viewBadgeThreshold && (
+            <View style={styles.viewsBadge}>
+              <Ionicons name="play" size={12} color="#fff" style={styles.playIcon} />
+              <Text style={styles.viewsText}>{movie.views}</Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -244,6 +251,24 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 7.5,
+    color: '#fff',
+  },
+  viewsBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    height: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 5,
+  },
+  playIcon: {
+    marginRight: 2,
+  },
+  viewsText: {
+    fontSize: 12,
     color: '#fff',
   },
   skeletonCard: {

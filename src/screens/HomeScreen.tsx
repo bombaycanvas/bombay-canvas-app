@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import Explore from '../components/Explore';
 import HeroSlider from '../components/HeroSlider';
 import Landing from '../components/Landing';
+import ContinueWatching from '../components/ContinueWatching';
 import {
   useMoviesData,
   useRecommendedSeriesData,
@@ -26,10 +27,8 @@ export default function HomeScreen() {
     const yOffset = event.nativeEvent.contentOffset.y;
     setIsSliderVisible(yOffset < 200);
   };
-  console.log(data, "data>>>>>>>>>>")
-  React.useEffect(() => {
+  useEffect(() => {
     const urlsToPreload: string[] = [];
-
     if (data?.series) {
       data.series.slice(0, 5).forEach(movie => {
         if (movie.posterUrl) {
@@ -95,6 +94,7 @@ export default function HomeScreen() {
         ) : (
           <Landing />
         )}
+        <ContinueWatching />
         <Explore
           heading={'Recommended for you'}
           movieData={recommendedSeriesData?.series ?? []}

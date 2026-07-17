@@ -90,7 +90,7 @@ const ProfileScreen = () => {
                   <View style={styles.statsContainer}>
                     <View style={styles.stat}>
                       <Text style={styles.statValue}>
-                        {userData?.allMovies?.length}
+                        {userData?.series?.length || 0}
                       </Text>
                       <Text style={styles.statLabel}>Videos</Text>
                     </View>
@@ -119,7 +119,7 @@ const ProfileScreen = () => {
           {userProfile?.userData && (
             <>
               {isCreator && (
-                <UserVideos data={userData?.allMovies} isLoading={isLoading} />
+                <UserVideos data={userData?.series} isLoading={isLoading} />
               )}
             </>
           )}

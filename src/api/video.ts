@@ -137,7 +137,7 @@ export const useRecommendedSeriesData = () => {
 
 const getMoviesByCreator = async (id: string) => {
   try {
-    const response = await api(`/api/creator/${id}/series`, {
+    const response = await api(`/api/creator/v2/${id}/series`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -159,6 +159,8 @@ export const useMoviesDataByCreator = (id: string) => {
     queryKey: ['moviesDataByCreator', id],
     queryFn: () => getMoviesByCreator(id),
     enabled: !!id,
+    staleTime: 0,
+    gcTime: 0,
   });
 };
 
@@ -530,3 +532,65 @@ export const useTrackEpisodeView = () =>
   useMutation({
     mutationFn: trackEpisodeView,
   });
+
+export const saveEpisodeProgress = async (
+  {
+    episodeId,
+    progress,
+    completed,
+  }: {
+    episodeId: string;
+    progress: number;
+    completed: boolean;
+  } = {} as any,
+) => {
+  try {
+    const response = await api(`/api/episode-progress`, {
+      method: 'POST',
+      body: {
+        episodeId,
+        progress,
+        completed,
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.log('Save Episode Progress Error:', error);
+    return null;
+  }
+};
+
+export const useSaveEpisodeProgress = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveEpisodeProgress,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['continueWatching'] });
+    },
+  });
+};
+
+export const getContinueWatching = async (): Promise<any> => {
+  try {
+    const response = await api('/api/continue-watching', {
+      method: 'GET',
+    });
+    return response ?? { items: [] };
+  } catch (error) {
+    console.log('Continue Watching Error:', error);
+    return { items: [] };
+  }
+};
+
+export const useContinueWatching = () => {
+  return useQuery({
+    queryKey: ['continueWatching'],
+    queryFn: getContinueWatching,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+};
+
