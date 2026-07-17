@@ -45,6 +45,7 @@ export type RootStackParamList = {
     id: string;
     episodeId?: string;
     posterUrl?: string;
+    ep?: string;
   };
   Creator: { id: string | number };
   Settings: undefined;
@@ -203,6 +204,20 @@ const AppStack = () => {
   );
 };
 
+const linking = {
+  prefixes: ['bombaycanvas://', 'https://www.canvasott.com', 'https://canvasott.com'],
+  config: {
+    screens: {
+      Video: {
+        path: 'video/:id',
+        parse: {
+          id: (id: string) => id,
+        },
+      },
+    },
+  },
+};
+
 export default function AppNavigator() {
   const { initializeAuth } = useAuthStore();
 
@@ -211,7 +226,7 @@ export default function AppNavigator() {
   }, [initializeAuth]);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <AppStack />
       <LockedOverlay />
       <SubscribePopup />

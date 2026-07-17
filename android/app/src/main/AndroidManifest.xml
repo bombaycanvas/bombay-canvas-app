@@ -31,6 +31,14 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="bombaycanvas" />
+            <data android:scheme="https" android:host="www.canvasott.com" android:pathPrefix="/video" />
+            <data android:scheme="https" android:host="canvasott.com" android:pathPrefix="/video" />
+        </intent-filter>
       </activity>
        <meta-data
     android:name="com.google.android.gms.auth.api.credentials.ClientId"

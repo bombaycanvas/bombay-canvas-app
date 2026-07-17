@@ -43,8 +43,9 @@ type RootStackParamList = {
   Creator: { id: string };
   Video: {
     id: string;
-    episodeId: string;
+    episodeId?: string;
     posterUrl?: string;
+    ep?: string;
   };
 };
 
@@ -191,6 +192,50 @@ const VideoListItem = React.memo(
       }
     };
 
+    const handleDoubleTapLike = () => {
+      if (!isAuthenticated) {
+        Toast.show({
+          type: 'error',
+          text1: 'Authentication',
+          text2: 'Please login to like this episode',
+        });
+        return false;
+      }
+
+      if (!liked) {
+        setLiked(true);
+        setLikeCount(likeCount + 1);
+
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.3,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 4,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        toggleLike(undefined, {
+          onError: (_err: any) => {
+            setLiked(liked);
+            setLikeCount(likeCount);
+          },
+          onSuccess: (resData: any) => {
+            if (resData && typeof resData.liked === 'boolean') {
+              setLiked(resData.liked);
+              setLikeCount(resData.likeCount);
+            }
+          },
+        });
+      }
+      return true;
+    };
+
     return (
       <View style={styles.videoContainer}>
         <VideoPlayer
@@ -203,6 +248,7 @@ const VideoListItem = React.memo(
           setControlsVisible={setControlsVisible}
           isPlaybackLoading={isPlaybackLoading}
           onVideoEnd={onVideoEnd}
+          onDoubleTap={handleDoubleTapLike}
         />
 
         <View
@@ -220,6 +266,7 @@ const VideoListItem = React.memo(
                 opacity: locked || isPaidEpisode ? 1 : fadeAnim,
               },
             ]}
+            pointerEvents={locked || isPaidEpisode || controlsVisible ? 'auto' : 'none'}
           >
             <View>
               <View style={styles.creatorRow}>
@@ -251,7 +298,15 @@ const VideoListItem = React.memo(
               )}
             </View>
           </Animated.View>
-          <View style={styles.rightOverlay}>
+          <Animated.View
+            style={[
+              styles.rightOverlay,
+              {
+                opacity: locked || isPaidEpisode ? 1 : fadeAnim,
+              },
+            ]}
+            pointerEvents={locked || isPaidEpisode || controlsVisible ? 'auto' : 'none'}
+          >
             {showLikes && (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -288,7 +343,7 @@ const VideoListItem = React.memo(
               <ShareIcon />
               <Text style={styles.actionText} numberOfLines={1}>Share</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </View>
     );
@@ -298,7 +353,8 @@ const VideoListItem = React.memo(
 const VideoScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Video'>>();
 
-  const { id, episodeId, posterUrl } = route.params ?? {};
+  const { id, episodeId: routeEpisodeId, posterUrl, ep } = route.params ?? {};
+  const episodeId = routeEpisodeId || ep;
   const {
     series,
     episodes,
@@ -447,7 +503,19 @@ const VideoScreen = () => {
 
   const isCurrentIdValid = episodes?.some(ep => ep.id === currentEpisodeId);
   const defaultEpisode = episodes?.find((ep: any) => !ep.completed) || episodes?.[0];
-  const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode?.id);
+  
+  let resolvedEpisodeId = episodeId;
+  if (episodeId && episodes?.length > 0) {
+    const foundByUuid = episodes.some(ep => ep.id === episodeId);
+    if (!foundByUuid) {
+      const foundByNo = episodes.find(ep => ep.episodeNo === Number(episodeId));
+      if (foundByNo) {
+        resolvedEpisodeId = foundByNo.id;
+      }
+    }
+  }
+
+  const targetEpisodeId = resolvedEpisodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode?.id);
   const validIndex = episodes?.findIndex(ep => ep.id === targetEpisodeId) ?? 0;
   const safeIndex = validIndex >= 0 ? validIndex : 0;
 
@@ -493,7 +561,9 @@ const VideoScreen = () => {
     );
   }
 
-  const activeEpisode = episodes?.find(e => e.id === targetEpisodeId);
+  const activeEpisode =
+    episodes?.find(e => e.id === currentEpisodeId) ||
+    episodes?.find(e => e.id === targetEpisodeId);
   return (
     <View style={[styles.container, { height: ITEM_HEIGHT }]}>
       <FlatList

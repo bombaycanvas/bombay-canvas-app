@@ -15,7 +15,7 @@ import { ErrorOverlay } from './videoPlayer/ErrorOverlay';
 import { PlayerControls } from './videoPlayer/PlayerControls';
 import { ProgressBar } from './videoPlayer/ProgressBar';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Heart } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native-gesture-handler';
 import { imgUrl, useSaveEpisodeProgress } from '../api/video';
@@ -40,6 +40,7 @@ type VideoPlayerProps = {
   setControlsVisible?: (visible: boolean) => void;
   isPlaybackLoading?: boolean;
   onVideoEnd?: () => void;
+  onDoubleTap?: () => boolean;
 };
 
 const MIN_REPORT_INTERVAL_S = 5;
@@ -55,6 +56,7 @@ export default function VideoPlayer({
   setControlsVisible: externalSetControlsVisible,
   isPlaybackLoading = false,
   onVideoEnd,
+  onDoubleTap,
 }: VideoPlayerProps) {
   const videoRef = useRef<React.ElementRef<typeof Video>>(null);
   const isSeeking = useRef(false);
@@ -62,6 +64,48 @@ export default function VideoPlayer({
   const hideTimerRef = useRef<any>(null);
   const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingProgressBar = useRef(false);
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const lastTapRef = useRef<number>(0);
+
+  const triggerHeartAnimation = () => {
+    heartScale.setValue(0);
+    heartOpacity.setValue(0);
+
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(heartOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.spring(heartScale, {
+          toValue: 1.2,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(heartScale, {
+        toValue: 1.0,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.delay(500),
+      Animated.parallel([
+        Animated.timing(heartOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1.6,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -359,25 +403,10 @@ export default function VideoPlayer({
   };
 
   const onVideoTap = () => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
+    if (locked) {
+      setIsLockedVisibleModal(true);
+      return;
     }
-    if (showDelayTimer.current) {
-      clearTimeout(showDelayTimer.current);
-      showDelayTimer.current = null;
-    }
-
-    showDelayTimer.current = setTimeout(() => {
-      if (controlsVisible) {
-        setControlsVisible(false);
-      } else {
-        setControlsVisible(true);
-        hideTimerRef.current = setTimeout(() => {
-          setControlsVisible(false);
-        }, 3000);
-      }
-    }, 300);
 
     if (!locked && isPaidEpisode) {
       setPurchaseSeries(movie);
@@ -385,15 +414,56 @@ export default function VideoPlayer({
       return;
     }
 
-    if (locked) {
-      setIsLockedVisibleModal(true);
-      return;
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      if (showDelayTimer.current) {
+        clearTimeout(showDelayTimer.current);
+        showDelayTimer.current = null;
+      }
+
+      const success = onDoubleTap?.();
+      if (success) {
+        triggerHeartAnimation();
+      }
+    } else {
+      lastTapRef.current = now;
+      if (showDelayTimer.current) {
+        clearTimeout(showDelayTimer.current);
+      }
+      showDelayTimer.current = setTimeout(() => {
+        if (controlsVisible) {
+          setControlsVisible(false);
+        } else {
+          setControlsVisible(true);
+          hideTimerRef.current = setTimeout(() => {
+            setControlsVisible(false);
+          }, 3000);
+        }
+      }, DOUBLE_TAP_DELAY);
     }
   };
 
+  const hasShownControlsRef = useRef(false);
+
   useEffect(() => {
-    if (episode && isVisible && !isBuffering) showControls();
-  }, [episode, isVisible, showControls, isBuffering]);
+    if (!isVisible) {
+      hasShownControlsRef.current = false;
+    }
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (isVisible && !isBuffering && !hasShownControlsRef.current) {
+      hasShownControlsRef.current = true;
+      showControls();
+    }
+  }, [isVisible, isBuffering, showControls]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -500,7 +570,7 @@ export default function VideoPlayer({
                   {error && <ErrorOverlay error={error} />}
                   {controlsVisible && !isBuffering && !error && (
                     <PlayerControls
-                      onPressContainer={() => setControlsVisible(false)}
+                      onPressContainer={onVideoTap}
                     />
                   )}
 
@@ -529,6 +599,19 @@ export default function VideoPlayer({
             )}
           </>
         )}
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.heartOverlay,
+            {
+              transform: [{ scale: heartScale }],
+              opacity: heartOpacity,
+            },
+          ]}
+        >
+          <Heart size={100} color="#ff4d6d" fill="#ff4d6d" />
+        </Animated.View>
       </View>
     </>
   );
@@ -586,5 +669,11 @@ const styles = StyleSheet.create({
   tapLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 5,
+  },
+  heartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 15,
   },
 });

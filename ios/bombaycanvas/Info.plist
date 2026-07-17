@@ -28,6 +28,12 @@
 				<string>com.googleusercontent.apps.1018893063821-1ediqm7jbub2huvu095v2b45f4c5togp</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bombaycanvas</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
