@@ -738,7 +738,7 @@ const StartLoginScreen = () => {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={styles.container}>
         <Video
-          useTextureView={true}
+          useTextureView={false}
           source={{ uri: videoUrl }}
           style={styles.backgroundVideo}
           resizeMode="cover"

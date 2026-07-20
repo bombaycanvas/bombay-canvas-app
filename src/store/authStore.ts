@@ -31,12 +31,20 @@ export const useAuthStore = create<AuthState>(set => {
     token: null,
     user: null,
     logout: async () => {
-      await logoutGoogle();
-      await logoutApple();
-      await AsyncStorage.removeItem('isAuthenticated');
-      await AsyncStorage.removeItem('accessToken');
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('hasSkipped');
+      logoutGoogle().catch(err => console.log('Google signOut error during logout:', err));
+      logoutApple().catch(err => console.log('Apple signOut error during logout:', err));
+
+      try {
+        await AsyncStorage.multiRemove([
+          'isAuthenticated',
+          'accessToken',
+          'user',
+          'hasSkipped',
+        ]);
+      } catch (error) {
+        console.error('Error clearing AsyncStorage during logout:', error);
+      }
+
       queryClient.clear();
       useVideoStore.getState().resetPlayer();
       useVideoStore.getState().resetPurchaseState();

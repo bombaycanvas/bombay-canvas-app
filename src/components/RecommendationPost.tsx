@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
   Animated,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
@@ -199,7 +198,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
                     handleMainMediaLoad();
                   }}
                   onReadyForDisplay={() => setIsVideoReady(true)}
-                  useTextureView={Platform.OS === 'android'}
+                  useTextureView={false}
                   maxBitRate={2000000}
                   bufferConfig={{
                     minBufferMs: 2500,

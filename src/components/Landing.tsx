@@ -55,7 +55,7 @@ const Landing = () => {
     <View style={styles.layout}>
       {isPlaying && (
         <Video
-          useTextureView={true}
+          useTextureView={false}
           ref={videoRef}
           source={{ uri: videoUrl }}
           style={styles.backgroundVideo}

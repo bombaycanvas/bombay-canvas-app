@@ -11,7 +11,7 @@ export function useHeroSlider() {
   const isFocused = useIsFocused();
   const { data, isLoading } = useCarouselSeriesData();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 

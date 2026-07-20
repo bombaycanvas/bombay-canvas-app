@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useHeroSlider } from '../hooks/useHeroSlider';
@@ -53,7 +52,7 @@ export default function HeroSlider({ isVisible = true }: { isVisible?: boolean }
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         getItemLayout={getItemLayout}
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}

@@ -52,7 +52,8 @@ export default function SubscriptionScreen() {
   const { data: upcomingData } = useUpcomingSeriesData();
   const displayUpcoming = upcomingData?.upcomingSeries || [];
 
-  const series = route.params?.series || purchaseSeries;
+  const fromGeneral = route.params?.fromGeneral ?? false;
+  const series = fromGeneral ? null : (route.params?.series || purchaseSeries);
 
   const close = () => {
     resetPurchaseState();

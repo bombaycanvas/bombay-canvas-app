@@ -6,7 +6,6 @@ import {
   Image,
   Animated,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
@@ -501,7 +500,7 @@ export default function VideoPlayer({
           <>
             {!locked && isVisible && hasValidVideoUrl ? (
               <Video
-                useTextureView={Platform.OS === 'android'}
+                useTextureView={false}
                 key={`${episode.id}-${isVisible}`}
                 playWhenInactive={true}
                 ref={videoRef}

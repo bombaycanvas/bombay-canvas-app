@@ -47,7 +47,7 @@ export const VideoHeader: React.FC<VideoHeaderProps> = ({
           style={[StyleSheet.absoluteFill, { opacity: videoOpacity }]}
         >
           <Video
-            useTextureView={true}
+            useTextureView={false}
             ref={videoRef}
             source={previewVideoUrl ? { uri: previewVideoUrl } : undefined}
             style={styles.video}

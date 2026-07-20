@@ -47,6 +47,8 @@ export const SliderItem = React.memo(({
     rating,
   } = useSliderItem({ item, isCurrentSlide });
 
+
+
   return (
     <View style={styles.itemContainer}>
       <FastImage
@@ -71,7 +73,7 @@ export const SliderItem = React.memo(({
             onReadyForDisplay={() => setIsVideoReady(true)}
             onEnd={onVideoEnd}
             playWhenInactive={false}
-            useTextureView={Platform.OS === 'android'}
+            useTextureView={false}
             maxBitRate={2000000}
             bufferConfig={{
               minBufferMs: 2500,
@@ -90,19 +92,21 @@ export const SliderItem = React.memo(({
           resizeMode={FastImage.resizeMode.contain}
         />
 
-        {isCurrentSlide && item.trailerUrl && isVideoReady && (
-          <TouchableOpacity
-            style={styles.muteButton}
-            onPress={() => setIsMuted(!isMuted)}
-            activeOpacity={0.7}
-          >
-            {isMuted ? (
-              <VolumeX color="white" size={16} />
-            ) : (
-              <Volume2 color="white" size={16} />
-            )}
-          </TouchableOpacity>
-        )}
+        <View style={styles.topRightControls}>
+          {isCurrentSlide && item.trailerUrl && isVideoReady && (
+            <TouchableOpacity
+              style={styles.muteButton}
+              onPress={() => setIsMuted(!isMuted)}
+              activeOpacity={0.7}
+            >
+              {isMuted ? (
+                <VolumeX color="white" size={16} />
+              ) : (
+                <Volume2 color="white" size={16} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <LinearGradient
@@ -182,6 +186,11 @@ const styles = StyleSheet.create({
     width: 70,
     height: 20,
   },
+  topRightControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   muteButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 20,
@@ -202,14 +211,17 @@ const styles = StyleSheet.create({
     bottom: 50,
     left: 24,
     right: 24,
-    alignItems: 'center',
     zIndex: 50,
   },
   badgeRow: {
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    padding: 8,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 5,
   },
   badgeAvatar: {
     width: 20,
@@ -241,9 +253,8 @@ const styles = StyleSheet.create({
   },
   titleText: {
     color: '#fff',
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '800',
-    textAlign: 'center',
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,

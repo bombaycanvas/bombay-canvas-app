@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Crown } from 'lucide-react-native';
 import LockOutlined from '../../assets/LockOutlined';
 
 interface SubscriptionProgressProps {
@@ -40,24 +40,34 @@ export default function SubscriptionProgress({
   return (
     <View style={styles.progressCard}>
       <View style={styles.progressHeader}>
-        <FastImage
-          source={{
-            uri: series?.posterUrl || 'https://via.placeholder.com/150',
-            priority: FastImage.priority.high,
-            cache: FastImage.cacheControl.immutable,
-          }}
-          style={styles.progressThumb}
-          resizeMode={FastImage.resizeMode.cover}
-        />
+        {series ? (
+          <FastImage
+            source={{
+              uri: series.posterUrl || 'https://via.placeholder.com/150',
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.progressThumb}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        ) : (
+          <View style={[styles.progressThumb, styles.placeholderThumb]}>
+            <Crown color="#ff6a00" size={24} fill="#ff6a00" />
+          </View>
+        )}
         <View style={styles.progressDetails}>
           <Text style={styles.progressTitle} numberOfLines={1}>
-            {series?.title}
+            {series?.title || 'Canvas Premium'}
           </Text>
           <View style={styles.lockRow}>
             <LockOutlined width={17} height={17} color="#fff" />
             <View style={styles.lockTextContainer}>
-              <Text style={styles.lockTitle}>Episodes {lockStart} – {lockEnd}</Text>
-              <Text style={styles.lockSubtitle}>Find out what happens next</Text>
+              <Text style={styles.lockTitle}>
+                {series ? `Episodes ${lockStart} – ${lockEnd}` : 'Unlimited Access'}
+              </Text>
+              <Text style={styles.lockSubtitle}>
+                {series ? 'Find out what happens next' : 'Unlock all premium series'}
+              </Text>
             </View>
             <ChevronRight color="#fff" size={17} />
           </View>
@@ -85,6 +95,13 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 6,
     backgroundColor: '#222',
+  },
+  placeholderThumb: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   progressDetails: {
     flex: 1,

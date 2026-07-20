@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
 import { useMySubscription, useCancelSubscription } from '../api/subscription';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { CreditCard } from 'lucide-react-native';
 
 const SettingsScreen = () => {
+  const navigation = useNavigation<any>();
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
   const [isCancelSubModal, setIsCancelSubModal] = useState(false);
 
@@ -120,6 +121,23 @@ const SettingsScreen = () => {
           }
         >
           <Text style={styles.rowLabel}>Terms of Service</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={isActive ? 1 : 0.9}
+          style={styles.row}
+          onPress={() => {
+            if (!isActive) {
+              navigation.navigate('SubscriptionScreen', { fromGeneral: true });
+            }
+          }}
+        >
+          <View style={styles.infoRow}>
+            <Text style={styles.rowLabel}>Subscription & Billing</Text>
+            <Text style={[styles.infoValue, isActive && styles.activeValue]}>
+              {isActive ? 'Active' : 'Subscribe'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -301,6 +319,9 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontSize: 14,
     color: '#ff6a00',
+  },
+  activeValue: {
+    color: '#4cd964',
   },
   subscriptionCard: {
     marginHorizontal: 20,

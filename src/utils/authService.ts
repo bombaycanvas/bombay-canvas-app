@@ -20,8 +20,19 @@ export async function signInWithGoogle() {
 
 export async function logoutGoogle() {
   try {
-    await GoogleSignin.revokeAccess();
-    await GoogleSignin.signOut();
+    const isSignedIn = GoogleSignin.hasPreviousSignIn();
+    if (isSignedIn) {
+      try {
+        await GoogleSignin.revokeAccess();
+      } catch (error) {
+        console.log('Google revokeAccess error:', error);
+      }
+      try {
+        await GoogleSignin.signOut();
+      } catch (error) {
+        console.log('Google signOut error:', error);
+      }
+    }
   } catch (error) {
     console.log('Google logout error:', error);
   }

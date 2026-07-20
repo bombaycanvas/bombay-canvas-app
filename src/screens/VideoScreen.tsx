@@ -38,6 +38,7 @@ import Toast from 'react-native-toast-message';
 import { useFlag } from '../api/settings';
 import EpisodesIcon from '../assets/EpisodesIcon';
 import ShareIcon from '../assets/ShareIcon';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -80,6 +81,7 @@ const VideoListItem = React.memo(
     onEpisodesPress,
     isAuthenticated,
     onVideoEnd,
+    posterUrl,
   }: {
     item: any;
     movie: any;
@@ -122,6 +124,9 @@ const VideoListItem = React.memo(
     const [likeCount, setLikeCount] = useState(episodeData?.likeCount ?? 0);
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
+    const { setAuthRedirect } = useVideoStore();
+    const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
+
     useEffect(() => {
       setLiked(!!episodeData?.likedByMe);
       setLikeCount(episodeData?.likeCount ?? 0);
@@ -129,13 +134,20 @@ const VideoListItem = React.memo(
 
     const { mutate: toggleLike } = useToggleEpisodeLike(episodeData?.id, movie?.id);
 
+    const handleLoginConfirm = () => {
+      const redirectParams = {
+        screen: 'Video',
+        params: { id: movie?.id, episodeId: item?.id, posterUrl },
+      };
+      setAuthRedirect(redirectParams);
+      (navigation as any).navigate('StartLogin', {
+        redirect: redirectParams,
+      });
+    };
+
     const handleLikePress = () => {
       if (!isAuthenticated) {
-        Toast.show({
-          type: 'error',
-          text1: 'Authentication',
-          text2: 'Please login to like this episode',
-        });
+        setIsLoginModalVisible(true);
         return;
       }
 
@@ -178,10 +190,10 @@ const VideoListItem = React.memo(
         const epNo = item?.episodeNo ? `E${item.episodeNo}` : '';
         const epTitle = item?.title ? `: ${item.title}` : '';
         const desc = item?.description || '';
-        const shareLink = `https://www.canvasott.com/video/${movie?.id}?ep=${item?.episodeNo}`;
+        const appLink = `https://www.canvasott.com/video/${movie?.id}?ep=${item?.episodeNo}`;
 
         await Share.share({
-          message: `Watch ${title} ${epNo}${epTitle} on Bombay Canvas!\n${shareLink}\n\n${desc}`,
+          message: `Watch ${title} ${epNo}${epTitle} on Bombay Canvas!\n\nOpen in App or Web: ${appLink}\n\n${desc}`,
         });
       } catch (error: any) {
         Toast.show({
@@ -194,11 +206,7 @@ const VideoListItem = React.memo(
 
     const handleDoubleTapLike = () => {
       if (!isAuthenticated) {
-        Toast.show({
-          type: 'error',
-          text1: 'Authentication',
-          text2: 'Please login to like this episode',
-        });
+        setIsLoginModalVisible(true);
         return false;
       }
 
@@ -345,6 +353,15 @@ const VideoListItem = React.memo(
             </TouchableOpacity>
           </Animated.View>
         </View>
+        <ConfirmationModal
+          visible={isLoginModalVisible}
+          onClose={() => setIsLoginModalVisible(false)}
+          onConfirm={handleLoginConfirm}
+          title="Login Required"
+          message="Please login to like this episode"
+          confirmText="Log In"
+          cancelText="Cancel"
+        />
       </View>
     );
   },
@@ -423,9 +440,20 @@ const VideoScreen = () => {
       const routeEpisodeIdChanged = lastProcessedRoute.current?.episodeId !== episodeId;
 
       if (routeIdChanged || routeEpisodeIdChanged) {
+        let resolvedEpisodeId = episodeId;
+        if (episodeId) {
+          const foundByUuid = episodes.some(ep => ep.id === episodeId);
+          if (!foundByUuid) {
+            const foundByNo = episodes.find(ep => ep.episodeNo === Number(episodeId));
+            if (foundByNo) {
+              resolvedEpisodeId = foundByNo.id;
+            }
+          }
+        }
+
         const isCurrentIdValid = episodes.some(ep => ep.id === currentEpisodeId);
         const defaultEpisode = episodes.find((ep: any) => !ep.completed) || episodes[0];
-        const targetEpisodeId = episodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode.id);
+        const targetEpisodeId = resolvedEpisodeId || (isCurrentIdValid ? currentEpisodeId : defaultEpisode.id);
 
         setCurrentEpisodeId(targetEpisodeId);
         lastProcessedRoute.current = { id, episodeId };
@@ -503,7 +531,7 @@ const VideoScreen = () => {
 
   const isCurrentIdValid = episodes?.some(ep => ep.id === currentEpisodeId);
   const defaultEpisode = episodes?.find((ep: any) => !ep.completed) || episodes?.[0];
-  
+
   let resolvedEpisodeId = episodeId;
   if (episodeId && episodes?.length > 0) {
     const foundByUuid = episodes.some(ep => ep.id === episodeId);
