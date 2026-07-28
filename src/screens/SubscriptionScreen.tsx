@@ -14,6 +14,7 @@ import {
   getMySubscription,
   useMySubscription,
   useSubscriptionPlans,
+  isSubscriptionActive,
 } from '../api/subscription';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
@@ -41,10 +42,8 @@ export default function SubscriptionScreen() {
     }
   }, [subscriptionPlans]);
   const { data: mySubscription } = useMySubscription();
-  const activePlan =
-    mySubscription && (mySubscription.status === 'ACTIVE' || mySubscription.status === 'TRIAL' || mySubscription.status === 'CANCELLED')
-      ? mySubscription.planCode
-      : null;
+  const activePlan = isSubscriptionActive(mySubscription) ? mySubscription!.planCode : null;
+
 
   const createSubMutation = useCreateSubscription();
   const verifySubMutation = useVerifySubscription();
@@ -149,6 +148,7 @@ export default function SubscriptionScreen() {
         queryClient.invalidateQueries({ queryKey: ['listRecommendedSeries'] });
         queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
         queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
+        queryClient.invalidateQueries({ queryKey: ['subscriptionHistory'] });
 
         setTimeout(() => {
           resetPurchaseState();
@@ -169,6 +169,7 @@ export default function SubscriptionScreen() {
         queryClient.invalidateQueries({ queryKey: ['listRecommendedSeries'] });
         queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
         queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
+        queryClient.invalidateQueries({ queryKey: ['subscriptionHistory'] });
 
         setTimeout(() => {
           resetPurchaseState();

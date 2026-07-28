@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pressable } from 'react-native-gesture-handler';
 import { imgUrl, useSaveEpisodeProgress } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
+import { useFlag } from '../api/settings';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,6 +67,7 @@ export default function VideoPlayer({
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const lastTapRef = useRef<number>(0);
+  const showLikes = useFlag('engagement.showLikes', true);
 
   const triggerHeartAnimation = () => {
     heartScale.setValue(0);
@@ -599,7 +601,7 @@ export default function VideoPlayer({
           </>
         )}
 
-        <Animated.View
+        {showLikes && <Animated.View
           pointerEvents="none"
           style={[
             styles.heartOverlay,
@@ -610,7 +612,7 @@ export default function VideoPlayer({
           ]}
         >
           <Heart size={100} color="#ff4d6d" fill="#ff4d6d" />
-        </Animated.View>
+        </Animated.View>}
       </View>
     </>
   );

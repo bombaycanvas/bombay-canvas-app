@@ -11,9 +11,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
-import { useMySubscription, useCancelSubscription } from '../api/subscription';
+import { useMySubscription, useCancelSubscription, useSubscriptionHistory } from '../api/subscription';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { CreditCard } from 'lucide-react-native';
+import { CreditCard, X, Receipt } from 'lucide-react-native';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<any>();
@@ -22,12 +22,15 @@ const SettingsScreen = () => {
 
   const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
   const { data: subscription, refetch } = useMySubscription();
+  const { data: charges, refetch: refetchHistory } = useSubscriptionHistory();
   const { mutate: cancelSub, isPending: isCancelPending } = useCancelSubscription();
   console.log(subscription, "subscription")
+  console.log(charges, "charges in settings screen")
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [refetch])
+      refetchHistory();
+    }, [refetch, refetchHistory])
   );
   const handleOpenURL = async (url: string) => {
     try {
@@ -88,7 +91,10 @@ const SettingsScreen = () => {
   };
 
   const isActive = subscription &&
-    (subscription.status === 'ACTIVE' || subscription.status === 'PENDING' || subscription.status === 'TRIAL') &&
+    (subscription.status === 'ACTIVE' ||
+      subscription.status === 'PENDING' ||
+      subscription.status === 'TRIAL' ||
+      subscription.status === 'CANCELLED') &&
     subscription.currentPeriodEnd &&
     new Date(subscription.currentPeriodEnd) > new Date();
 
@@ -108,7 +114,7 @@ const SettingsScreen = () => {
           activeOpacity={0.9}
           style={styles.row}
           onPress={() =>
-            handleOpenURL('https://www.bombaycanvas.com/privacy-policy')
+            handleOpenURL('https://canvasott.com/privacy-policy')
           }
         >
           <Text style={styles.rowLabel}>Privacy Policy</Text>
@@ -117,7 +123,7 @@ const SettingsScreen = () => {
           activeOpacity={0.9}
           style={styles.row}
           onPress={() =>
-            handleOpenURL('https://www.bombaycanvas.com/terms-and-condition')
+            handleOpenURL('https://canvasott.com/terms-and-condition')
           }
         >
           <Text style={styles.rowLabel}>Terms of Service</Text>
@@ -169,9 +175,8 @@ const SettingsScreen = () => {
           </View>
 
           <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Duration</Text>
+            <Text style={styles.cardLabel}>Access Until</Text>
             <Text style={styles.cardValue}>
-              {subscription.currentPeriodStart ? `${formatDate(subscription.currentPeriodStart)} - ` : ''}
               {formatDate(subscription.currentPeriodEnd)}
             </Text>
           </View>
@@ -194,9 +199,42 @@ const SettingsScreen = () => {
             </TouchableOpacity>
           ) : (
             <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Your subscription is cancelled</Text>
+              <Text style={[styles.cardLabel, { color: '#ff7f24', fontSize: 14 }]}>Your subscription is cancelled. Access continues until {formatDate(subscription?.currentPeriodEnd)}.</Text>
             </View>
           )}
+
+        </View>
+      )}
+
+      {charges && charges.length > 0 && (
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <Receipt size={16} color="#ff6a00" style={styles.historyIcon} />
+            <Text style={styles.historyTitle}>Billing History</Text>
+          </View>
+
+          {charges.map((charge) => (
+            <View key={charge.id} style={styles.historyRow}>
+              <Text style={styles.historyDate}>
+                {formatDate(charge.chargedAt || charge.periodStart)}
+              </Text>
+              <View style={styles.historyRight}>
+                <Text style={styles.historyAmount}>
+                  ₹{charge.amount / 100}
+                </Text>
+                <View style={[
+                  styles.statusBadge,
+                  charge.status.toLowerCase() === 'captured' || charge.status.toLowerCase() === 'paid'
+                    ? styles.statusSuccess
+                    : styles.statusPending
+                ]}>
+                  <Text style={styles.statusText}>
+                    {charge.status.charAt(0).toUpperCase() + charge.status.slice(1).toLowerCase()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
       )}
 
@@ -207,31 +245,54 @@ const SettingsScreen = () => {
         onRequestClose={() => setIsCancelSubModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Cancel Subscription</Text>
-            <Text style={styles.modalText}>
-              Are you sure you want to cancel your Premium subscription? You will continue to have access to all premium content until {formatDate(subscription?.currentPeriodEnd)}.
+          <View style={styles.cancelModalContainer}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.modalCloseButton}
+              onPress={() => setIsCancelSubModal(false)}
+            >
+              <X size={18} color="#fff" />
+            </TouchableOpacity>
+
+            <Text style={styles.cancelModalTitle}>Cancel subscription?</Text>
+
+            <Text style={styles.cancelModalText}>
+              You'll keep full access until{' '}
+              <Text style={styles.cancelModalDateHighlight}>
+                {formatDate(subscription?.currentPeriodEnd)}
+              </Text>
+              . After that your subscription ends and paid content locks.
             </Text>
 
-            <View style={styles.modalButtons}>
+            <Text style={styles.cancelModalSubText}>
+              Payments already made (including the ₹1 activation fee) are non-refundable.{' '}
+              <Text
+                style={styles.cancelModalLink}
+                onPress={() => handleOpenURL('https://canvasott.com/refund-policy')}
+              >
+                Refund Policy
+              </Text>
+            </Text>
+
+            <View style={styles.cancelModalButtons}>
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[styles.cancelModalButton, styles.keepSubButton]}
                 onPress={() => setIsCancelSubModal(false)}
               >
-                <Text style={styles.cancelText}>Keep Subscription</Text>
+                <Text style={styles.keepSubText}>Keep subscription</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.modalButton, styles.deleteButton]}
+                style={[styles.cancelModalButton, styles.cancelAnywayButton]}
                 onPress={handleConfirmCancelSubscription}
                 disabled={isCancelPending}
               >
                 {isCancelPending ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.deleteText}>Cancel Plan</Text>
+                  <Text style={styles.cancelAnywayText}>Cancel anyway</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -380,7 +441,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   cardLabel: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontFamily: 'HelveticaNowDisplay-Bold',
     fontSize: 15,
     color: 'rgba(255, 255, 255, 0.8)',
   },
@@ -470,6 +531,142 @@ const styles = StyleSheet.create({
   deleteText: {
     color: '#fff',
     fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  cancelModalContainer: {
+    width: '85%',
+    backgroundColor: '#121212',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    padding: 4,
+  },
+  cancelModalTitle: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 20,
+    color: '#fff',
+    marginBottom: 16,
+    textAlign: 'left',
+    width: '100%',
+  },
+  cancelModalText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 22,
+    marginBottom: 16,
+    textAlign: 'left',
+    width: '100%',
+  },
+  cancelModalDateHighlight: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    color: '#ffa05c',
+  },
+  cancelModalSubText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    lineHeight: 18,
+    marginBottom: 24,
+    textAlign: 'left',
+    width: '100%',
+  },
+  cancelModalLink: {
+    color: '#ffa05c',
+    textDecorationLine: 'underline',
+  },
+  cancelModalButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  cancelModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepSubButton: {
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  cancelAnywayButton: {
+    backgroundColor: '#e54848',
+  },
+  keepSubText: {
+    color: '#fff',
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+  },
+  cancelAnywayText: {
+    color: '#fff',
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+  },
+  historySection: {
+    marginHorizontal: 20,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  historyIcon: {
+    marginRight: 6,
+  },
+  historyTitle: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 16,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  historyDate: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  historyRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyAmount: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 15,
+    color: '#fff',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusSuccess: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  statusPending: {
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+  },
+  statusText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

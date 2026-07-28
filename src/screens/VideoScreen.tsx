@@ -315,42 +315,52 @@ const VideoListItem = React.memo(
             ]}
             pointerEvents={locked || isPaidEpisode || controlsVisible ? 'auto' : 'none'}
           >
-            {showLikes && (
+            {showLikes ? (
+              <>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.rightActionBtn}
+                  onPress={handleLikePress}
+                >
+                  <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                    <Heart
+                      size={Platform.OS === 'ios' ? 32 : 35}
+                      color={liked ? '#ff4d6d' : '#ffffff'}
+                      fill={liked ? '#ff4d6d' : 'none'}
+                    />
+                  </Animated.View>
+                  <Text style={[styles.actionText, liked && styles.likedText]} numberOfLines={1}>
+                    {!showLikeCount || likeCount === 0 ? 'Likes' : formatLikes(likeCount)}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.rightActionBtn}
+                  onPress={onEpisodesPress}
+                >
+                  <EpisodesIcon size={Platform.OS === 'ios' ? 35 : 40} />
+                  <Text style={styles.actionText} numberOfLines={1}>Episodes</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.rightActionBtn}
+                  onPress={handleSharePress}
+                >
+                  <ShareIcon />
+                  <Text style={styles.actionText} numberOfLines={1}>Share</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
               <TouchableOpacity
                 activeOpacity={0.8}
-                style={styles.rightActionBtn}
-                onPress={handleLikePress}
+                style={styles.episodesPillBtn}
+                onPress={onEpisodesPress}
               >
-                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                  <Heart
-                    size={Platform.OS === 'ios' ? 32 : 35}
-                    color={liked ? '#ff4d6d' : '#ffffff'}
-                    fill={liked ? '#ff4d6d' : 'none'}
-                  />
-                </Animated.View>
-                <Text style={[styles.actionText, liked && styles.likedText]} numberOfLines={1}>
-                  {!showLikeCount || likeCount === 0 ? 'Likes' : formatLikes(likeCount)}
-                </Text>
+                <Text style={styles.episodesPillBtnText}>Episodes</Text>
               </TouchableOpacity>
             )}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.rightActionBtn}
-              onPress={onEpisodesPress}
-            >
-              <EpisodesIcon size={Platform.OS === 'ios' ? 35 : 40} />
-              <Text style={styles.actionText} numberOfLines={1}>Episodes</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.rightActionBtn}
-              onPress={handleSharePress}
-            >
-              <ShareIcon />
-              <Text style={styles.actionText} numberOfLines={1}>Share</Text>
-            </TouchableOpacity>
           </Animated.View>
         </View>
         <ConfirmationModal
@@ -717,4 +727,17 @@ const styles = StyleSheet.create({
   },
   title: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   description: { color: 'white', fontSize: 14 },
+  episodesPillBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  episodesPillBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });

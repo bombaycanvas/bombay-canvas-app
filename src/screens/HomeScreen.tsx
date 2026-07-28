@@ -36,7 +36,10 @@ export default function HomeScreen() {
     }, [refetch])
   );
   const isActive = subscription &&
-    (subscription.status === 'ACTIVE' || subscription.status === 'PENDING' || subscription.status === 'TRIAL') &&
+    (subscription.status === 'ACTIVE' ||
+      subscription.status === 'PENDING' ||
+      subscription.status === 'TRIAL' ||
+      subscription.status === 'CANCELLED') &&
     subscription.currentPeriodEnd &&
     new Date(subscription.currentPeriodEnd) > new Date();
 

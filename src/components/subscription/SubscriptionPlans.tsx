@@ -146,10 +146,10 @@ export default function SubscriptionPlans({
             style={[
               styles.planButton,
               selectedPlan === 'monthly' ? styles.planButtonActive : styles.planButtonInactive,
-              hasAnyActive && styles.planButtonDisabled,
+              isMonthlyActive && styles.planButtonDisabled,
             ]}
             onPress={() => handlePurchase('monthly')}
-            disabled={loading || hasAnyActive || selectedPlan !== 'monthly'}
+            disabled={loading || isMonthlyActive || selectedPlan !== 'monthly'}
           >
             {loading && selectedPlan === 'monthly' ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -158,7 +158,7 @@ export default function SubscriptionPlans({
                 style={[
                   styles.planButtonText,
                   selectedPlan === 'monthly' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  hasAnyActive && styles.planButtonTextDisabled,
+                  isMonthlyActive && styles.planButtonTextDisabled,
                 ]}
               >
                 {isMonthlyActive ? 'Active' : 'Continue Monthly'}
@@ -208,10 +208,10 @@ export default function SubscriptionPlans({
             style={[
               styles.planButton,
               selectedPlan === 'annual' ? styles.planButtonActive : styles.planButtonInactive,
-              hasAnyActive && styles.planButtonDisabled,
+              isAnnualActive && styles.planButtonDisabled,
             ]}
             onPress={() => handlePurchase('annual')}
-            disabled={loading || hasAnyActive || selectedPlan !== 'annual'}
+            disabled={loading || isAnnualActive || selectedPlan !== 'annual'}
           >
             {loading && selectedPlan === 'annual' ? (
               <ActivityIndicator size="small" color="#000" />
@@ -220,7 +220,7 @@ export default function SubscriptionPlans({
                 style={[
                   styles.planButtonText,
                   selectedPlan === 'annual' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  hasAnyActive && styles.planButtonTextDisabled,
+                  isAnnualActive && styles.planButtonTextDisabled,
                 ]}
               >
                 {isAnnualActive ? 'Active' : 'Join Canvas'}

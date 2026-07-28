@@ -205,38 +205,51 @@ const SeriesDetailScreen: React.FC = () => {
                         />
                       )}
 
-                      {showReviews && (() => {
-                        const handleRatePress = () => {
-                          if (myReview) {
-                            navigation.navigate('Reviews', {
-                              seriesId: id,
-                              seriesTitle: series.title,
-                              posterUrl: series.posterUrl || posterUrl,
-                              hasViewed: series?.episodes?.some(
-                                (ep: any) => ep.completed || (ep.progress !== undefined && ep.progress > 0)
-                              ) || false,
-                            });
-                          } else {
-                            handleCommentPress();
-                          }
-                        };
-
-                        return (
+                      {showReviews && (
+                        <>
                           <TouchableOpacity
                             activeOpacity={0.8}
                             style={styles.rateButtonWithBg}
-                            onPress={handleRatePress}
+                            onPress={() => {
+                              navigation.navigate('Reviews', {
+                                seriesId: id,
+                                seriesTitle: series.title,
+                                posterUrl: series.posterUrl || posterUrl,
+                                hasViewed:
+                                  series?.episodes?.some(
+                                    (ep: any) =>
+                                      ep.completed ||
+                                      (ep.progress !== undefined && ep.progress > 0)
+                                  ) || false,
+                              });
+                            }}
                           >
-                            <Star size={14} color="#f5b301" fill="#f5b301" style={averageRating > 0 ? styles.starIconWithRating : styles.starIconWithoutRating} />
-                            {averageRating > 0 && (
-                              <Text style={styles.rateRatingText}>
-                                ({averageRating.toFixed(1)})
-                              </Text>
-                            )}
-                            <Text style={styles.rateButtonWithBgText}>Comments</Text>
+                            <Star
+                              size={14}
+                              color="#f5b301"
+                              fill="#f5b301"
+                              style={
+                                averageRating > 0
+                                  ? styles.starIconWithRating
+                                  : styles.starIconWithoutRating
+                              }
+                            />
+                            <Text style={styles.rateRatingText}>
+                              ({averageRating > 0 ? averageRating.toFixed(1) : '0.0'})
+                            </Text>
                           </TouchableOpacity>
-                        );
-                      })()}
+
+                          {!myReview && (
+                            <TouchableOpacity
+                              activeOpacity={0.8}
+                              style={styles.rateButtonWithBg}
+                              onPress={handleCommentPress}
+                            >
+                              <Text style={styles.rateButtonWithBgText}>Comment</Text>
+                            </TouchableOpacity>
+                          )}
+                        </>
+                      )}
                     </View>
 
                     {series.description && (
@@ -462,7 +475,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 10,
   },
   rateButtonWithBg: {
     flexDirection: 'row',
@@ -484,10 +497,9 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
     color: '#ff6a00',
     fontSize: 14,
-    marginRight: 6,
   },
   starIconWithRating: {
-    marginRight: 3,
+    marginRight: 4,
   },
   starIconWithoutRating: {
     marginRight: 4,

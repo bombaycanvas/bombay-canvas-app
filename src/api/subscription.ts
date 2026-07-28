@@ -28,6 +28,18 @@ export interface Subscription {
   updatedAt: string;
 }
 
+export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
+  if (!sub) return false;
+  const grace =
+    sub.status === 'ACTIVE' ||
+    sub.status === 'PENDING' ||
+    sub.status === 'TRIAL' ||
+    sub.status === 'CANCELLED';
+  const future =
+    !!sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) > new Date();
+  return grace && future;
+};
+
 export interface SubscriptionPlansResponse {
   plans: Plan[];
   trialEligible: boolean;
@@ -120,10 +132,11 @@ export const useSubscriptionPlans = () => {
 };
 
 export const useMySubscription = () => {
+  const user = useAuthStore(state => state.user);
   return useQuery({
-    queryKey: ['mySubscription'],
+    queryKey: ['mySubscription', user?.id || 'anonymous'],
     queryFn: getMySubscription,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
   });
 };
 
@@ -166,5 +179,58 @@ export const useCancelSubscription = () => {
         text2: typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
       });
     },
+  });
+};
+
+export interface SubscriptionCharge {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  chargedAt: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+export const getSubscriptionHistory = async (page = 1, limit = 20): Promise<SubscriptionCharge[]> => {
+  try {
+    console.log('[History API] Requesting page:', page, 'limit:', limit);
+    const response = await api(`/api/monetize/subscription/history?page=${page}&limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    console.log('[History API] Response keys:', Object.keys(response || {}));
+    console.log('[History API] Response data keys:', Object.keys(response?.data || {}));
+
+    const subscriptions = response?.data?.subscriptions ?? [];
+    console.log('[History API] Subscriptions found:', subscriptions.length);
+    const charges: SubscriptionCharge[] = [];
+
+    subscriptions.forEach((sub: any, index: number) => {
+      console.log(`[History API] Sub ${index} has charges:`, sub.charges ? sub.charges.length : 'none');
+      if (sub.charges && Array.isArray(sub.charges)) {
+        charges.push(...sub.charges);
+      }
+    });
+
+    charges.sort((a, b) => {
+      const dateA = new Date(a.chargedAt || a.periodStart || 0).getTime();
+      const dateB = new Date(b.chargedAt || b.periodStart || 0).getTime();
+      return dateB - dateA;
+    });
+
+    console.log('[History API] Total parsed charges:', charges.length);
+    return charges;
+  } catch (error) {
+    console.error('Get Subscription History Error:', error);
+    return [];
+  }
+};
+
+export const useSubscriptionHistory = (page = 1, limit = 20) => {
+  return useQuery({
+    queryKey: ['subscriptionHistory', page, limit],
+    queryFn: () => getSubscriptionHistory(page, limit),
+    staleTime: 0,
   });
 };
