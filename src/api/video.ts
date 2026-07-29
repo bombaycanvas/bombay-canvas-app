@@ -504,20 +504,16 @@ export const useApplyCoupon = () => {
 export const trackEpisodeView = async (
   {
     episodeId,
-    guestId,
   }: {
     episodeId: string;
-    guestId?: string | null;
   } = {} as any,
 ) => {
   try {
-    console.log('Tracking Episode View:', { episodeId, guestId });
-    const response = await api(`/api/dashboard/track-view`, {
+    const response = await api(`/api/track-views`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         episodeId,
-        guestId,
       }),
     });
 

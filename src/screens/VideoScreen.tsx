@@ -418,6 +418,7 @@ const VideoScreen = () => {
   );
 
   const { mutate: trackView } = useTrackEpisodeView();
+  const trackedEpisodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (seriesFromData) {
@@ -429,18 +430,14 @@ const VideoScreen = () => {
   }, [seriesFromData, setSeries, setEpisodes]);
 
   useEffect(() => {
-    if (currentEpisodeId) {
-      console.log(
-        'VideoScreen: Triggering trackView for episode:',
-        currentEpisodeId,
-      );
-      const payload: any = { episodeId: currentEpisodeId };
-      if (!globalAuth) {
-        payload.guestId = `guest-${Date.now()}`;
-      }
-      trackView(payload);
-    }
-  }, [currentEpisodeId, trackView, globalAuth]);
+    if (!currentEpisodeId) return;
+    if (trackedEpisodeRef.current === currentEpisodeId) return;
+    const episode = episodes?.find(ep => ep.id === currentEpisodeId);
+    if (episode && !episode.isPublic && !isAuthenticated) return;
+
+    trackedEpisodeRef.current = currentEpisodeId;
+    trackView({ episodeId: currentEpisodeId });
+  }, [currentEpisodeId, episodes, isAuthenticated, trackView]);
 
   const lastProcessedRoute = useRef<{ id: string; episodeId?: string } | null>(null);
 
