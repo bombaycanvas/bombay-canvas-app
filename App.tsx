@@ -8,6 +8,7 @@ import './src/config/reactQueryPersist';
 import { IOS_CLIENT_ID, WEB_CLIENT_ID } from '@env';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { initMetaSdk } from './src/utils/analytics';
 
 export default function App() {
   useEffect(() => {
@@ -15,6 +16,11 @@ export default function App() {
       webClientId: WEB_CLIENT_ID,
       iosClientId: IOS_CLIENT_ID,
     });
+
+    initMetaSdk().catch(err =>
+      // Tracking must never break the app.
+      console.warn('[analytics] Meta SDK init failed', err),
+    );
   }, []);
 
   return (

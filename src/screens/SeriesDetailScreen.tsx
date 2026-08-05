@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { CastingControls } from '../components/seriesDetail/CastingControls';
 import { CreatorRow } from '../components/seriesDetail/CreatorRow';
 import { SeriesFooter } from '../components/seriesDetail/SeriesFooter';
 import { useSeriesDetail } from '../hooks/useSeriesDetail';
+import { track } from '../utils/analytics';
 import { useFlag } from '../api/settings';
 
 const { height } = Dimensions.get('window');
@@ -76,6 +77,10 @@ const SeriesDetailScreen: React.FC = () => {
     pause,
   } = useSeriesDetail();
 
+  useEffect(() => {
+    if (series?.id) track('ViewContent');
+  }, [series?.id]);
+
   const averageRating = (() => {
     if (series?.averageRating !== undefined && series?.averageRating !== null) {
       return Number(series.averageRating);
@@ -83,16 +88,24 @@ const SeriesDetailScreen: React.FC = () => {
     if (series?.avgRating !== undefined && series?.avgRating !== null) {
       return Number(series.avgRating);
     }
-    if (reviewsData?.averageRating !== undefined && reviewsData?.averageRating !== null) {
+    if (
+      reviewsData?.averageRating !== undefined &&
+      reviewsData?.averageRating !== null
+    ) {
       return Number(reviewsData.averageRating);
     }
-    if (reviewsData?.avgRating !== undefined && reviewsData?.avgRating !== null) {
+    if (
+      reviewsData?.avgRating !== undefined &&
+      reviewsData?.avgRating !== null
+    ) {
       return Number(reviewsData.avgRating);
     }
     const reviews = reviewsData?.reviews || [];
     const totalReviews = reviews.length + (myReview ? 1 : 0);
     if (totalReviews === 0) return 0;
-    const sum = reviews.reduce((acc: number, r: any) => acc + (r.rating || 0), 0) + (myReview?.rating || 0);
+    const sum =
+      reviews.reduce((acc: number, r: any) => acc + (r.rating || 0), 0) +
+      (myReview?.rating || 0);
     return sum / totalReviews;
   })();
 
@@ -126,10 +139,7 @@ const SeriesDetailScreen: React.FC = () => {
         setIsReady={setIsReady}
       />
 
-      <BackButton
-        onPress={handleBack}
-        top={insets.top + 10}
-      />
+      <BackButton onPress={handleBack} top={insets.top + 10} />
 
       <View style={styles.contentContainer}>
         {series && (
@@ -219,7 +229,8 @@ const SeriesDetailScreen: React.FC = () => {
                                   series?.episodes?.some(
                                     (ep: any) =>
                                       ep.completed ||
-                                      (ep.progress !== undefined && ep.progress > 0)
+                                      (ep.progress !== undefined &&
+                                        ep.progress > 0),
                                   ) || false,
                               });
                             }}
@@ -235,7 +246,11 @@ const SeriesDetailScreen: React.FC = () => {
                               }
                             />
                             <Text style={styles.rateRatingText}>
-                              ({averageRating > 0 ? averageRating.toFixed(1) : '0.0'})
+                              (
+                              {averageRating > 0
+                                ? averageRating.toFixed(1)
+                                : '0.0'}
+                              )
                             </Text>
                           </TouchableOpacity>
 
@@ -245,7 +260,9 @@ const SeriesDetailScreen: React.FC = () => {
                               style={styles.rateButtonWithBg}
                               onPress={handleCommentPress}
                             >
-                              <Text style={styles.rateButtonWithBgText}>Comment</Text>
+                              <Text style={styles.rateButtonWithBgText}>
+                                Comment
+                              </Text>
                             </TouchableOpacity>
                           )}
                         </>

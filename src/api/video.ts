@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, getApiUrl } from '../utils/api';
+import { api, getApiUrl, CLIENT_PLATFORM } from '../utils/api';
+import { getAppDataHeader } from '../utils/analytics/appData';
 import { Movie, Category, CoverVideo } from '../types/movie';
 import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,7 +13,9 @@ export const imgUrl = (
   format: string = 'auto',
 ): string => {
   if (!path) return '';
-  return getApiUrl(`/api/img?path=${encodeURIComponent(path)}&w=${width}&f=${format}`);
+  return getApiUrl(
+    `/api/img?path=${encodeURIComponent(path)}&w=${width}&f=${format}`,
+  );
 };
 
 export const getMovies = async (): Promise<{ series: Movie[] }> => {
@@ -320,6 +323,10 @@ export const verifyRazorpayOrder = async (payload: any) => {
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + token,
+      'X-Client-Platform': CLIENT_PLATFORM,
+      ...(getAppDataHeader()
+        ? { 'X-Client-App-Data': getAppDataHeader() as string }
+        : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -589,4 +596,3 @@ export const useContinueWatching = () => {
     retry: false,
   });
 };
-

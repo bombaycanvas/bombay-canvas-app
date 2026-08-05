@@ -16,6 +16,7 @@ import {
   useSubscriptionPlans,
   isSubscriptionActive,
 } from '../api/subscription';
+import { track } from '../utils/analytics';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
@@ -31,7 +32,9 @@ export default function SubscriptionScreen() {
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
 
-  const [selectedPlan, setSelectedPlan] = useState<'trial' | 'monthly' | 'annual'>('annual');
+  const [selectedPlan, setSelectedPlan] = useState<
+    'trial' | 'monthly' | 'annual'
+  >('annual');
   const [loading, setLoading] = useState(false);
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
@@ -42,8 +45,9 @@ export default function SubscriptionScreen() {
     }
   }, [subscriptionPlans]);
   const { data: mySubscription } = useMySubscription();
-  const activePlan = isSubscriptionActive(mySubscription) ? mySubscription!.planCode : null;
-
+  const activePlan = isSubscriptionActive(mySubscription)
+    ? mySubscription!.planCode
+    : null;
 
   const createSubMutation = useCreateSubscription();
   const verifySubMutation = useVerifySubscription();
@@ -52,7 +56,7 @@ export default function SubscriptionScreen() {
   const displayUpcoming = upcomingData?.upcomingSeries || [];
 
   const fromGeneral = route.params?.fromGeneral ?? false;
-  const series = fromGeneral ? null : (route.params?.series || purchaseSeries);
+  const series = fromGeneral ? null : route.params?.series || purchaseSeries;
 
   const close = () => {
     resetPurchaseState();
@@ -66,7 +70,27 @@ export default function SubscriptionScreen() {
   };
 
   const handlePurchase = async (plan: 'trial' | 'monthly' | 'annual') => {
-    const planCode = plan === 'trial' ? 'TRIAL' : (plan === 'annual' ? 'ANNUAL' : 'MONTHLY');
+    const planCode =
+      plan === 'trial' ? 'TRIAL' : plan === 'annual' ? 'ANNUAL' : 'MONTHLY';
+
+    // Plan.price is in paise; Meta expects the major currency unit. Same
+    // fallbacks SubscriptionPlans.tsx uses when the plans call hasn't landed.
+    const planDetails = subscriptionPlans?.plans?.find(
+      p => p.code === planCode,
+    );
+    const planValue =
+      planCode === 'TRIAL'
+        ? undefined
+        : planDetails
+        ? planDetails.price / 100
+        : planCode === 'ANNUAL'
+        ? 499
+        : 99;
+
+    // They opened checkout. No dedup key — the backend never reports this one,
+    // so there's nothing to merge with.
+    track('InitiateCheckout', { value: planValue, currency: 'INR' });
+
     setLoading(true);
     try {
       const createRes = await createSubMutation.mutateAsync(planCode);
@@ -84,7 +108,13 @@ export default function SubscriptionScreen() {
         key: razorpayKeyId || 'rzp_test_123',
         subscription_id: razorpaySubscriptionId,
         name: 'Bombay Canvas',
-        description: `${planCode === 'TRIAL' ? '3-Day Trial' : (planCode === 'ANNUAL' ? 'Annual' : 'Monthly')} Premium Subscription`,
+        description: `${
+          planCode === 'TRIAL'
+            ? '3-Day Trial'
+            : planCode === 'ANNUAL'
+            ? 'Annual'
+            : 'Monthly'
+        } Premium Subscription`,
         prefill: {
           contact: mobile,
           email: user?.email,
@@ -102,13 +132,31 @@ export default function SubscriptionScreen() {
           });
       });
 
-      console.log('Razorpay checkout completed successfully, verifying signature...');
+      console.log(
+        'Razorpay checkout completed successfully, verifying signature...',
+      );
 
       await verifySubMutation.mutateAsync({
         razorpay_payment_id: paymentData.razorpay_payment_id,
         razorpay_subscription_id: paymentData.razorpay_subscription_id,
         razorpay_signature: paymentData.razorpay_signature,
       });
+
+      // Money changed hands. Fire immediately — do NOT wait for the /me poll
+      // below, because the user can background the app at any point during it.
+      if (planCode === 'TRIAL') {
+        // No value. The trial charges ₹1 to authorise the mandate, and reporting
+        // ₹1 would make Meta optimise for ₹1 conversions when the real plan is
+        // ₹499 — off by about 500x. The real price goes in predicted_ltv, which
+        // the backend sends.
+        track('StartTrial', undefined, razorpaySubscriptionId);
+      } else {
+        track(
+          'Subscribe',
+          { value: planValue, currency: 'INR' },
+          paymentData.razorpay_payment_id,
+        );
+      }
 
       console.log('Signature verified. Polling GET /me...');
       let isActivated = false;
@@ -118,9 +166,14 @@ export default function SubscriptionScreen() {
 
       while (attempts < maxAttempts) {
         attempts++;
-        console.log(`Polling subscription status: attempt ${attempts}/${maxAttempts}`);
+        console.log(
+          `Polling subscription status: attempt ${attempts}/${maxAttempts}`,
+        );
         const subData = await getMySubscription();
-        if (subData && (subData.status === 'ACTIVE' || subData.status === 'TRIAL')) {
+        if (
+          subData &&
+          (subData.status === 'ACTIVE' || subData.status === 'TRIAL')
+        ) {
           isActivated = true;
           break;
         }
@@ -133,7 +186,13 @@ export default function SubscriptionScreen() {
         Toast.show({
           type: 'success',
           text1: 'Subscription Active!',
-          text2: `Welcome to Canvas Premium (${plan === 'trial' ? '3-Day Trial' : (plan === 'annual' ? 'Annual' : 'Monthly')} Plan).`,
+          text2: `Welcome to Canvas Premium (${
+            plan === 'trial'
+              ? '3-Day Trial'
+              : plan === 'annual'
+              ? 'Annual'
+              : 'Monthly'
+          } Plan).`,
         });
 
         if (series) {
@@ -159,7 +218,8 @@ export default function SubscriptionScreen() {
         Toast.show({
           type: 'info',
           text1: 'Activation Pending',
-          text2: 'Your payment was successful. We are activating your subscription. Please refresh shortly.',
+          text2:
+            'Your payment was successful. We are activating your subscription. Please refresh shortly.',
           visibilityTime: 6000,
         });
 
@@ -185,7 +245,8 @@ export default function SubscriptionScreen() {
       Toast.show({
         type: 'error',
         text1: 'Subscription Failed',
-        text2: typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
+        text2:
+          typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
       });
     }
   };
@@ -195,7 +256,10 @@ export default function SubscriptionScreen() {
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
       >
         <SubscriptionHero
           series={series}

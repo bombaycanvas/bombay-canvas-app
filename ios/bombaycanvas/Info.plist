@@ -34,6 +34,33 @@
 				<string>bombaycanvas</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb2541768999594895</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Meta app: "Canvas OTT". Events land in dataset canvasott (2057047929031192).
+	     If the App ID changes, the fb<APP_ID> URL scheme above must change with it. -->
+	<key>FacebookAppID</key>
+	<string>2541768999594895</string>
+	<key>FacebookClientToken</key>
+	<string>776cff59e265137cfdb3ecee10a353e2</string>
+	<key>FacebookDisplayName</key>
+	<string>Canvas OTT</string>
+	<!-- Meta's SKAdNetwork identifiers. Meta publishes these two; adding another ad
+	     network later means appending its IDs here, not replacing these. -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -89,6 +116,8 @@
 	<string>This app uses the microphone to discover Cast-enabled devices nearby.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app requires access to your photo library to upload images.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>We use this to understand which ads bring people to Canvas OTT, so we can show you more relevant ones.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
