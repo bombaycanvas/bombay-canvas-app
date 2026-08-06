@@ -3,8 +3,6 @@
     <string name="default_web_client_id">
 1018893063821-etqnnkfq7f3jga4jluo3e6v75lq8mmlr.apps.googleusercontent.com
 </string>
-    <!-- Meta app "Canvas OTT". The client token is designed to ship inside the
-         binary and is not a secret; the app secret must never appear here. -->
     <string name="facebook_app_id">2541768999594895</string>
     <string name="facebook_client_token">776cff59e265137cfdb3ecee10a353e2</string>
 </resources>

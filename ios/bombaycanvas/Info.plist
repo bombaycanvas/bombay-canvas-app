@@ -41,16 +41,12 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Meta app: "Canvas OTT". Events land in dataset canvasott (2057047929031192).
-	     If the App ID changes, the fb<APP_ID> URL scheme above must change with it. -->
 	<key>FacebookAppID</key>
 	<string>2541768999594895</string>
 	<key>FacebookClientToken</key>
 	<string>776cff59e265137cfdb3ecee10a353e2</string>
 	<key>FacebookDisplayName</key>
 	<string>Canvas OTT</string>
-	<!-- Meta's SKAdNetwork identifiers. Meta publishes these two; adding another ad
-	     network later means appending its IDs here, not replacing these. -->
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
