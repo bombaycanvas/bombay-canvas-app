@@ -18,7 +18,6 @@ export default function App() {
     });
 
     initMetaSdk().catch(err =>
-      // Tracking must never break the app.
       console.warn('[analytics] Meta SDK init failed', err),
     );
   }, []);

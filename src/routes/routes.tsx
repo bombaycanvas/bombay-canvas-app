@@ -1,6 +1,7 @@
-import { NavigationContainer } from '@react-navigation/native';
-import React, { useEffect } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import React, { useEffect, useRef } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
+import { track } from '../utils/analytics';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -220,13 +221,35 @@ const linking = {
 
 export default function AppNavigator() {
   const { initializeAuth } = useAuthStore();
+  const navigationRef = useNavigationContainerRef();
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => {
+        routeNameRef.current = navigationRef.getCurrentRoute()?.name;
+        if (routeNameRef.current) {
+          track('PageView', { screen: routeNameRef.current });
+        }
+      }}
+      onStateChange={() => {
+        const previousRouteName = routeNameRef.current;
+        const currentRouteName = navigationRef.getCurrentRoute()?.name;
+
+        if (previousRouteName !== currentRouteName) {
+          if (currentRouteName) {
+            track('PageView', { screen: currentRouteName });
+          }
+        }
+        routeNameRef.current = currentRouteName;
+      }}
+      linking={linking}
+    >
       <AppStack />
       <LockedOverlay />
       <SubscribePopup />

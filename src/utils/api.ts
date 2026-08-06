@@ -4,16 +4,6 @@ import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
 import { getAppDataHeader } from './analytics/appData';
 
-/**
- * Tells the backend which client this request came from. It gets frozen onto
- * Subscription/Purchase rows at create time as `originPlatform`, because the
- * Razorpay webhook that activates the row later has no request context and
- * can't read a header.
- *
- * The backend accepts exactly "web" | "ios" | "android" and treats anything
- * else as unknown (see requestOrigin.ts). Platform.OS is "ios" | "android" on
- * every build we ship, so the mapping is direct.
- */
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
 
 export const getToken = async (key: string): Promise<string | null> => {
@@ -39,9 +29,8 @@ export const getApiUrl = (endpoint: string): string => {
     apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
   }
   const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-  return `${cleanBaseUrl}${
-    endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  }`;
+  return `${cleanBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    }`;
 };
 
 export const api = async (endpoint: string, config: any = {}) => {
@@ -52,9 +41,6 @@ export const api = async (endpoint: string, config: any = {}) => {
   const isFormData =
     body && typeof body === 'object' && typeof body.append === 'function';
 
-  // Device snapshot Meta requires on app conversions. Null until initMetaSdk()
-  // has run — the backend treats an absent snapshot as "unknown device" and
-  // suppresses the conversion rather than reporting it in a shape Meta rejects.
   const appDataHeader = getAppDataHeader();
 
   const requestConfig: RequestInit = {
@@ -73,8 +59,8 @@ export const api = async (endpoint: string, config: any = {}) => {
     body: isFormData
       ? body
       : typeof body === 'string'
-      ? body
-      : JSON.stringify(body),
+        ? body
+        : JSON.stringify(body),
     ...customConfig,
   };
 
