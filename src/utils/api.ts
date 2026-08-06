@@ -2,6 +2,9 @@ import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
+import { getAppDataHeader } from './analytics/appData';
+
+export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
 
 export const getToken = async (key: string): Promise<string | null> => {
   try {
@@ -26,7 +29,8 @@ export const getApiUrl = (endpoint: string): string => {
     apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
   }
   const cleanBaseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-  return `${cleanBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  return `${cleanBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    }`;
 };
 
 export const api = async (endpoint: string, config: any = {}) => {
@@ -37,6 +41,8 @@ export const api = async (endpoint: string, config: any = {}) => {
   const isFormData =
     body && typeof body === 'object' && typeof body.append === 'function';
 
+  const appDataHeader = getAppDataHeader();
+
   const requestConfig: RequestInit = {
     method: config.method ?? 'GET',
 
@@ -45,6 +51,8 @@ export const api = async (endpoint: string, config: any = {}) => {
       'Accept-Language': 'en-GB,en;q=0.9',
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       Authorization: accessToken ? `Bearer ${accessToken}` : '',
+      'X-Client-Platform': CLIENT_PLATFORM,
+      ...(appDataHeader ? { 'X-Client-App-Data': appDataHeader } : {}),
       ...headers,
     },
     credentials: 'include',
@@ -79,7 +87,10 @@ export const api = async (endpoint: string, config: any = {}) => {
       if (errorData) {
         if (typeof errorData.error === 'string') {
           message = errorData.error;
-        } else if (errorData.error && typeof errorData.error.message === 'string') {
+        } else if (
+          errorData.error &&
+          typeof errorData.error.message === 'string'
+        ) {
           message = errorData.error.message;
         } else if (typeof errorData.message === 'string') {
           message = errorData.message;
