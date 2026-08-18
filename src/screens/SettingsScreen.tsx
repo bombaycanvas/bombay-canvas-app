@@ -11,9 +11,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
-import { useMySubscription, useCancelSubscription, useSubscriptionHistory } from '../api/subscription';
+import { useMySubscription, useSubscriptionHistory } from '../api/subscription';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { CreditCard, X, Receipt } from 'lucide-react-native';
+import { CreditCard, Receipt } from 'lucide-react-native';
+import CancelSubscriptionFlow from '../components/subscription/CancelSubscriptionFlow';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<any>();
@@ -23,9 +24,7 @@ const SettingsScreen = () => {
   const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
   const { data: subscription, refetch } = useMySubscription();
   const { data: charges, refetch: refetchHistory } = useSubscriptionHistory();
-  const { mutate: cancelSub, isPending: isCancelPending } = useCancelSubscription();
-  console.log(subscription, "subscription")
-  console.log(charges, "charges in settings screen")
+
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -64,18 +63,6 @@ const SettingsScreen = () => {
           'Error',
           'Something went wrong while deleting your account.',
         );
-      },
-    });
-  };
-
-  const handleConfirmCancelSubscription = () => {
-    if (!subscription?.id) return;
-    cancelSub(subscription.id, {
-      onSuccess: () => {
-        setIsCancelSubModal(false);
-      },
-      onError: () => {
-        setIsCancelSubModal(false);
       },
     });
   };
@@ -238,67 +225,13 @@ const SettingsScreen = () => {
         </View>
       )}
 
-      <Modal
-        transparent={true}
-        visible={isCancelSubModal}
-        animationType="fade"
-        onRequestClose={() => setIsCancelSubModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.cancelModalContainer}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.modalCloseButton}
-              onPress={() => setIsCancelSubModal(false)}
-            >
-              <X size={18} color="#fff" />
-            </TouchableOpacity>
-
-            <Text style={styles.cancelModalTitle}>Cancel subscription?</Text>
-
-            <Text style={styles.cancelModalText}>
-              You'll keep full access until{' '}
-              <Text style={styles.cancelModalDateHighlight}>
-                {formatDate(subscription?.currentPeriodEnd)}
-              </Text>
-              . After that your subscription ends and paid content locks.
-            </Text>
-
-            <Text style={styles.cancelModalSubText}>
-              Payments already made (including the ₹1 activation fee) are non-refundable.{' '}
-              <Text
-                style={styles.cancelModalLink}
-                onPress={() => handleOpenURL('https://canvasott.com/refund-policy')}
-              >
-                Refund Policy
-              </Text>
-            </Text>
-
-            <View style={styles.cancelModalButtons}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.cancelModalButton, styles.keepSubButton]}
-                onPress={() => setIsCancelSubModal(false)}
-              >
-                <Text style={styles.keepSubText}>Keep subscription</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.cancelModalButton, styles.cancelAnywayButton]}
-                onPress={handleConfirmCancelSubscription}
-                disabled={isCancelPending}
-              >
-                {isCancelPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.cancelAnywayText}>Cancel anyway</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {subscription && (
+        <CancelSubscriptionFlow
+          visible={isCancelSubModal}
+          onClose={() => setIsCancelSubModal(false)}
+          subscription={subscription}
+        />
+      )}
 
       <Modal
         transparent={true}
@@ -531,86 +464,6 @@ const styles = StyleSheet.create({
   deleteText: {
     color: '#fff',
     fontFamily: 'HelveticaNowDisplay-Bold',
-  },
-  cancelModalContainer: {
-    width: '85%',
-    backgroundColor: '#121212',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    position: 'relative',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    zIndex: 10,
-    padding: 4,
-  },
-  cancelModalTitle: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 20,
-    color: '#fff',
-    marginBottom: 16,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 22,
-    marginBottom: 16,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalDateHighlight: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    color: '#ffa05c',
-  },
-  cancelModalSubText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.5)',
-    lineHeight: 18,
-    marginBottom: 24,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalLink: {
-    color: '#ffa05c',
-    textDecorationLine: 'underline',
-  },
-  cancelModalButtons: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
-  cancelModalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keepSubButton: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  cancelAnywayButton: {
-    backgroundColor: '#e54848',
-  },
-  keepSubText: {
-    color: '#fff',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
-  },
-  cancelAnywayText: {
-    color: '#fff',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
   },
   historySection: {
     marginHorizontal: 20,

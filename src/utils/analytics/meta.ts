@@ -25,7 +25,11 @@ export const initMetaSdk = async (): Promise<void> => {
 
 export const track = (
   eventName: string,
-  params?: { value?: number; currency?: string; [key: string]: any },
+  params?: {
+    value?: number;
+    currency?: string;
+    [key: string]: string | number | undefined;
+  },
   eventId?: string,
 ): void => {
   try {
@@ -34,12 +38,9 @@ export const track = (
     if (eventId) payload.event_id = eventId;
     if (params?.currency) payload.fb_currency = params.currency;
 
-    if (params) {
-      Object.keys(params).forEach(key => {
-        if (key !== 'value' && key !== 'currency') {
-          payload[key] = params[key];
-        }
-      });
+    for (const [key, value] of Object.entries(params ?? {})) {
+      if (key === 'value' || key === 'currency' || value === undefined) continue;
+      payload[key] = value;
     }
 
     if (params?.value !== undefined) {

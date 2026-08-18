@@ -15,6 +15,8 @@ import {
   useMySubscription,
   useSubscriptionPlans,
   isSubscriptionActive,
+  isStaleSubscriptionStateError,
+  invalidateEntitlementQueries,
 } from '../api/subscription';
 import { track } from '../utils/analytics';
 
@@ -201,12 +203,7 @@ export default function SubscriptionScreen() {
         if (purchaseSeries) {
           purchaseSeries.userPurchased = true;
         }
-        queryClient.invalidateQueries({ queryKey: ['mySubscription'] });
-        queryClient.invalidateQueries({ queryKey: ['userData'] });
-        queryClient.invalidateQueries({ queryKey: ['moviesData'] });
-        queryClient.invalidateQueries({ queryKey: ['listRecommendedSeries'] });
-        queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
-        queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
+        invalidateEntitlementQueries(queryClient);
         queryClient.invalidateQueries({ queryKey: ['subscriptionHistory'] });
 
         setTimeout(() => {
@@ -223,12 +220,7 @@ export default function SubscriptionScreen() {
           visibilityTime: 6000,
         });
 
-        queryClient.invalidateQueries({ queryKey: ['mySubscription'] });
-        queryClient.invalidateQueries({ queryKey: ['userData'] });
-        queryClient.invalidateQueries({ queryKey: ['moviesData'] });
-        queryClient.invalidateQueries({ queryKey: ['listRecommendedSeries'] });
-        queryClient.invalidateQueries({ queryKey: ['moviesDataById'] });
-        queryClient.invalidateQueries({ queryKey: ['playEpisode'] });
+        invalidateEntitlementQueries(queryClient);
         queryClient.invalidateQueries({ queryKey: ['subscriptionHistory'] });
 
         setTimeout(() => {
@@ -242,11 +234,29 @@ export default function SubscriptionScreen() {
       setLoading(false);
 
       const msg = error?.message || 'Please try again.';
+      const text2 =
+        typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg;
+
+      // The server refused because our view of the account is stale — the
+      // subscription already exists, or the trial was already activated by a
+      // checkout whose webhook never landed. Retrying can only fail the same
+      // way, so pull the real state and let the screen re-render rather than
+      // leaving the paywall selling a plan the user already owns.
+      if (isStaleSubscriptionStateError(error)) {
+        invalidateEntitlementQueries(queryClient);
+        Toast.show({
+          type: 'info',
+          text1: 'Check Your Subscription',
+          text2,
+          visibilityTime: 6000,
+        });
+        return;
+      }
+
       Toast.show({
         type: 'error',
         text1: 'Subscription Failed',
-        text2:
-          typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
+        text2,
       });
     }
   };
