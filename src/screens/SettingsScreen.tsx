@@ -41,7 +41,7 @@ const SettingsScreen = () => {
     useCallback(() => {
       refetch();
       refetchHistory();
-    }, [refetch, refetchHistory])
+    }, [refetch, refetchHistory]),
   );
   const handleOpenURL = async (url: string) => {
     try {
@@ -115,9 +115,7 @@ const SettingsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
-          onPress={() =>
-            handleOpenURL('https://canvasott.com/privacy-policy')
-          }
+          onPress={() => handleOpenURL('https://canvasott.com/privacy-policy')}
         >
           <Text style={styles.rowLabel}>Privacy Policy</Text>
         </TouchableOpacity>
@@ -161,10 +159,7 @@ const SettingsScreen = () => {
               subscription={subscription}
               onCancelPress={() => setIsCancelSubModal(true)}
             />
-            <BillingHistoryList
-              charges={charges}
-              loading={isHistoryLoading}
-            />
+            <BillingHistoryList charges={charges} loading={isHistoryLoading} />
           </View>
         )}
 
