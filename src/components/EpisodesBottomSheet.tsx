@@ -79,6 +79,7 @@ const EqualizerAnimation = () => {
 
 type RootRedirectVideo = {
   Video: { id: string; episodeId: string; posterUrl?: string };
+  SubscriptionScreen: { series?: any } | undefined;
 };
 
 export const EpisodesBottomSheet = ({
@@ -97,7 +98,6 @@ export const EpisodesBottomSheet = ({
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
   const {
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setCurrentEpisodeId,
     setAuthRedirect,
@@ -241,7 +241,7 @@ export const EpisodesBottomSheet = ({
                           () => {
                             requestAnimationFrame(() => {
                               setPurchaseSeries(series);
-                              setIsPurchaseModal(true);
+                              navigation.navigate('SubscriptionScreen', { series });
                             });
                           },
                           Platform.OS === 'ios' ? 600 : 500,

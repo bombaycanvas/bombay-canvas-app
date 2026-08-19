@@ -4,6 +4,7 @@ import {
     useRemoteMediaClient,
     MediaRepeatMode,
     MediaPlayerState,
+    MediaStreamType,
 } from 'react-native-google-cast';
 import { useCastStore } from '../store/castStore';
 
@@ -74,7 +75,7 @@ export const useCastManager = () => {
                     mediaInfo: {
                         contentUrl: encodeURI(url),
                         contentType,
-                        streamType: 'BUFFERED',
+                        streamType: MediaStreamType.BUFFERED,
 
                         metadata: {
                             metadataType: 2,

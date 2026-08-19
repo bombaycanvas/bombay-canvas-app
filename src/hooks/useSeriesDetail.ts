@@ -34,6 +34,7 @@ type RootRedirectVideo = {
     posterUrl?: string;
     hasViewed: boolean;
   };
+  SubscriptionScreen: { series?: any } | undefined;
 };
 
 export const useSeriesDetail = () => {
@@ -62,7 +63,6 @@ export const useSeriesDetail = () => {
   const [isReady, setIsReady] = useState(false);
   const {
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
     setSeries,
@@ -284,7 +284,6 @@ export const useSeriesDetail = () => {
     isReady,
     setIsReady,
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
     setSeries,

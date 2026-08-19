@@ -81,12 +81,12 @@ const Landing = () => {
 
         <Text style={styles.mainTitle}>
           World’s First{'\n'}
-          <Text style={styles.mainTitleBold}>Creator-Led OTT Platform</Text>
+          <Text style={styles.mainTitleBold}>Creator Led Short Form Shows</Text>
         </Text>
 
         <Text style={styles.para}>
-          For those who have commitment issues. An OTT platform for
-          Micro-Series.
+          Microdramas. Anime. Documentaries. Food. Fashion. Travel. Comedy.
+          And more - All In Short Form
         </Text>
 
         <View style={styles.ctaWrapper}>

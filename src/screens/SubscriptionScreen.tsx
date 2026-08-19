@@ -84,10 +84,10 @@ export default function SubscriptionScreen() {
       planCode === 'TRIAL'
         ? undefined
         : planDetails
-        ? planDetails.price / 100
-        : planCode === 'ANNUAL'
-        ? 499
-        : 99;
+          ? planDetails.price / 100
+          : planCode === 'ANNUAL'
+            ? 499
+            : 99;
 
     // They opened checkout. No dedup key — the backend never reports this one,
     // so there's nothing to merge with.
@@ -110,13 +110,12 @@ export default function SubscriptionScreen() {
         key: razorpayKeyId || 'rzp_test_123',
         subscription_id: razorpaySubscriptionId,
         name: 'Bombay Canvas',
-        description: `${
-          planCode === 'TRIAL'
-            ? '3-Day Trial'
-            : planCode === 'ANNUAL'
+        description: `${planCode === 'TRIAL'
+          ? '3-Day Trial'
+          : planCode === 'ANNUAL'
             ? 'Annual'
             : 'Monthly'
-        } Premium Subscription`,
+          } Premium Subscription`,
         prefill: {
           contact: mobile,
           email: user?.email,
@@ -188,13 +187,12 @@ export default function SubscriptionScreen() {
         Toast.show({
           type: 'success',
           text1: 'Subscription Active!',
-          text2: `Welcome to Canvas Premium (${
-            plan === 'trial'
-              ? '3-Day Trial'
-              : plan === 'annual'
+          text2: `Welcome to Canvas Premium (${plan === 'trial'
+            ? '3-Day Trial'
+            : plan === 'annual'
               ? 'Annual'
               : 'Monthly'
-          } Plan).`,
+            } Plan).`,
         });
 
         if (series) {
