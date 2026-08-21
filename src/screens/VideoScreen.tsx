@@ -39,6 +39,7 @@ import { useFlag } from '../api/settings';
 import EpisodesIcon from '../assets/EpisodesIcon';
 import ShareIcon from '../assets/ShareIcon';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { hasPlayableSource } from '../utils/videoSource';
 
 type RootStackParamList = {
   Creator: { id: string };
@@ -57,7 +58,9 @@ type Episode = {
   description: string;
   duration: number;
   thumbnail: string;
-  videoUrl: string;
+  videoUrl?: string | null;
+  playbackUrl?: string | null;
+  tvVideoUrl?: string | null;
   isPublic?: boolean;
   locked?: boolean;
 };
@@ -108,14 +111,18 @@ const VideoListItem = React.memo(
     const isPaidEpisode =
       !locked && item?.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
-    const hasExistingUrl = !!(item?.videoUrl && typeof item.videoUrl === 'string' && item.videoUrl.trim().length > 0);
+    // Any playable URL (HLS ladder, TV master or progressive MP4) is enough —
+    // only refetch playback when the list payload carried none of them.
+    const hasExistingUrl = hasPlayableSource(item, movie);
     const shouldFetch = !locked && !isPaidEpisode && !!videoId && !hasExistingUrl;
     const { data, isLoading: isPlaybackLoading } = usePlayVideoWithId(
       shouldFetch ? videoId : null,
     );
 
     const episodeData =
-      data?.episode && data?.episode?.videoUrl ? data?.episode : item;
+      data?.episode && hasPlayableSource(data.episode, movie)
+        ? data.episode
+        : item;
 
     const showLikes = useFlag('engagement.showLikes', true);
     const showLikeCount = useFlag('engagement.showLikeCount', false);
