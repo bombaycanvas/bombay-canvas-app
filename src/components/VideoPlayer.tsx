@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Dimensions,
@@ -20,19 +20,23 @@ import { Pressable } from 'react-native-gesture-handler';
 import { imgUrl, useSaveEpisodeProgress } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFlag } from '../api/settings';
+import { buildPlaybackSources, isHlsUrl } from '../utils/videoSource';
 
 const { width, height } = Dimensions.get('window');
 
 type VideoPlayerProps = {
   episode: {
     id: string;
-    videoUrl: string;
+    videoUrl?: string | null;
+    playbackUrl?: string | null;
+    tvVideoUrl?: string | null;
     title: string;
     description: string;
   };
   movie?: {
     id?: string | number;
     posterUrl?: string;
+    isTV?: boolean | null;
   };
   locked: boolean;
   isPaidEpisode: boolean;
@@ -137,6 +141,29 @@ export default function VideoPlayer({
   const [isBuffering, setIsBuffering] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ordered playback candidates (HLS ladder -> TV master on isTV series -> the
+  // other progressive MP4). `sourceIndex` walks the list when a source turns out
+  // to be undecodable on this device, so playback degrades instead of failing.
+  const { id: episodeId, playbackUrl, videoUrl, tvVideoUrl } = episode ?? {};
+  const isTV = movie?.isTV;
+  // Memoised on the URL fields (not the episode object) so the list is
+  // referentially stable across re-renders — otherwise the reset effect below
+  // would fire every render and undo the fallback.
+  const sources = useMemo(
+    () =>
+      buildPlaybackSources(
+        { playbackUrl, videoUrl, tvVideoUrl },
+        { isTV },
+      ),
+    [playbackUrl, videoUrl, tvVideoUrl, isTV],
+  );
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const activeSource = sources[sourceIndex];
+
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [episodeId, sources]);
 
   const lastReportedTimeRef = useRef(0);
   const { mutate: saveProgress } = useSaveEpisodeProgress();
@@ -261,6 +288,7 @@ export default function VideoPlayer({
       setIsBuffering(false);
       setIsReady(false);
       setError(null);
+      setSourceIndex(0);
       setControlsVisible(false);
     }
   }, [isVisible, setControlsVisible]);
@@ -376,11 +404,22 @@ export default function VideoPlayer({
   );
 
   const handleError = (e: any) => {
-    if (isVisible) {
-      setError('Failed to load video.');
-      setIsBuffering(false);
-      console.log('Video Error:', e);
+    if (!isVisible) return;
+    console.log('Video Error:', e, { source: activeSource });
+
+    // The device rejected this source (a codec/resolution the hardware decoder
+    // will not take surfaces as AVFoundation -11800 / -12746). Try the next
+    // candidate before surfacing an error.
+    if (sourceIndex < sources.length - 1) {
+      setSourceIndex(sourceIndex + 1);
+      setError(null);
+      setIsReady(false);
+      setIsBuffering(true);
+      return;
     }
+
+    setError('Failed to load video.');
+    setIsBuffering(false);
   };
 
   const handleVideoEnd = () => {
@@ -470,10 +509,7 @@ export default function VideoPlayer({
     }
   }, [isVisible]);
 
-  const hasValidVideoUrl =
-    episode?.videoUrl &&
-    typeof episode.videoUrl === 'string' &&
-    episode.videoUrl.trim().length > 0;
+  const hasValidVideoUrl = !!activeSource;
 
   if (!isVisible) return <View style={styles.container} />;
   return (
@@ -501,10 +537,10 @@ export default function VideoPlayer({
             {!locked && isVisible && hasValidVideoUrl ? (
               <Video
                 useTextureView={false}
-                key={`${episode.id}-${isVisible}`}
+                key={`${episode.id}-${sourceIndex}-${isVisible}`}
                 playWhenInactive={true}
                 ref={videoRef}
-                source={isVisible ? { uri: episode?.videoUrl } : undefined}
+                source={isVisible ? { uri: activeSource } : undefined}
                 style={styles.video}
                 paused={!isPlaying || !isVisible}
                 resizeMode="contain"
@@ -518,7 +554,7 @@ export default function VideoPlayer({
                 posterResizeMode="cover"
                 onEnd={handleVideoEnd}
                 bufferConfig={bufferConfig}
-                maxBitRate={2500000}
+                maxBitRate={isHlsUrl(activeSource) ? 2500000 : undefined}
                 progressUpdateInterval={250}
                 onSeek={() => {
                   setIsBuffering(false);
