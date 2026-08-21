@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useVideoStore } from '../store/videoStore';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useUpcomingSeriesData } from '../api/video';
@@ -12,6 +12,7 @@ import {
   useCreateSubscription,
   useVerifySubscription,
   getMySubscription,
+  reconcileMySubscription,
   useMySubscription,
   useSubscriptionPlans,
   isSubscriptionActive,
@@ -41,10 +42,36 @@ export default function SubscriptionScreen() {
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
 
+  // Whether the "default to the trial" preference has already been applied.
+  // The plans query now refetches on mount and on app focus, so this effect runs
+  // against a NEW object on every refresh — without this latch, a refocus would
+  // silently drag the user's manual choice back to the trial.
+  const appliedTrialDefault = useRef(false);
+
+  // Keep the selection INSIDE the offered set, in both directions.
+  //
+  // Preferring the trial is a ONE-TIME default; correcting an impossible
+  // selection is continuous. Only ever selecting 'trial' left the screen dead
+  // once the trial was consumed mid-session: the trial card unmounts, but
+  // selectedPlan stays 'trial', and every remaining CTA is disabled by its own
+  // `selectedPlan !== <its plan>` guard — a paywall with no working button. The
+  // fallback also stops a stale selection from posting planCode=TRIAL for a plan
+  // the server no longer offers.
   useEffect(() => {
-    if (subscriptionPlans?.trialEligible) {
-      setSelectedPlan('trial');
+    if (!subscriptionPlans) return;
+
+    if (subscriptionPlans.trialEligible) {
+      if (!appliedTrialDefault.current) {
+        appliedTrialDefault.current = true;
+        setSelectedPlan('trial');
+      }
+      return;
     }
+
+    // Trial no longer on offer — re-arm the default in case eligibility returns
+    // (a different account signing in), and rescue an orphaned selection.
+    appliedTrialDefault.current = false;
+    setSelectedPlan(current => (current === 'trial' ? 'annual' : current));
   }, [subscriptionPlans]);
   const { data: mySubscription } = useMySubscription();
   const activePlan = isSubscriptionActive(mySubscription)
@@ -110,12 +137,13 @@ export default function SubscriptionScreen() {
         key: razorpayKeyId || 'rzp_test_123',
         subscription_id: razorpaySubscriptionId,
         name: 'Bombay Canvas',
-        description: `${planCode === 'TRIAL'
-          ? '3-Day Trial'
-          : planCode === 'ANNUAL'
-            ? 'Annual'
-            : 'Monthly'
-          } Premium Subscription`,
+        description: `${
+          planCode === 'TRIAL'
+            ? '3-Day Trial'
+            : planCode === 'ANNUAL'
+              ? 'Annual'
+              : 'Monthly'
+        } Premium Subscription`,
         prefill: {
           contact: mobile,
           email: user?.email,
@@ -159,18 +187,37 @@ export default function SubscriptionScreen() {
         );
       }
 
-      console.log('Signature verified. Polling GET /me...');
+      // Wait for activation. GET /me is a LOCAL read — it only changes when the
+      // activation webhook lands, so polling it alone cannot make progress while
+      // that webhook is late (routine for UPI AutoPay, whose mandate registers
+      // asynchronously at NPCI). Every few ticks we therefore ask the server to
+      // reconcile against Razorpay instead, which can resolve the wait itself.
+      //
+      // Reconcile is the SLOW arm on purpose: each call is one live Razorpay
+      // fetch and the server rate-limits it (10 / 5 min / user). At every 3rd
+      // tick this spends 4 of that budget and leaves headroom for a retry.
+      console.log('Signature verified. Waiting for activation...');
       let isActivated = false;
       let attempts = 0;
       const maxAttempts = 12;
       const intervalMs = 2500;
+      const reconcileEvery = 3;
 
       while (attempts < maxAttempts) {
         attempts++;
+        const shouldReconcile = attempts % reconcileEvery === 0;
         console.log(
-          `Polling subscription status: attempt ${attempts}/${maxAttempts}`,
+          `Activation check ${attempts}/${maxAttempts}${
+            shouldReconcile ? ' (reconcile)' : ''
+          }`,
         );
-        const subData = await getMySubscription();
+
+        // Both return the same subscription shape; reconcile just forces the
+        // server to re-read Razorpay first, and falls back to null on failure.
+        const subData = shouldReconcile
+          ? ((await reconcileMySubscription()) ?? (await getMySubscription()))
+          : await getMySubscription();
+
         if (
           subData &&
           (subData.status === 'ACTIVE' || subData.status === 'TRIAL')
@@ -187,12 +234,13 @@ export default function SubscriptionScreen() {
         Toast.show({
           type: 'success',
           text1: 'Subscription Active!',
-          text2: `Welcome to Canvas Premium (${plan === 'trial'
-            ? '3-Day Trial'
-            : plan === 'annual'
-              ? 'Annual'
-              : 'Monthly'
-            } Plan).`,
+          text2: `Welcome to Canvas Premium (${
+            plan === 'trial'
+              ? '3-Day Trial'
+              : plan === 'annual'
+                ? 'Annual'
+                : 'Monthly'
+          } Plan).`,
         });
 
         if (series) {

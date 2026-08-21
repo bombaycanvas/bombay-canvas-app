@@ -7,6 +7,7 @@ import {
 import { api, ApiError } from '../utils/api';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../store/authStore';
+import { ENTITLEMENT_QUERY_KEYS } from '../config/entitlementQueryKeys';
 
 // Server-side conflicts that all mean the same thing to the client: our cached
 // view of the account is behind the server's. The attempt is genuinely refused,
@@ -15,9 +16,15 @@ import { useAuthStore } from '../store/authStore';
 // paywall selling a plan the user already owns.
 const STALE_STATE_ERROR_CODES = [
   'SUBSCRIPTION_ALREADY_ACTIVE',
-  'TRIAL_ALREADY_ACTIVATED',
   'TRIAL_ACTIVATION_IN_PROGRESS',
   'TRIAL_NOT_ELIGIBLE',
+  // The server answers a consumed trial with TRIAL_NOT_ELIGIBLE, but older
+  // deployments answer the SAME situation with a flat INVALID_PLAN_CODE
+  // ("planCode must be one of MONTHLY, ANNUAL"). Treat it as stale state too:
+  // this app only ever sends a plan code the user just tapped on a list the
+  // server itself returned, so a rejected code means that list is out of date —
+  // never that the request was malformed.
+  'INVALID_PLAN_CODE',
 ];
 
 /** True when the caller should refresh subscription state rather than offer a retry. */
@@ -25,21 +32,6 @@ export const isStaleSubscriptionStateError = (error: unknown): boolean => {
   const code = (error as ApiError | undefined)?.code;
   return typeof code === 'string' && STALE_STATE_ERROR_CODES.includes(code);
 };
-
-// Every cache whose contents depend on subscription state: the subscription
-// itself, the denormalized user record, the content lists and detail that carry
-// per-user lock flags, and the offered plans (the trial disappears once it is
-// consumed). Anything that moves that state refreshes the whole set, so no
-// screen is left rendering a mix.
-const ENTITLEMENT_QUERY_KEYS = [
-  ['mySubscription'],
-  ['userData'],
-  ['subscriptionPlans'],
-  ['moviesData'],
-  ['moviesDataById'],
-  ['listRecommendedSeries'],
-  ['playEpisode'],
-];
 
 /** Refetch every cache that depends on the user's subscription state. */
 export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
@@ -64,7 +56,17 @@ export interface Plan {
 export interface Subscription {
   id: string;
   planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
-  status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'TRIAL' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  status:
+    | 'CREATED'
+    | 'AUTHENTICATED'
+    | 'PENDING'
+    | 'ACTIVE'
+    | 'TRIAL'
+    | 'PAUSED'
+    | 'HALTED'
+    | 'CANCELLED'
+    | 'COMPLETED'
+    | 'EXPIRED';
   amountSnapshot: number;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
@@ -90,23 +92,29 @@ export interface SubscriptionPlansResponse {
   trialEligible: boolean;
 }
 
-export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse> => {
-  try {
-    const response = await api(`/api/monetize/subscription/plans?_cb=${Date.now()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return {
-      plans: response?.data?.plans ?? [],
-      trialEligible: response?.data?.trialEligible ?? false,
-    };
-  } catch (error) {
-    console.error('Fetch Plans Error:', error);
-    throw error;
-  }
-};
+export const getSubscriptionPlans =
+  async (): Promise<SubscriptionPlansResponse> => {
+    try {
+      const response = await api(
+        `/api/monetize/subscription/plans?_cb=${Date.now()}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      return {
+        plans: response?.data?.plans ?? [],
+        trialEligible: response?.data?.trialEligible ?? false,
+      };
+    } catch (error) {
+      console.error('Fetch Plans Error:', error);
+      throw error;
+    }
+  };
 
-export const createSubscription = async (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => {
+export const createSubscription = async (
+  planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL',
+) => {
   try {
     const response = await api('/api/monetize/subscription/create', {
       method: 'POST',
@@ -151,6 +159,35 @@ export const getMySubscription = async (): Promise<Subscription | null> => {
   }
 };
 
+/**
+ * Ask the server to re-read this subscription from Razorpay, then return the
+ * refreshed view.
+ *
+ * Why this exists alongside getMySubscription: activation is webhook-driven, and
+ * a UPI AutoPay mandate registers asynchronously at NPCI, so `authenticated` can
+ * land minutes after Razorpay checkout already told us it succeeded. Re-polling
+ * GET /me in that gap re-reads the very row the late webhook has not written
+ * yet — it can never make progress on its own. This asks the authoritative
+ * source instead.
+ *
+ * Rate-limited server-side (10 / 5 min / user), so call it as the SLOW arm of a
+ * poll, not on every tick. Never throws: a failure degrades to null so the
+ * caller can fall back to the cheap local read.
+ */
+export const reconcileMySubscription =
+  async (): Promise<Subscription | null> => {
+    try {
+      const response = await api('/api/monetize/subscription/me/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response?.data?.subscription ?? null;
+    } catch (error) {
+      console.error('Reconcile Subscription Error:', error);
+      return null;
+    }
+  };
+
 export type CancelReasonCode =
   | 'TOO_EXPENSIVE'
   | 'NOT_ENOUGH_CONTENT'
@@ -187,14 +224,40 @@ export const cancelSubscription = async (
   }
 };
 
-
+// Freshness policy for the two queries that decide what the paywall SELLS.
+//
+// The query client's defaults are refetchOnMount:false / refetchOnWindowFocus:
+// false, which are right for content but wrong for billing: they let a screen
+// render an entitlement snapshot captured minutes or hours earlier. That is the
+// bug behind "planCode must be one of MONTHLY, ANNUAL" — a paywall reopened from
+// cache kept offering a ₹1 trial the account had already bought and consumed.
+//
+// staleTime:0 alone was NOT enough. It marks data stale immediately but never
+// triggers the refetch, so the stale value is still what renders.
+//
+//   refetchOnMount:'always'   → reopening the paywall re-asks the server. Still
+//                               renders cached data first, so the fetch has to
+//                               land before it matters — which is why the mount
+//                               refetch is a floor, not the whole fix.
+//   refetchOnWindowFocus:true → returning from the UPI app (where the mandate is
+//                               approved) re-asks too. Requires the AppState
+//                               bridge in config/reactQueryFocus.ts; without it
+//                               React Query never sees a focus event in RN.
+//
+// These keys are also excluded from disk persistence (config/reactQueryPersist)
+// so a cold start can never restore a week-old entitlement.
+const ENTITLEMENT_QUERY_FRESHNESS = {
+  staleTime: 0,
+  refetchOnMount: 'always',
+  refetchOnWindowFocus: true,
+} as const;
 
 export const useSubscriptionPlans = () => {
   const user = useAuthStore(state => state.user);
   return useQuery({
     queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
     queryFn: getSubscriptionPlans,
-    staleTime: 0,
+    ...ENTITLEMENT_QUERY_FRESHNESS,
   });
 };
 
@@ -203,13 +266,14 @@ export const useMySubscription = () => {
   return useQuery({
     queryKey: ['mySubscription', user?.id || 'anonymous'],
     queryFn: getMySubscription,
-    staleTime: 0,
+    ...ENTITLEMENT_QUERY_FRESHNESS,
   });
 };
 
 export const useCreateSubscription = () => {
   return useMutation({
-    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => createSubscription(planCode),
+    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') =>
+      createSubscription(planCode),
   });
 };
 
@@ -251,7 +315,8 @@ export const useCancelSubscription = () => {
       Toast.show({
         type: 'error',
         text1: 'Cancellation Failed',
-        text2: typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
+        text2:
+          typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
       });
     },
   });
@@ -267,22 +332,34 @@ export interface SubscriptionCharge {
   periodEnd: string | null;
 }
 
-export const getSubscriptionHistory = async (page = 1, limit = 20): Promise<SubscriptionCharge[]> => {
+export const getSubscriptionHistory = async (
+  page = 1,
+  limit = 20,
+): Promise<SubscriptionCharge[]> => {
   try {
     console.log('[History API] Requesting page:', page, 'limit:', limit);
-    const response = await api(`/api/monetize/subscription/history?page=${page}&limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await api(
+      `/api/monetize/subscription/history?page=${page}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     console.log('[History API] Response keys:', Object.keys(response || {}));
-    console.log('[History API] Response data keys:', Object.keys(response?.data || {}));
+    console.log(
+      '[History API] Response data keys:',
+      Object.keys(response?.data || {}),
+    );
 
     const subscriptions = response?.data?.subscriptions ?? [];
     console.log('[History API] Subscriptions found:', subscriptions.length);
     const charges: SubscriptionCharge[] = [];
 
     subscriptions.forEach((sub: any, index: number) => {
-      console.log(`[History API] Sub ${index} has charges:`, sub.charges ? sub.charges.length : 'none');
+      console.log(
+        `[History API] Sub ${index} has charges:`,
+        sub.charges ? sub.charges.length : 'none',
+      );
       if (sub.charges && Array.isArray(sub.charges)) {
         charges.push(...sub.charges);
       }

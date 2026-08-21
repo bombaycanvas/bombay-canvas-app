@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import queryClient from './src/config/queryClient';
 import MainApp from './src/navigation/MainApp';
 import './src/config/reactQueryPersist';
+import './src/config/reactQueryFocus';
 import { IOS_CLIENT_ID, WEB_CLIENT_ID } from '@env';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
