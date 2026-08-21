@@ -27,9 +27,6 @@ interface VideoState {
   isLockedVisibleModal: boolean;
   setIsLockedVisibleModal: (value: boolean) => void;
 
-  isPurchaseModal: boolean;
-  setIsPurchaseModal: (value: boolean) => void;
-
   purchaseSeries: any | null;
   setPurchaseSeries: (series: any | null) => void;
   resetPurchaseState: () => void;
@@ -73,13 +70,10 @@ export const useVideoStore = create<VideoState>(set => ({
   isLockedVisibleModal: false,
   setIsLockedVisibleModal: value => set({ isLockedVisibleModal: value }),
 
-  isPurchaseModal: false,
-  setIsPurchaseModal: value => set({ isPurchaseModal: value }),
-
   purchaseSeries: null,
   setPurchaseSeries: series => set({ purchaseSeries: series }),
   resetPurchaseState: () =>
-    set({ purchaseSeries: null, isPurchaseModal: false }),
+    set({ purchaseSeries: null }),
 
   authRedirect: null,
   setAuthRedirect: redirect => set({ authRedirect: redirect }),

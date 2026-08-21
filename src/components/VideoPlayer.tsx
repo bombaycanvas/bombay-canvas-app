@@ -116,7 +116,6 @@ export default function VideoPlayer({
     isPaused,
     setPaused,
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
   } = useVideoStore();
@@ -279,7 +278,6 @@ export default function VideoPlayer({
     const timer = setTimeout(() => {
       if (!locked && !isPaidEpisode) {
         setIsLockedVisibleModal(false);
-        setIsPurchaseModal(false);
         setPurchaseSeries(null);
         setAuthRedirect(null);
       } else if (locked) {
@@ -293,8 +291,8 @@ export default function VideoPlayer({
           },
         });
       } else if (isPaidEpisode) {
-        setIsPurchaseModal(true);
         setPurchaseSeries(movie);
+        (navigation as any).navigate('SubscriptionScreen', { series: movie });
       }
     }, 300);
 
@@ -306,9 +304,9 @@ export default function VideoPlayer({
     isPaidEpisode,
     movie,
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
+    navigation,
   ]);
 
   const handleBuffer = ({
@@ -411,7 +409,7 @@ export default function VideoPlayer({
 
     if (!locked && isPaidEpisode) {
       setPurchaseSeries(movie);
-      setIsPurchaseModal(true);
+      (navigation as any).navigate('SubscriptionScreen', { series: movie });
       return;
     }
 

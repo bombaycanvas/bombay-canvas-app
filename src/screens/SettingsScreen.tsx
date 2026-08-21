@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,23 +9,34 @@ import {
   Modal,
   ActivityIndicator,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
 import { useDeleteUserAccount } from '../api/auth';
-import { useMySubscription, useCancelSubscription, useSubscriptionHistory } from '../api/subscription';
+import {
+  useMySubscription,
+  useSubscriptionHistory,
+  isSubscriptionActive,
+} from '../api/subscription';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { CreditCard, X, Receipt } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
+import CancelSubscriptionFlow from '../components/subscription/CancelSubscriptionFlow';
+import SubscriptionDetailsCard from '../components/subscription/SubscriptionDetailsCard';
+import BillingHistoryList from '../components/subscription/BillingHistoryList';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<any>();
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
   const [isCancelSubModal, setIsCancelSubModal] = useState(false);
+  const [isBillingExpanded, setIsBillingExpanded] = useState(false);
 
   const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
   const { data: subscription, refetch } = useMySubscription();
-  const { data: charges, refetch: refetchHistory } = useSubscriptionHistory();
-  const { mutate: cancelSub, isPending: isCancelPending } = useCancelSubscription();
-  console.log(subscription, "subscription")
-  console.log(charges, "charges in settings screen")
+  const {
+    data: charges,
+    isLoading: isHistoryLoading,
+    refetch: refetchHistory,
+  } = useSubscriptionHistory();
+
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -68,44 +79,35 @@ const SettingsScreen = () => {
     });
   };
 
-  const handleConfirmCancelSubscription = () => {
-    if (!subscription?.id) return;
-    cancelSub(subscription.id, {
-      onSuccess: () => {
-        setIsCancelSubModal(false);
-      },
-      onError: () => {
-        setIsCancelSubModal(false);
-      },
-    });
+  // Single definition of "entitled right now" — shared with the paywall so the
+  // two surfaces can never disagree about whether this user is subscribed.
+  const isActive = isSubscriptionActive(subscription);
+
+  // A subscribed user expands the panel in place; everyone else still goes to
+  // the paywall, which is the only action available to them.
+  const handleBillingPress = () => {
+    if (!isActive) {
+      navigation.navigate('SubscriptionScreen', { fromGeneral: true });
+      return;
+    }
+    setIsBillingExpanded(open => !open);
   };
 
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const isActive = subscription &&
-    (subscription.status === 'ACTIVE' ||
-      subscription.status === 'PENDING' ||
-      subscription.status === 'TRIAL' ||
-      subscription.status === 'CANCELLED') &&
-    subscription.currentPeriodEnd &&
-    new Date(subscription.currentPeriodEnd) > new Date();
-
-  const isNearExpiry = useMemo(() => {
-    if (!isActive || !subscription?.currentPeriodEnd) return false;
-    const expiryDate = new Date(subscription.currentPeriodEnd);
-    const currentDate = new Date();
-    const diffTime = expiryDate.getTime() - currentDate.getTime();
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    return diffDays >= 0 && diffDays <= 10;
-  }, [isActive, subscription?.currentPeriodEnd]);
+  // Chevron rotation only. LayoutAnimation is deliberately not used: this app
+  // runs the New Architecture (newArchEnabled=true), where it is unsupported and
+  // would silently no-op on Android, and reanimated is not a direct dependency.
+  const chevronSpin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(chevronSpin, {
+      toValue: isBillingExpanded ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [chevronSpin, isBillingExpanded]);
+  const chevronRotation = chevronSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
 
   return (
     <ScrollView style={styles.container}>
@@ -130,21 +132,41 @@ const SettingsScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          activeOpacity={isActive ? 1 : 0.9}
+          activeOpacity={0.9}
           style={styles.row}
-          onPress={() => {
-            if (!isActive) {
-              navigation.navigate('SubscriptionScreen', { fromGeneral: true });
-            }
-          }}
+          onPress={handleBillingPress}
+          accessibilityRole="button"
+          accessibilityState={isActive ? { expanded: isBillingExpanded } : {}}
         >
           <View style={styles.infoRow}>
             <Text style={styles.rowLabel}>Subscription & Billing</Text>
-            <Text style={[styles.infoValue, isActive && styles.activeValue]}>
-              {isActive ? 'Active' : 'Subscribe'}
-            </Text>
+            <View style={styles.infoRowRight}>
+              <Text style={[styles.infoValue, isActive && styles.activeValue]}>
+                {isActive ? 'Active' : 'Subscribe'}
+              </Text>
+              {isActive && (
+                <Animated.View
+                  style={{ transform: [{ rotate: chevronRotation }] }}
+                >
+                  <ChevronRight size={18} color="#888" />
+                </Animated.View>
+              )}
+            </View>
           </View>
         </TouchableOpacity>
+
+        {isActive && isBillingExpanded && subscription && (
+          <View style={styles.billingPanel}>
+            <SubscriptionDetailsCard
+              subscription={subscription}
+              onCancelPress={() => setIsCancelSubModal(true)}
+            />
+            <BillingHistoryList
+              charges={charges}
+              loading={isHistoryLoading}
+            />
+          </View>
+        )}
 
         <TouchableOpacity
           activeOpacity={0.9}
@@ -155,150 +177,13 @@ const SettingsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {isActive && (
-        <View style={styles.subscriptionCard}>
-          <Text style={styles.cardTitle}>Subscription Details</Text>
-
-          <View style={styles.planCardItem}>
-            <View style={styles.cardIconContainer}>
-              <CreditCard size={18} color="#ff6a00" />
-            </View>
-            <View style={styles.planDetails}>
-              <Text style={styles.planValue}>
-                {subscription.planCode === 'TRIAL'
-                  ? 'Trial ₹1 then ₹499/yr'
-                  : subscription.planCode === 'ANNUAL'
-                    ? 'Annual ₹499/yr'
-                    : 'Monthly ₹99/month'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Access Until</Text>
-            <Text style={styles.cardValue}>
-              {formatDate(subscription.currentPeriodEnd)}
-            </Text>
-          </View>
-
-          {isNearExpiry && (
-            <View style={styles.cardWarningContainer}>
-              <Text style={styles.cardWarningText}>
-                Your plan expires on {formatDate(subscription.currentPeriodEnd)}
-              </Text>
-            </View>
-          )}
-
-          {!subscription.cancelAtPeriodEnd ? (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.cancelSubButton}
-              onPress={() => setIsCancelSubModal(true)}
-            >
-              <Text style={styles.cancelSubButtonText}>Cancel Subscription</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.cardRow}>
-              <Text style={[styles.cardLabel, { color: '#ff7f24', fontSize: 14 }]}>Your subscription is cancelled. Access continues until {formatDate(subscription?.currentPeriodEnd)}.</Text>
-            </View>
-          )}
-
-        </View>
+      {subscription && (
+        <CancelSubscriptionFlow
+          visible={isCancelSubModal}
+          onClose={() => setIsCancelSubModal(false)}
+          subscription={subscription}
+        />
       )}
-
-      {charges && charges.length > 0 && (
-        <View style={styles.historySection}>
-          <View style={styles.historyHeader}>
-            <Receipt size={16} color="#ff6a00" style={styles.historyIcon} />
-            <Text style={styles.historyTitle}>Billing History</Text>
-          </View>
-
-          {charges.map((charge) => (
-            <View key={charge.id} style={styles.historyRow}>
-              <Text style={styles.historyDate}>
-                {formatDate(charge.chargedAt || charge.periodStart)}
-              </Text>
-              <View style={styles.historyRight}>
-                <Text style={styles.historyAmount}>
-                  ₹{charge.amount / 100}
-                </Text>
-                <View style={[
-                  styles.statusBadge,
-                  charge.status.toLowerCase() === 'captured' || charge.status.toLowerCase() === 'paid'
-                    ? styles.statusSuccess
-                    : styles.statusPending
-                ]}>
-                  <Text style={styles.statusText}>
-                    {charge.status.charAt(0).toUpperCase() + charge.status.slice(1).toLowerCase()}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <Modal
-        transparent={true}
-        visible={isCancelSubModal}
-        animationType="fade"
-        onRequestClose={() => setIsCancelSubModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.cancelModalContainer}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.modalCloseButton}
-              onPress={() => setIsCancelSubModal(false)}
-            >
-              <X size={18} color="#fff" />
-            </TouchableOpacity>
-
-            <Text style={styles.cancelModalTitle}>Cancel subscription?</Text>
-
-            <Text style={styles.cancelModalText}>
-              You'll keep full access until{' '}
-              <Text style={styles.cancelModalDateHighlight}>
-                {formatDate(subscription?.currentPeriodEnd)}
-              </Text>
-              . After that your subscription ends and paid content locks.
-            </Text>
-
-            <Text style={styles.cancelModalSubText}>
-              Payments already made (including the ₹1 activation fee) are non-refundable.{' '}
-              <Text
-                style={styles.cancelModalLink}
-                onPress={() => handleOpenURL('https://canvasott.com/refund-policy')}
-              >
-                Refund Policy
-              </Text>
-            </Text>
-
-            <View style={styles.cancelModalButtons}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.cancelModalButton, styles.keepSubButton]}
-                onPress={() => setIsCancelSubModal(false)}
-              >
-                <Text style={styles.keepSubText}>Keep subscription</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.cancelModalButton, styles.cancelAnywayButton]}
-                onPress={handleConfirmCancelSubscription}
-                disabled={isCancelPending}
-              >
-                {isCancelPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.cancelAnywayText}>Cancel anyway</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         transparent={true}
@@ -353,13 +238,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#222',
   },
-  sectionTitle: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 16,
-    color: '#fff',
-    paddingHorizontal: 20,
-    marginBottom: 10,
-  },
   row: {
     paddingHorizontal: 20,
     paddingVertical: 15,
@@ -384,101 +262,21 @@ const styles = StyleSheet.create({
   activeValue: {
     color: '#4cd964',
   },
-  subscriptionCard: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 30,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ff6a00',
-    backgroundColor: 'rgba(255, 106, 0, 0.08)',
-  },
-  planCardItem: {
+  infoRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121212',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#222',
-    marginBottom: 12,
+    gap: 8,
   },
-  cardIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 106, 0, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  planDetails: {
-    flex: 1,
-  },
-  planLabel: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 10,
-    color: '#888',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  planValue: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 16,
-    color: '#fff',
-  },
-  cardTitle: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 18,
-    color: '#fff',
-    marginBottom: 15,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  cardLabel: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  cardValue: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 15,
-    color: '#fff',
-  },
-  cardWarningContainer: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 68, 68, 0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.4)',
-    alignItems: 'center',
-  },
-  cardWarningText: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
-    color: '#ff4444',
-    textAlign: 'center',
-  },
-  cancelSubButton: {
-    marginTop: 15,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: '#ff6a00',
-    alignItems: 'center',
-  },
-  cancelSubButtonText: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
-    color: '#fff',
+  // Indented with a left accent rail so the panel reads as belonging to the
+  // Subscription & Billing row above it rather than as another settings entry.
+  billingPanel: {
+    marginLeft: 20,
+    paddingLeft: 16,
+    paddingRight: 20,
+    paddingVertical: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(255, 106, 0, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   modalOverlay: {
     flex: 1,
@@ -531,142 +329,6 @@ const styles = StyleSheet.create({
   deleteText: {
     color: '#fff',
     fontFamily: 'HelveticaNowDisplay-Bold',
-  },
-  cancelModalContainer: {
-    width: '85%',
-    backgroundColor: '#121212',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    position: 'relative',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    zIndex: 10,
-    padding: 4,
-  },
-  cancelModalTitle: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 20,
-    color: '#fff',
-    marginBottom: 16,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 22,
-    marginBottom: 16,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalDateHighlight: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    color: '#ffa05c',
-  },
-  cancelModalSubText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.5)',
-    lineHeight: 18,
-    marginBottom: 24,
-    textAlign: 'left',
-    width: '100%',
-  },
-  cancelModalLink: {
-    color: '#ffa05c',
-    textDecorationLine: 'underline',
-  },
-  cancelModalButtons: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
-  cancelModalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keepSubButton: {
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  cancelAnywayButton: {
-    backgroundColor: '#e54848',
-  },
-  keepSubText: {
-    color: '#fff',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
-  },
-  cancelAnywayText: {
-    color: '#fff',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 14,
-  },
-  historySection: {
-    marginHorizontal: 20,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  historyIcon: {
-    marginRight: 6,
-  },
-  historyTitle: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 16,
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  historyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  historyDate: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  historyRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  historyAmount: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 15,
-    color: '#fff',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusSuccess: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  statusPending: {
-    backgroundColor: 'rgba(255, 165, 0, 0.15)',
-  },
-  statusText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

@@ -23,7 +23,6 @@ import { useGetCoverVideo } from '../api/video';
 import { useVideoCache } from '../hooks/useVideoCache';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import GoogleLogin from '../assets/GoogleLogin';
-import AppleLogin from '../assets/AppleLogin';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
@@ -39,7 +38,7 @@ import {
 import { type CountryCode } from 'libphonenumber-js';
 import metadata from 'libphonenumber-js/metadata.min.json';
 import { signInWithGoogle } from '../utils/authService';
-import { appleAuth } from '@invertase/react-native-apple-authentication';
+import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
 import { useForm, Controller } from 'react-hook-form';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
@@ -709,16 +708,13 @@ const StartLoginScreen = () => {
                 <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.socialButton}
+              <AppleButton
+                buttonStyle={AppleButton.Style.BLACK}
+                buttonType={isSignup ? AppleButton.Type.SIGN_UP : AppleButton.Type.SIGN_IN}
+                style={styles.socialButtonNative}
+                cornerRadius={10}
                 onPress={handleAppleLogin}
-              >
-                <AppleLogin />
-                <Text style={styles.socialButtonText}>
-                  {isSignup ? 'Sign up using Apple' : 'Login using Apple'}
-                </Text>
-              </TouchableOpacity>
+              />
             </>
           )}
 
@@ -766,12 +762,12 @@ const StartLoginScreen = () => {
 
             <Text style={styles.mainTitle}>
               World’s First{'\n'}
-              <Text style={styles.mainTitleBold}>Creator-Led OTT Platform</Text>
+              <Text style={styles.mainTitleBold}>Creator Led Short Form Shows</Text>
             </Text>
 
             <Text style={styles.para}>
-              From microdramas to series in travel, food, fashion, culture and
-              much more — discover it all in vertical
+              Microdramas. Anime. Documentaries. Food. Fashion. Travel. Comedy.
+              And more - All In Short Form
             </Text>
           </View>
 
@@ -1062,6 +1058,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 15,
+  },
+  socialButtonNative: {
+    width: '100%',
+    height: 48,
     marginBottom: 15,
   },
   socialButtonText: {

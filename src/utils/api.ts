@@ -6,6 +6,12 @@ import { getAppDataHeader } from './analytics/appData';
 
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
 
+/** An HTTP failure from `api()`, carrying the server's stable error `code` and status so callers can branch on the cause instead of the message text. */
+export interface ApiError extends Error {
+  code?: string;
+  status?: number;
+}
+
 export const getToken = async (key: string): Promise<string | null> => {
   try {
     return await AsyncStorage.getItem(key);
@@ -108,7 +114,19 @@ export const api = async (endpoint: string, config: any = {}) => {
         }
       }
 
-      throw new Error(message);
+      const apiError: ApiError = new Error(message);
+      // The server's stable error code, read from the `{ error: { code } }`
+      // envelope first and the legacy top-level `{ code }` second — both shapes
+      // are in use across the API. Without it callers can only match on message
+      // text, which breaks the moment a message is reworded.
+      apiError.code =
+        typeof errorData?.error?.code === 'string'
+          ? errorData.error.code
+          : typeof errorData?.code === 'string'
+            ? errorData.code
+            : undefined;
+      apiError.status = response.status;
+      throw apiError;
     }
 
     return response.headers.get('Content-Type')?.includes('application/json')

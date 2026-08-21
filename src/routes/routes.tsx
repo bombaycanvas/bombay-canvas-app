@@ -21,7 +21,6 @@ import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
-import { SubscribePopup } from '../components/videoPlayer/SubscribePopup';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
 import ReviewsScreen from '../screens/ReviewsScreen';
@@ -252,7 +251,6 @@ export default function AppNavigator() {
     >
       <AppStack />
       <LockedOverlay />
-      <SubscribePopup />
       <Toast config={{ BaseToast, ErrorToast }} topOffset={30} position="top" />
     </NavigationContainer>
   );

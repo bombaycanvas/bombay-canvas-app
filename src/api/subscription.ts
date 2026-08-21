@@ -1,7 +1,52 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../utils/api';
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { api, ApiError } from '../utils/api';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../store/authStore';
+
+// Server-side conflicts that all mean the same thing to the client: our cached
+// view of the account is behind the server's. The attempt is genuinely refused,
+// but the fix is a refetch, not a retry — after it the screen shows the real
+// state (already subscribed, trial no longer offered) instead of leaving the
+// paywall selling a plan the user already owns.
+const STALE_STATE_ERROR_CODES = [
+  'SUBSCRIPTION_ALREADY_ACTIVE',
+  'TRIAL_ALREADY_ACTIVATED',
+  'TRIAL_ACTIVATION_IN_PROGRESS',
+  'TRIAL_NOT_ELIGIBLE',
+];
+
+/** True when the caller should refresh subscription state rather than offer a retry. */
+export const isStaleSubscriptionStateError = (error: unknown): boolean => {
+  const code = (error as ApiError | undefined)?.code;
+  return typeof code === 'string' && STALE_STATE_ERROR_CODES.includes(code);
+};
+
+// Every cache whose contents depend on subscription state: the subscription
+// itself, the denormalized user record, the content lists and detail that carry
+// per-user lock flags, and the offered plans (the trial disappears once it is
+// consumed). Anything that moves that state refreshes the whole set, so no
+// screen is left rendering a mix.
+const ENTITLEMENT_QUERY_KEYS = [
+  ['mySubscription'],
+  ['userData'],
+  ['subscriptionPlans'],
+  ['moviesData'],
+  ['moviesDataById'],
+  ['listRecommendedSeries'],
+  ['playEpisode'],
+];
+
+/** Refetch every cache that depends on the user's subscription state. */
+export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
+  ENTITLEMENT_QUERY_KEYS.forEach(queryKey =>
+    queryClient.invalidateQueries({ queryKey }),
+  );
+};
 
 export interface Plan {
   code: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
@@ -106,12 +151,34 @@ export const getMySubscription = async (): Promise<Subscription | null> => {
   }
 };
 
-export const cancelSubscription = async (subscriptionId: string) => {
+export type CancelReasonCode =
+  | 'TOO_EXPENSIVE'
+  | 'NOT_ENOUGH_CONTENT'
+  | 'UNAWARE_OF_CHARGE'
+  | 'JUST_TRYING'
+  | 'NOT_WATCHING'
+  | 'TECHNICAL_ISSUES'
+  | 'OTHER';
+
+// `reason` and `reasonText` are optional — the backend must tolerate their absence and ignore unknown codes, because cancellation must never fail on reason capture.
+export const cancelSubscription = async (
+  subscriptionId: string,
+  reason?: CancelReasonCode,
+  reasonText?: string,
+) => {
   try {
+    const body: {
+      subscriptionId: string;
+      reason?: CancelReasonCode;
+      reasonText?: string;
+    } = { subscriptionId };
+    if (reason !== undefined) body.reason = reason;
+    if (reasonText !== undefined) body.reasonText = reasonText;
+
     const response = await api('/api/monetize/subscription/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: { subscriptionId },
+      body,
     });
     return response?.data;
   } catch (error) {
@@ -159,7 +226,15 @@ export const useVerifySubscription = () => {
 export const useCancelSubscription = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (subscriptionId: string) => cancelSubscription(subscriptionId),
+    mutationFn: ({
+      subscriptionId,
+      reason,
+      reasonText,
+    }: {
+      subscriptionId: string;
+      reason?: CancelReasonCode;
+      reasonText?: string;
+    }) => cancelSubscription(subscriptionId, reason, reasonText),
     onSuccess: () => {
       Toast.show({
         type: 'success',

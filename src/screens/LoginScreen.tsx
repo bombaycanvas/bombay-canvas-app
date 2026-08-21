@@ -20,9 +20,8 @@ import {
   useLogin,
   useRequest,
 } from '../api/auth';
-import { appleAuth } from '@invertase/react-native-apple-authentication';
+import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
 import { signInWithGoogle } from '../utils/authService';
-import AppleLogin from '../assets/AppleLogin';
 import Toast from 'react-native-toast-message';
 import { Smartphone } from 'lucide-react-native';
 
@@ -227,16 +226,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           </Text>
         </TouchableOpacity>
         {Platform.OS === 'ios' && (
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.appleBtn}
+          <AppleButton
+            buttonStyle={AppleButton.Style.BLACK}
+            buttonType={finalFromSignup ? AppleButton.Type.SIGN_UP : AppleButton.Type.SIGN_IN}
+            style={styles.appleBtnNative}
+            cornerRadius={12}
             onPress={handleAppleLogin}
-          >
-            <AppleLogin />
-            <Text style={styles.appleTxt}>
-              {finalFromSignup ? 'Sign Up' : 'Log In'} with Apple
-            </Text>
-          </TouchableOpacity>
+          />
         )}
         <TouchableOpacity
           activeOpacity={0.9}
@@ -474,6 +470,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
+    marginTop: 10,
+  },
+  appleBtnNative: {
+    width: '100%',
+    height: 50,
     marginTop: 10,
   },
   appleTxt: {

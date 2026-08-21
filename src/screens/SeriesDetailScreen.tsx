@@ -41,7 +41,6 @@ const SeriesDetailScreen: React.FC = () => {
     setIsPlaying,
     setIsReady,
     setIsLockedVisibleModal,
-    setIsPurchaseModal,
     setPurchaseSeries,
     setAuthRedirect,
     isEpisodesSheetOpen,
@@ -172,7 +171,7 @@ const SeriesDetailScreen: React.FC = () => {
                   }}
                   onPurchasePress={() => {
                     setPurchaseSeries(series);
-                    setIsPurchaseModal(true);
+                    navigation.navigate('SubscriptionScreen', { series });
                   }}
                   onWatchPress={() => {
                     setIsPlaying(false);
