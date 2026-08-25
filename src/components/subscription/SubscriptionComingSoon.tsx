@@ -1,21 +1,40 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import FastImage from '@d11/react-native-fast-image';
 import { imgUrl } from '../../api/video';
 
+const CARD_GAP = 12;
+const CARD_WIDTH = { screen: 120, sheet: 140 } as const;
+const CARD_HEIGHT = { screen: 180, sheet: 210 } as const;
+
 interface SubscriptionComingSoonProps {
   displayUpcoming: any[];
+  // `sheet` drops the section chrome and outer margins so the cancel flow can own the heading.
+  variant?: 'screen' | 'sheet';
 }
 
-export default function SubscriptionComingSoon({ displayUpcoming }: SubscriptionComingSoonProps) {
+export default function SubscriptionComingSoon({
+  displayUpcoming,
+  variant = 'screen',
+}: SubscriptionComingSoonProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const isSheet = variant === 'sheet';
 
   if (displayUpcoming.length === 0) return null;
 
+  const cardWidth = CARD_WIDTH[variant];
+  const cardHeight = CARD_HEIGHT[variant];
   const screenWidth = Dimensions.get('window').width;
-  const totalContentWidth = displayUpcoming.length * 100 + (displayUpcoming.length - 1) * 10;
-  const scrollViewWidth = screenWidth - 24;
+  const totalContentWidth =
+    displayUpcoming.length * cardWidth + (displayUpcoming.length - 1) * CARD_GAP;
+  const scrollViewWidth = screenWidth - (isSheet ? 48 : 24);
   const showDots = displayUpcoming.length > 1 && totalContentWidth > scrollViewWidth;
 
   const handleScroll = (event: any) => {
@@ -34,16 +53,19 @@ export default function SubscriptionComingSoon({ displayUpcoming }: Subscription
   };
 
   return (
-    <View style={styles.comingSoonSection}>
-      <View style={styles.comingSoonHeader}>
-        <Text style={styles.comingSoonTitle}>Coming Soon On Canvas</Text>
-      </View>
+    <View style={isSheet ? styles.sheetSection : styles.comingSoonSection}>
+      {!isSheet && (
+        <View style={styles.comingSoonHeader}>
+          <Text style={styles.comingSoonTitle}>Coming Soon On Canvas</Text>
+        </View>
+      )}
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.upcomingScroll}
-        snapToInterval={110}
+        style={isSheet && styles.sheetScroll}
+        contentContainerStyle={[styles.upcomingScroll, isSheet && styles.sheetScrollContent]}
+        snapToInterval={cardWidth + CARD_GAP}
         decelerationRate="fast"
         snapToAlignment="start"
         scrollEventThrottle={16}
@@ -53,12 +75,13 @@ export default function SubscriptionComingSoon({ displayUpcoming }: Subscription
         {displayUpcoming.map((item: any, idx: number) => {
           const posterUrl = item.posterImage || item.posterUrl;
           const isMock = !posterUrl;
+          const posterStyle = { width: cardWidth, height: cardHeight };
           return (
-            <View key={item.id || idx} style={styles.upcomingCard}>
+            <View key={item.id || idx} style={[styles.upcomingCard, { width: cardWidth }]}>
               {isMock ? (
                 <LinearGradient
                   colors={['#222', '#111']}
-                  style={styles.upcomingMockPoster}
+                  style={[styles.upcomingMockPoster, posterStyle]}
                   start={{ x: 0.5, y: 0 }}
                   end={{ x: 0.5, y: 1 }}
                 >
@@ -76,7 +99,7 @@ export default function SubscriptionComingSoon({ displayUpcoming }: Subscription
                     priority: FastImage.priority.normal,
                     cache: FastImage.cacheControl.immutable,
                   }}
-                  style={styles.upcomingPoster}
+                  style={[styles.upcomingPoster, posterStyle]}
                   resizeMode={FastImage.resizeMode.cover}
                 />
               )}
@@ -89,13 +112,7 @@ export default function SubscriptionComingSoon({ displayUpcoming }: Subscription
       {showDots && (
         <View style={styles.pagerDotsContainer}>
           {displayUpcoming.map((_, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.pagerDot,
-                activeIndex === idx && styles.pagerDotActive,
-              ]}
-            />
+            <View key={idx} style={[styles.pagerDot, activeIndex === idx && styles.pagerDotActive]} />
           ))}
         </View>
       )}
@@ -107,6 +124,9 @@ const styles = StyleSheet.create({
   comingSoonSection: {
     marginHorizontal: 12,
     marginBottom: 20,
+  },
+  sheetSection: {
+    marginBottom: 4,
   },
   comingSoonHeader: {
     flexDirection: 'row',
@@ -122,24 +142,26 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
   },
   upcomingScroll: {
-    gap: 10,
+    gap: CARD_GAP,
+  },
+  // Bleed the carousel to the sheet edges so cards look like they scroll off-screen.
+  sheetScroll: {
+    marginHorizontal: -24,
+  },
+  sheetScrollContent: {
+    paddingHorizontal: 24,
   },
   upcomingCard: {
-    width: 120,
     backgroundColor: '#111',
-    borderRadius: 8,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   upcomingPoster: {
-    width: 120,
-    height: 180,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   upcomingMockPoster: {
-    width: 120,
-    height: 180,
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     justifyContent: 'flex-end',
   },
   upcomingMockSubtitle: {
@@ -160,15 +182,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 6,
     fontFamily: 'HelveticaNowDisplay-Bold',
   },
   pagerDotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 10,
+    marginTop: 12,
   },
   pagerDot: {
     width: 5,
