@@ -20,7 +20,12 @@ import {
   useCancelSubscription,
   useSubscriptionPlans,
 } from '../../api/subscription';
-import { imgUrl, useContinueWatching, useRecommendedSeriesData } from '../../api/video';
+import {
+  imgUrl,
+  useContinueWatching,
+  useRecommendedSeriesData,
+  useUpcomingSeriesData,
+} from '../../api/video';
 import { Movie } from '../../types/movie';
 import { track } from '../../utils/analytics';
 import {
@@ -29,14 +34,15 @@ import {
   OTHER_TEXT_MAX,
   OTHER_TEXT_MIN,
 } from './cancelFlowConfig';
+import SubscriptionComingSoon from './SubscriptionComingSoon';
 
 const REFUND_POLICY_URL = 'https://canvasott.com/refund-policy';
 const CONFIRM_DELAY_SECONDS = 2;
 const MAX_RECOMMENDED_POSTERS = 3;
 const FALLBACK_PRICE_BY_PLAN = { MONTHLY: 99, ANNUAL: 499 } as const;
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
-type FlowStep = 1 | 2 | 3;
+type FlowStep = 1 | 2 | 3 | 4;
 
 interface ContinueWatchingItem {
   seriesId: string;
@@ -332,7 +338,7 @@ function ConfirmStep({
   );
 }
 
-// Owns the whole 3-step cancel flow — reason capture, the save screen, confirmation, and the cancel mutation.
+// Owns the four-step cancel flow — reason capture, save, upcoming content, confirmation, and cancellation.
 export default function CancelSubscriptionFlow({
   visible,
   onClose,
@@ -348,12 +354,14 @@ export default function CancelSubscriptionFlow({
 
   const { data: continueWatchingData } = useContinueWatching();
   const { data: recommendedData } = useRecommendedSeriesData();
+  const { data: upcomingData } = useUpcomingSeriesData();
   const { data: plansData } = useSubscriptionPlans();
   const { mutate: cancelSubscription, isPending } = useCancelSubscription();
 
   const topWatch: ContinueWatchingItem | null =
     ((continueWatchingData?.items ?? []) as ContinueWatchingItem[])[0] ?? null;
   const recommended: Movie[] = recommendedData?.series ?? [];
+  const displayUpcoming = upcomingData?.upcomingSeries ?? [];
   const reasons = useMemo(() => getCancelReasons(subscription.planCode), [subscription.planCode]);
   const chargeDate = formatChargeDate(subscription.currentPeriodEnd);
 
@@ -378,7 +386,7 @@ export default function CancelSubscriptionFlow({
   }, [visible, subscription.planCode]);
 
   useEffect(() => {
-    if (step !== 3) return;
+    if (step !== 4) return;
     setCountdown(CONFIRM_DELAY_SECONDS);
     const timer = setInterval(() => {
       setCountdown(current => {
@@ -435,9 +443,13 @@ export default function CancelSubscriptionFlow({
     });
   }, [handleSaved, navigation, topWatch]);
 
+  const handleContinueToComingSoon = useCallback(() => {
+    setStep(3);
+  }, []);
+
   const handleContinueToCancel = useCallback(() => {
     track('CancelFlow_ReachedConfirm', { reason_code: reason ?? undefined });
-    setStep(3);
+    setStep(4);
   }, [reason]);
 
   const handleConfirmCancel = useCallback(() => {
@@ -470,7 +482,10 @@ export default function CancelSubscriptionFlow({
     subscription.planCode,
   ]);
 
-  const handleBack = useCallback(() => setStep(current => (current === 3 ? 2 : 1)), []);
+  const handleBack = useCallback(
+    () => setStep(current => (current === 4 ? 3 : current === 3 ? 2 : 1)),
+    [],
+  );
 
   return (
     <Modal
@@ -526,11 +541,19 @@ export default function CancelSubscriptionFlow({
                 topWatch={topWatch}
                 recommended={recommended}
                 onKeepWatching={handleKeepWatching}
-                onContinueToCancel={handleContinueToCancel}
+                onContinueToCancel={handleContinueToComingSoon}
               />
             )}
 
             {step === 3 && (
+              <SubscriptionComingSoon
+                displayUpcoming={displayUpcoming}
+                onKeepWatching={handleKeepWatching}
+                onCancelSubscription={handleContinueToCancel}
+              />
+            )}
+
+            {step === 4 && (
               <ConfirmStep
                 chargeDate={chargeDate}
                 nextChargeAmount={nextChargeAmount}
