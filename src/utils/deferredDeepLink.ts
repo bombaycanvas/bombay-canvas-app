@@ -3,10 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppLink } from 'react-native-fbsdk-next';
 import {
   getActionFromState,
-  getStateFromPath,
   type NavigationContainerRef,
 } from '@react-navigation/native';
-import { linking, pathFromDeepLink } from '../routes/linking';
+import { linking, pathFromDeepLink, getStateFromPath } from '../routes/linking';
 import type { RootStackParamList } from '../routes/routes';
 import { initMetaSdk } from './analytics';
 
