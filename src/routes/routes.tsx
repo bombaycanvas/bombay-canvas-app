@@ -24,6 +24,8 @@ import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
 import ReviewsScreen from '../screens/ReviewsScreen';
+import { linking } from './linking';
+import { routeDeferredDeepLink } from '../utils/deferredDeepLink';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -204,23 +206,9 @@ const AppStack = () => {
   );
 };
 
-const linking = {
-  prefixes: ['bombaycanvas://', 'https://www.canvasott.com', 'https://canvasott.com'],
-  config: {
-    screens: {
-      Video: {
-        path: 'video/:id',
-        parse: {
-          id: (id: string) => id,
-        },
-      },
-    },
-  },
-};
-
 export default function AppNavigator() {
   const { initializeAuth } = useAuthStore();
-  const navigationRef = useNavigationContainerRef();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -235,6 +223,7 @@ export default function AppNavigator() {
         if (routeNameRef.current) {
           track('PageView', { screen: routeNameRef.current });
         }
+        routeDeferredDeepLink(navigationRef);
       }}
       onStateChange={() => {
         const previousRouteName = routeNameRef.current;

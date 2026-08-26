@@ -6,7 +6,7 @@ import {
 } from 'react-native-tracking-transparency';
 import { buildAppDataHeader } from './appData';
 
-export const initMetaSdk = async (): Promise<void> => {
+const initSdk = async (): Promise<void> => {
   let status = await getTrackingStatus();
 
   if (Platform.OS === 'ios' && status === 'not-determined') {
@@ -20,6 +20,15 @@ export const initMetaSdk = async (): Promise<void> => {
   }
   Settings.initializeSDK();
   buildAppDataHeader(allowed);
+};
+
+let sdkReady: Promise<void> | null = null;
+
+export const initMetaSdk = (): Promise<void> => {
+  if (!sdkReady) {
+    sdkReady = initSdk();
+  }
+  return sdkReady;
 };
 
 
