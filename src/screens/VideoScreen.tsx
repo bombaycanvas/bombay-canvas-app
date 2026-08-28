@@ -109,6 +109,7 @@ const VideoListItem = React.memo(
       !locked && item?.locked && movie?.isPaidSeries && !movie?.userPurchased;
 
     const hasExistingUrl = !!(item?.videoUrl && typeof item.videoUrl === 'string' && item.videoUrl.trim().length > 0);
+    
     const shouldFetch = !locked && !isPaidEpisode && !!videoId && !hasExistingUrl;
     const { data, isLoading: isPlaybackLoading } = usePlayVideoWithId(
       shouldFetch ? videoId : null,
@@ -126,6 +127,7 @@ const VideoListItem = React.memo(
 
     const { setAuthRedirect } = useVideoStore();
     const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
+    
 
     useEffect(() => {
       setLiked(!!episodeData?.likedByMe);
@@ -394,6 +396,8 @@ const VideoScreen = () => {
 
   const { data: seriesData, isLoading: isSeriesLoading } = useMoviesDataById(id);
   const seriesFromData = seriesData?.series;
+  const hasStoreEpisodes = (episodes?.length ?? 0) > 0;
+  const hasFetchedEpisodes = (seriesFromData?.episodes?.length ?? 0) > 0;
 
   const [isEpisodesSheetOpen, setIsEpisodesSheetOpen] = useState(false);
 
@@ -580,21 +584,23 @@ const VideoScreen = () => {
 
 
 
-  if (isSeriesLoading && (!episodes || episodes.length === 0)) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#ff6a00" />
-      </View>
-    );
-  }
+  // Loading, or we have fetched data but the store hasn't synced it yet
+if (isSeriesLoading || (!hasStoreEpisodes && hasFetchedEpisodes)) {
+  return (
+    <View style={styles.loaderContainer}>
+      <ActivityIndicator size="large" color="#ff6a00" />
+    </View>
+  );
+}
 
-  if (!episodes || episodes.length === 0) {
-    return (
-      <View style={styles.loaderContainer}>
-        <Text style={styles.emptyText}>No episodes found.</Text>
-      </View>
-    );
-  }
+// Only now can we trust that there really are no episodes
+if (!hasStoreEpisodes && !hasFetchedEpisodes) {
+  return (
+    <View style={styles.loaderContainer}>
+      <Text style={styles.emptyText}>No episodes found.</Text>
+    </View>
+  );
+}
 
   const activeEpisode =
     episodes?.find(e => e.id === currentEpisodeId) ||
