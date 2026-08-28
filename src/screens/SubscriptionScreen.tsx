@@ -125,7 +125,7 @@ export default function SubscriptionScreen() {
       };
 
       const paymentData: any = await new Promise((resolve, reject) => {
-        RazorpayCheckout.open(options as any)
+        RazorpayCheckout.open(options)
           .then(resolve)
           .catch((err: any) => {
             console.error('Razorpay SDK error:', err);
@@ -134,14 +134,45 @@ export default function SubscriptionScreen() {
       });
 
       console.log(
-        'Razorpay checkout completed successfully, verifying signature...',
+        'Razorpay checkout completed. Payload keys:',
+        Object.keys(paymentData || {}),
       );
 
-      await verifySubMutation.mutateAsync({
-        razorpay_payment_id: paymentData.razorpay_payment_id,
-        razorpay_subscription_id: paymentData.razorpay_subscription_id,
-        razorpay_signature: paymentData.razorpay_signature,
-      });
+      // Card checkout finishes inside the Razorpay sheet and always hands back
+      // the signed triple. A UPI-intent mandate (GPay/PhonePe) is authorised in
+      // the external app and signed by Razorpay server-side, so the payload we
+      // get back can be partial — commonly payment_id only, sometimes not even
+      // that. Recover the subscription id from /create, which we already hold.
+      const paymentId = paymentData?.razorpay_payment_id;
+      const subscriptionId =
+        paymentData?.razorpay_subscription_id || razorpaySubscriptionId;
+      const signature = paymentData?.razorpay_signature;
+
+      // /verify is UX confirmation ONLY — it validates the HMAC and echoes the
+      // local status back. It grants nothing: activation is webhook-driven
+      // (subscription.authenticated / activated / charged). So a payload we
+      // cannot sign-check, or a verify call that fails, must NOT abort the
+      // flow — the money has already moved. Let the GET /me poll below be the
+      // sole judge of whether the plan came up.
+      if (paymentId && subscriptionId && signature) {
+        try {
+          await verifySubMutation.mutateAsync({
+            razorpay_payment_id: paymentId,
+            razorpay_subscription_id: subscriptionId,
+            razorpay_signature: signature,
+          });
+        } catch (verifyError) {
+          console.warn(
+            'Signature verify failed; falling back to GET /me polling',
+            verifyError,
+          );
+        }
+      } else {
+        console.warn(
+          'Checkout returned a partial payload; skipping signature verify',
+          { paymentId: !!paymentId, subscriptionId: !!subscriptionId, signature: !!signature },
+        );
+      }
 
       // Money changed hands. Fire immediately — do NOT wait for the /me poll
       // below, because the user can background the app at any point during it.
@@ -152,10 +183,14 @@ export default function SubscriptionScreen() {
         // the backend sends.
         track('StartTrial', undefined, razorpaySubscriptionId);
       } else {
+        // Dedup key must never be undefined — that would stop this event
+        // merging with the backend's and double-count the conversion. UPI
+        // intent can withhold the payment id, so fall back to the
+        // subscription id, which we always have.
         track(
           'Subscribe',
           { value: planValue, currency: 'INR' },
-          paymentData.razorpay_payment_id,
+          paymentId || razorpaySubscriptionId,
         );
       }
 
