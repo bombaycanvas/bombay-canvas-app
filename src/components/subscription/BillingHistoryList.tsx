@@ -11,6 +11,23 @@ const SETTLED_STATUSES = ['captured', 'paid'];
 const toTitleCase = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
+// Apple bills in the storefront's own currency, so a charge is no longer always
+// rupees and a hardcoded ₹ would relabel a $4.99 receipt as ₹4.99. Amounts are
+// stored in minor units. Intl is not guaranteed on every engine build, so an
+// unformattable pair falls back to the code beside the number rather than to a
+// symbol that might be the wrong one.
+const formatChargeAmount = (minorUnits: number, currency: string): string => {
+  const major = minorUnits / 100;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+    }).format(major);
+  } catch {
+    return `${currency} ${major}`;
+  }
+};
+
 interface BillingHistoryListProps {
   charges?: SubscriptionCharge[];
   loading?: boolean;
@@ -52,7 +69,9 @@ export default function BillingHistoryList({
                 {formatDate(charge.chargedAt || charge.periodStart) || '—'}
               </Text>
               <View style={styles.rowRight}>
-                <Text style={styles.amount}>₹{charge.amount / 100}</Text>
+                <Text style={styles.amount}>
+                  {formatChargeAmount(charge.amount, charge.currency || 'INR')}
+                </Text>
                 <View
                   style={[
                     styles.statusBadge,

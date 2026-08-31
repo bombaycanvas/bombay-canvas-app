@@ -1,5 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { CreditCard } from 'lucide-react-native';
 import { Subscription } from '../../api/subscription';
 import { formatDate } from '../../utils/formatDate';
@@ -19,12 +25,19 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 interface SubscriptionDetailsCardProps {
   subscription: Subscription;
   onCancelPress: () => void;
+  /**
+   * The user has been through Apple's subscription sheet and the server has not
+   * heard from Apple yet. Offering the cancel button again here would invite a
+   * second trip for something that may already be done.
+   */
+  confirmingCancel?: boolean;
 }
 
 /** Plan, access window, expiry warning and the cancel action for one subscription. */
 export default function SubscriptionDetailsCard({
   subscription,
   onCancelPress,
+  confirmingCancel = false,
 }: SubscriptionDetailsCardProps) {
   const { planCode, currentPeriodEnd, cancelAtPeriodEnd } = subscription;
 
@@ -71,6 +84,16 @@ export default function SubscriptionDetailsCard({
           <Text style={styles.cancelledNotice}>
             Your subscription is cancelled. Access continues until {accessUntil}
             .
+          </Text>
+        </View>
+      ) : confirmingCancel ? (
+        <View style={styles.pendingContainer}>
+          <ActivityIndicator size="small" color="#ff6a00" />
+          <Text style={styles.pendingText}>
+            Checking with the App Store…{'\n'}
+            <Text style={styles.pendingSubText}>
+              This can take a moment. Your access is unchanged either way.
+            </Text>
           </Text>
         </View>
       ) : (
@@ -164,6 +187,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ff4444',
     textAlign: 'center',
+  },
+  pendingContainer: {
+    marginTop: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 106, 0, 0.35)',
+    backgroundColor: 'rgba(255, 106, 0, 0.12)',
+  },
+  pendingText: {
+    flex: 1,
+    marginLeft: 10,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+    color: '#ff7f24',
+    lineHeight: 20,
+  },
+  pendingSubText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.55)',
   },
   cancelSubButton: {
     marginTop: 15,

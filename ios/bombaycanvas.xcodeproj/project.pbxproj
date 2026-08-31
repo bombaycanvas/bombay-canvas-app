@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		28CD831DEBC54F92B40ED769 /* HelveticaNowDisplay-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8242F9DF700949F28F5DEEBE /* HelveticaNowDisplay-Light.ttf */; };
+		2AA62DC530431008008E14EF /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AA62DC430431008008E14EF /* StoreKit.framework */; };
+		2AA62DC83045BAAF008E14EF /* Canvas.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 2AA62DC73045BAAF008E14EF /* Canvas.storekit */; };
 		663F7D568A1F47DF909EA40D /* HelveticaNowDisplay-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B95FA282EFAC48F5A5DFAF89 /* HelveticaNowDisplay-Medium.ttf */; };
 		6FCE52C4A4A430F1358084CA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
@@ -24,6 +26,8 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = bombaycanvas/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = bombaycanvas/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = bombaycanvas/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2AA62DC430431008008E14EF /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		2AA62DC73045BAAF008E14EF /* Canvas.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Canvas.storekit; sourceTree = "<group>"; };
 		40AEE50D2E994D9A0058DD42 /* bombaycanvas.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = bombaycanvas.entitlements; path = bombaycanvas/bombaycanvas.entitlements; sourceTree = "<group>"; };
 		45E6A2E85E764DEEB9375671 /* HelveticaNowDisplay-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "HelveticaNowDisplay-Regular.ttf"; path = "../assets/fonts/HelveticaNowDisplay-Regular.ttf"; sourceTree = "<group>"; };
 		4B9FD2E5B7B880145B24A26A /* Pods_bombaycanvas.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_bombaycanvas.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,6 +48,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				89F11E358A0A0D84F6B3E3CC /* Pods_bombaycanvas.framework in Frameworks */,
+				2AA62DC530431008008E14EF /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,6 +71,7 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2AA62DC430431008008E14EF /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				4B9FD2E5B7B880145B24A26A /* Pods_bombaycanvas.framework */,
 			);
@@ -82,6 +88,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				2AA62DC73045BAAF008E14EF /* Canvas.storekit */,
 				13B07FAE1A68108700A75B9A /* bombaycanvas */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -185,6 +192,7 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				2AA62DC83045BAAF008E14EF /* Canvas.storekit in Resources */,
 				6FCE52C4A4A430F1358084CA /* PrivacyInfo.xcprivacy in Resources */,
 				B7E5ADDD49A348AD87B7771F /* HelveticaNowDisplay-Bold.ttf in Resources */,
 				D4E583EA556F4C9D9ACE5677 /* HelveticaNowDisplay-ExtraBold.ttf in Resources */,
@@ -221,9 +229,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -238,9 +250,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-bombaycanvas/Pods-bombaycanvas-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

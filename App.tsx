@@ -9,6 +9,12 @@ import { IOS_CLIENT_ID, WEB_CLIENT_ID } from '@env';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { initMetaSdk } from './src/utils/analytics';
+import { useAppleIapSync } from './src/hooks/useAppleIapSync';
+
+function AppleIapSync() {
+  useAppleIapSync();
+  return null;
+}
 
 export default function App() {
   useEffect(() => {
@@ -24,6 +30,7 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AppleIapSync />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <MainApp />
