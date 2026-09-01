@@ -48,24 +48,77 @@ export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
   );
 };
 
+/**
+ * Plan codes this client may receive or send.
+ *
+ * There are TWO trial codes at two different post-trial prices — `TRIAL`
+ * (₹1 → ₹499/yr) and `TRIAL_NEW` (₹1 → ₹899/yr) — and the backend sends the app
+ * BOTH. Builds already in the field hardcode ₹499 copy and look up only `TRIAL`,
+ * so `TRIAL_NEW` arrives unread and changes nothing for them. That is the
+ * compatibility mechanism; there is no version negotiation.
+ *
+ * This build reads every price from the API, so it takes the newest trial the
+ * API offers (see `pickTrialPlan`). Never branch on `=== 'TRIAL'` — use
+ * `isTrialCode`, or a `TRIAL_NEW` subscriber gets treated as a paid annual one.
+ */
+export type PlanCode = 'MONTHLY' | 'ANNUAL' | 'TRIAL' | 'TRIAL_NEW';
+
+/** Trial codes in ascending preference order — later entries win. */
+export const TRIAL_CODES: PlanCode[] = ['TRIAL', 'TRIAL_NEW'];
+
+/** Whether a plan code is a trial, at any price. */
+export const isTrialCode = (code?: string | null): boolean =>
+  code != null && TRIAL_CODES.includes(code as PlanCode);
+
 export interface Plan {
-  code: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
+  code: PlanCode;
   name: string;
   description: string;
   period: 'monthly' | 'yearly';
+  /** PAISE. Divide by 100 to display. For a trial this is the POST-trial price. */
   price: number;
   currency: string;
   trial?: {
     days: number;
+    /** Real window length; shortened from `days` only in test environments. */
+    durationMinutes: number;
+    /** PAISE charged today to authorise the mandate (₹1 = 100). */
     upfrontAmount: number;
   };
 }
 
+/**
+ * The single trial to show, out of everything the API returned: the newest code
+ * in `TRIAL_CODES` that is actually present.
+ *
+ * This is what stops the paywall rendering two trial cards at two prices. The
+ * choice lives client-side because the server cannot tell an old build from a
+ * new one — it offers both and each client takes the newest code it understands.
+ */
+export const pickTrialPlan = (plans?: Plan[] | null): Plan | undefined => {
+  if (!Array.isArray(plans)) return undefined;
+  for (let i = TRIAL_CODES.length - 1; i >= 0; i--) {
+    const match = plans.find(p => p.code === TRIAL_CODES[i]);
+    if (match) return match;
+  }
+  return undefined;
+};
+
 export interface Subscription {
   id: string;
-  planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
+  planCode: PlanCode;
   status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'TRIAL' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  /**
+   * The recurring price frozen when this subscription was created, in PAISE.
+   * THE authoritative "what will I be charged next" number — a subscriber keeps
+   * the price they signed up at even after the plan is re-priced, so never
+   * re-derive it from a plan lookup.
+   */
   amountSnapshot: number;
+  /** True while inside the ₹1 trial window. Server-computed. */
+  isTrial?: boolean;
+  /** PAISE actually charged today (the activation fee), when in a trial. */
+  upfrontAmount?: number | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -106,7 +159,7 @@ export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse>
   }
 };
 
-export const createSubscription = async (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => {
+export const createSubscription = async (planCode: PlanCode) => {
   try {
     const response = await api('/api/monetize/subscription/create', {
       method: 'POST',
@@ -209,7 +262,7 @@ export const useMySubscription = () => {
 
 export const useCreateSubscription = () => {
   return useMutation({
-    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => createSubscription(planCode),
+    mutationFn: (planCode: PlanCode) => createSubscription(planCode),
   });
 };
 

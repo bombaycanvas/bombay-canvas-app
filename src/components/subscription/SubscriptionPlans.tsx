@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import LockOutlined from '../../assets/LockOutlined';
-import { Plan } from '../../api/subscription';
+import { Plan, PlanCode, isTrialCode, pickTrialPlan } from '../../api/subscription';
 
 interface SubscriptionPlansProps {
   selectedPlan: 'trial' | 'monthly' | 'annual';
   setSelectedPlan: (plan: 'trial' | 'monthly' | 'annual') => void;
   handlePurchase: (plan: 'trial' | 'monthly' | 'annual') => void;
   loading: boolean;
-  activePlan?: 'TRIAL' | 'MONTHLY' | 'ANNUAL' | null;
+  activePlan?: PlanCode | null;
   plans?: Plan[];
-  trialEligible?: boolean;
 }
+
+/** Whole rupees from a paise amount — every price on this screen goes through here. */
+const rupees = (paise?: number | null) => Math.round((paise || 0) / 100);
 
 export default function SubscriptionPlans({
   selectedPlan,
@@ -20,28 +22,48 @@ export default function SubscriptionPlans({
   loading,
   activePlan,
   plans,
-  trialEligible,
 }: SubscriptionPlansProps) {
-  const isTrialActive = activePlan === 'TRIAL';
+  // Either trial code counts as "the trial is active" — a TRIAL_NEW subscriber
+  // is not a paid annual subscriber.
+  const isTrialActive = isTrialCode(activePlan);
   const isMonthlyActive = activePlan === 'MONTHLY';
   const isAnnualActive = activePlan === 'ANNUAL';
   const hasAnyActive = isTrialActive || isMonthlyActive || isAnnualActive;
 
-  const trialPlan = plans?.find(p => p.code === 'TRIAL');
+  // The API offers this client both trial codes; take the newest one it knows
+  // about so exactly ONE trial card renders. See pickTrialPlan.
+  const trialPlan = pickTrialPlan(plans);
   const monthlyPlan = plans?.find(p => p.code === 'MONTHLY');
   const annualPlan = plans?.find(p => p.code === 'ANNUAL');
 
-  const monthlyPrice = monthlyPlan ? monthlyPlan.price / 100 : 99;
-  const annualPrice = annualPlan ? annualPlan.price / 100 : 499;
+  // Every amount below comes from the API. No hardcoded rupee fallbacks: a
+  // fallback that disagrees with the server quotes one price and charges
+  // another, which is exactly the bug that forced two trial codes to exist. A
+  // card whose plan is missing simply does not render.
+  const monthlyPrice = monthlyPlan ? rupees(monthlyPlan.price) : null;
+  const annualPrice = annualPlan ? rupees(annualPlan.price) : null;
+  const annualPricePerMonth =
+    annualPrice != null ? Math.round(annualPrice / 12) : null;
 
+  const savingsPercent =
+    monthlyPrice != null && annualPrice != null && monthlyPrice > 0
+      ? Math.round(((monthlyPrice * 12 - annualPrice) / (monthlyPrice * 12)) * 100)
+      : null;
 
-  const annualPricePerMonth = Math.round(annualPrice / 12);
+  // The post-trial price is the TRIAL plan's OWN price, never the ANNUAL card's
+  // — they are different numbers (₹899 vs ₹499) and reading the wrong one
+  // understates the charge by ₹400.
+  const trialUpfront = rupees(trialPlan?.trial?.upfrontAmount);
+  const trialPostPrice = trialPlan ? rupees(trialPlan.price) : null;
+  const trialDays = trialPlan?.trial?.days;
 
-  const savingsPercent = monthlyPrice > 0
-    ? Math.round(((monthlyPrice * 12 - annualPrice) / (monthlyPrice * 12)) * 100)
-    : 58;
+  // The server already applied eligibility when it built the offered set — an
+  // ineligible user gets no trial plan back at all, from either plan source. So
+  // the plan's presence IS the answer, and gating on it alone means the two
+  // signals can never contradict: `trialEligible` parses to `false` on a
+  // malformed response, which would otherwise hide a trial the server did offer.
+  const showTrial = !!trialPlan;
 
-  const showTrial = trialEligible || !!trialPlan;
   return (
     <View style={styles.plansWrapper}>
       {showTrial && (
@@ -65,12 +87,12 @@ export default function SubscriptionPlans({
                 <View style={[styles.radioOuter, selectedPlan === 'trial' && styles.radioOuterActive, { marginRight: 10 }]}>
                   {selectedPlan === 'trial' && <View style={styles.radioInner} />}
                 </View>
-                <Text style={styles.trialTitleText}>{trialPlan?.name || '3-Day Trial'}</Text>
+                <Text style={styles.trialTitleText}>{trialPlan?.name}</Text>
               </View>
 
               <View style={styles.trialPriceContainer}>
                 <Text style={styles.trialPriceCurrency}>₹</Text>
-                <Text style={styles.trialPriceText}>1</Text>
+                <Text style={styles.trialPriceText}>{trialUpfront}</Text>
                 <Text style={styles.trialPricePeriod}> today</Text>
               </View>
             </View>
@@ -95,14 +117,15 @@ export default function SubscriptionPlans({
                     hasAnyActive && styles.planButtonTextDisabled,
                   ]}
                 >
-                  {isTrialActive ? 'Active' : 'Start for ₹1 →'}
+                  {isTrialActive ? 'Active' : `Start for ₹${trialUpfront} →`}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
 
           <Text style={styles.trialBottomText}>
-            3 days full access, then ₹{annualPrice}/year. Cancel anytime. The ₹1 activation fee is non-refundable.
+            {trialDays} days full access, then ₹{trialPostPrice}/year. Cancel
+            anytime. The ₹{trialUpfront} activation fee is non-refundable.
           </Text>
         </TouchableOpacity>
       )}
@@ -116,118 +139,124 @@ export default function SubscriptionPlans({
       )}
 
       <View style={styles.plansRow}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'monthly' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('monthly')}
-        >
-          <View style={styles.radioAbsoluteLeft}>
-            <View style={[styles.radioOuter, selectedPlan === 'monthly' && styles.radioOuterActive]}>
-              {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
-            </View>
-          </View>
-
-          <Text style={styles.planTitleText}>MONTHLY</Text>
-
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Text style={styles.priceCurrency}>₹</Text>
-              <Text style={styles.priceText}>{monthlyPrice}</Text>
-              <Text style={styles.pricePeriod}>/month</Text>
-            </View>
-            <Text style={styles.planSubtext}>Billed monthly{'\n'}Cancel anytime</Text>
-          </View>
-
+        {!!monthlyPlan && (
           <TouchableOpacity
             activeOpacity={0.9}
             style={[
-              styles.planButton,
-              selectedPlan === 'monthly' ? styles.planButtonActive : styles.planButtonInactive,
-              isMonthlyActive && styles.planButtonDisabled,
+              styles.planCard,
+              selectedPlan === 'monthly' && styles.planCardActive,
             ]}
-            onPress={() => handlePurchase('monthly')}
-            disabled={loading || isMonthlyActive || selectedPlan !== 'monthly'}
+            onPress={() => setSelectedPlan('monthly')}
           >
-            {loading && selectedPlan === 'monthly' ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text
-                style={[
-                  styles.planButtonText,
-                  selectedPlan === 'monthly' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  isMonthlyActive && styles.planButtonTextDisabled,
-                ]}
-              >
-                {isMonthlyActive ? 'Active' : 'Continue Monthly'}
-              </Text>
-            )}
+            <View style={styles.radioAbsoluteLeft}>
+              <View style={[styles.radioOuter, selectedPlan === 'monthly' && styles.radioOuterActive]}>
+                {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
+              </View>
+            </View>
+
+            <Text style={styles.planTitleText}>MONTHLY</Text>
+
+            <View style={styles.planPriceContainer}>
+              <View style={styles.priceMainRow}>
+                <Text style={styles.priceCurrency}>₹</Text>
+                <Text style={styles.priceText}>{monthlyPrice}</Text>
+                <Text style={styles.pricePeriod}>/month</Text>
+              </View>
+              <Text style={styles.planSubtext}>Billed monthly{'\n'}Cancel anytime</Text>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.planButton,
+                selectedPlan === 'monthly' ? styles.planButtonActive : styles.planButtonInactive,
+                isMonthlyActive && styles.planButtonDisabled,
+              ]}
+              onPress={() => handlePurchase('monthly')}
+              disabled={loading || isMonthlyActive || selectedPlan !== 'monthly'}
+            >
+              {loading && selectedPlan === 'monthly' ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text
+                  style={[
+                    styles.planButtonText,
+                    selectedPlan === 'monthly' ? styles.planButtonTextActive : styles.planButtonTextInactive,
+                    isMonthlyActive && styles.planButtonTextDisabled,
+                  ]}
+                >
+                  {isMonthlyActive ? 'Active' : 'Continue Monthly'}
+                </Text>
+              )}
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'annual' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('annual')}
-        >
-          <View style={styles.popularBadge}>
-            <View style={styles.popularBadgeTextContainer}>
-              <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
-            </View>
-          </View>
-
-          <View style={styles.radioAbsoluteLeft}>
-            <View style={[styles.radioOuter, selectedPlan === 'annual' && styles.radioOuterActive]}>
-              {selectedPlan === 'annual' ? (
-                <View style={styles.radioInner} />
-              ) : null}
-            </View>
-          </View>
-
-          <Text style={styles.planTitleText}>ANNUAL</Text>
-
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Text style={styles.priceCurrency}>₹</Text>
-              <Text style={styles.priceText}>{annualPrice}</Text>
-              <Text style={styles.pricePeriod}>/year</Text>
-            </View>
-            <Text style={styles.planSavingsText}>Only ₹{annualPricePerMonth}/month</Text>
-            <View style={styles.planSavingsBadge}>
-              <Text style={styles.planSavingsBadgeText}>Save {savingsPercent}%</Text>
-            </View>
-          </View>
-
+        {!!annualPlan && (
           <TouchableOpacity
             activeOpacity={0.9}
             style={[
-              styles.planButton,
-              selectedPlan === 'annual' ? styles.planButtonActive : styles.planButtonInactive,
-              isAnnualActive && styles.planButtonDisabled,
+              styles.planCard,
+              selectedPlan === 'annual' && styles.planCardActive,
             ]}
-            onPress={() => handlePurchase('annual')}
-            disabled={loading || isAnnualActive || selectedPlan !== 'annual'}
+            onPress={() => setSelectedPlan('annual')}
           >
-            {loading && selectedPlan === 'annual' ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <Text
-                style={[
-                  styles.planButtonText,
-                  selectedPlan === 'annual' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  isAnnualActive && styles.planButtonTextDisabled,
-                ]}
-              >
-                {isAnnualActive ? 'Active' : 'Join Canvas'}
-              </Text>
-            )}
+            <View style={styles.popularBadge}>
+              <View style={styles.popularBadgeTextContainer}>
+                <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
+              </View>
+            </View>
+
+            <View style={styles.radioAbsoluteLeft}>
+              <View style={[styles.radioOuter, selectedPlan === 'annual' && styles.radioOuterActive]}>
+                {selectedPlan === 'annual' ? (
+                  <View style={styles.radioInner} />
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={styles.planTitleText}>ANNUAL</Text>
+
+            <View style={styles.planPriceContainer}>
+              <View style={styles.priceMainRow}>
+                <Text style={styles.priceCurrency}>₹</Text>
+                <Text style={styles.priceText}>{annualPrice}</Text>
+                <Text style={styles.pricePeriod}>/year</Text>
+              </View>
+              <Text style={styles.planSavingsText}>Only ₹{annualPricePerMonth}/month</Text>
+              {savingsPercent != null && savingsPercent > 0 && (
+                <View style={styles.planSavingsBadge}>
+                  <Text style={styles.planSavingsBadgeText}>Save {savingsPercent}%</Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.planButton,
+                selectedPlan === 'annual' ? styles.planButtonActive : styles.planButtonInactive,
+                isAnnualActive && styles.planButtonDisabled,
+              ]}
+              onPress={() => handlePurchase('annual')}
+              disabled={loading || isAnnualActive || selectedPlan !== 'annual'}
+            >
+              {loading && selectedPlan === 'annual' ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text
+                  style={[
+                    styles.planButtonText,
+                    selectedPlan === 'annual' ? styles.planButtonTextActive : styles.planButtonTextInactive,
+                    isAnnualActive && styles.planButtonTextDisabled,
+                  ]}
+                >
+                  {isAnnualActive ? 'Active' : 'Join Canvas'}
+                </Text>
+              )}
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.secureTextRow}>

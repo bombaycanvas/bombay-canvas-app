@@ -52,7 +52,7 @@ export default function BillingHistoryList({
                 {formatDate(charge.chargedAt || charge.periodStart) || '—'}
               </Text>
               <View style={styles.rowRight}>
-                <Text style={styles.amount}>₹{charge.amount / 100}</Text>
+                <Text style={styles.amount}>₹{Math.round(charge.amount / 100)}</Text>
                 <View
                   style={[
                     styles.statusBadge,

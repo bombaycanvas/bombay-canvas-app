@@ -20,12 +20,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { Check, ChevronLeft, ShieldCheck, X } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import {
   CancelReasonCode,
+  isTrialCode,
   Subscription,
   useCancelSubscription,
   useSubscriptionPlans,
+  type Plan,
+  type PlanCode,
 } from '../../api/subscription';
+import { useSubscriptionCheckout } from '../../hooks/useSubscriptionCheckout';
 import {
   imgUrl,
   useContinueWatching,
@@ -45,19 +50,30 @@ import SubscriptionComingSoon from './SubscriptionComingSoon';
 const REFUND_POLICY_URL = 'https://canvasott.com/refund-policy';
 const CONFIRM_DELAY_SECONDS = 2;
 const MAX_RECOMMENDED_POSTERS = 3;
-const FALLBACK_PRICE_BY_PLAN = { MONTHLY: 99, ANNUAL: 499 } as const;
-const TOTAL_STEPS = 4;
 const SHEET_HEIGHT_RATIO = 0.92;
 const DISMISS_DRAG_DISTANCE = 120;
 const DISMISS_DRAG_VELOCITY = 1.1;
 
 const PLAN_LABEL: Record<string, string> = {
   TRIAL: 'Trial',
+  TRIAL_NEW: 'Trial',
   MONTHLY: 'Monthly',
   ANNUAL: 'Annual',
 };
 
-type FlowStep = 1 | 2 | 3 | 4;
+/** The cheaper plans offered instead of losing the user outright, in display order. */
+const DOWNSELL_CODES: PlanCode[] = ['MONTHLY', 'ANNUAL'];
+
+/**
+ * The steps this flow can show, in fixed order. Which of them actually appear is
+ * decided per-run (see `steps` below) — "coming soon" is skipped with nothing to
+ * show, and the downsell only exists for a trial that has somewhere cheaper to
+ * go. Addressing steps by NAME rather than by number is what keeps that
+ * conditional: the previous hardcoded 1-4 meant every skip had to be re-derived
+ * by hand in both the forward and back handlers, and adding a step renumbered
+ * the others.
+ */
+type StepName = 'reason' | 'save' | 'upcoming' | 'downsell' | 'confirm';
 
 interface ContinueWatchingItem {
   seriesId: string;
@@ -110,13 +126,13 @@ const toPercent = (progress?: number): number | null => {
   return Math.max(0, Math.min(100, Math.round(percent)));
 };
 
-function ProgressBar({ step }: { step: FlowStep }) {
+function ProgressBar({ index, total }: { index: number; total: number }) {
   return (
     <View style={styles.progressRow}>
-      {Array.from({ length: TOTAL_STEPS }, (_, index) => (
+      {Array.from({ length: total }, (_, i) => (
         <View
-          key={index}
-          style={[styles.progressSegment, index < step && styles.progressSegmentActive]}
+          key={i}
+          style={[styles.progressSegment, i <= index && styles.progressSegmentActive]}
         />
       ))}
     </View>
@@ -220,6 +236,148 @@ function ReasonStep({
           </Text>
         </View>
       )}
+    </View>
+  );
+}
+
+interface DownsellStepProps {
+  plans: Plan[];
+  currentAmount: number;
+  selected: PlanCode | null;
+  switchingTo: PlanCode | null;
+  onSelect: (code: PlanCode) => void;
+  onChoose: (plan: Plan) => void;
+}
+
+/**
+ * Offered to a trial user on the way out, before the confirm screen: the same
+ * catalogue at a price they have not already rejected.
+ *
+ * Only reached when there is genuinely something cheaper to move to — see
+ * `downsellPlans`. Every amount is rendered from the plan the API returned, so
+ * the saving quoted here is arithmetic on real prices rather than copy that goes
+ * stale the next time a plan is re-priced.
+ */
+function DownsellStep({
+  plans,
+  currentAmount,
+  selected,
+  switchingTo,
+  onSelect,
+  onChoose,
+}: DownsellStepProps) {
+  const busy = switchingTo !== null;
+
+  return (
+    <View>
+      <StepHeading
+        eyebrow="Before you go"
+        title="Keep Canvas for less"
+        subtitle="You picked the trial because the catalogue looked worth it. It still is — just at a price that suits you better."
+      />
+
+      <View style={styles.downsellList}>
+        {plans.map(plan => {
+          const price = Math.round(plan.price / 100);
+          const perMonth =
+            plan.period === 'yearly' ? Math.round(price / 12) : price;
+          // Compare like with like: `currentAmount` is a YEARLY price (both trial
+          // codes bill annually), so a monthly plan has to be annualised before
+          // it can be measured against it. Comparing the raw ₹99 to ₹899 read as
+          // "Save 89%" when twelve of those months actually cost ₹1,188 — ₹289
+          // MORE than the trial it was pitched as a saving on.
+          //
+          // Monthly therefore shows no badge here, which is correct: it is a
+          // downsell on COMMITMENT (₹99 now instead of ₹899), not on annual cost.
+          const annualisedPrice =
+            plan.period === 'yearly' ? plan.price : plan.price * 12;
+          const saving = Math.max(
+            0,
+            Math.round(((currentAmount - annualisedPrice) / currentAmount) * 100),
+          );
+          const isBusy = switchingTo === plan.code;
+          // Emphasis follows SELECTION, not the plan itself. Annual arrives
+          // pre-selected (see `defaultDownsellCode`) so it is primary on entry,
+          // but picking monthly has to move the highlight with it — a card whose
+          // button reads "Confirm Plan" while a different card is the lit one
+          // would leave the user unsure what they are about to be charged for.
+          const isSelected = selected === plan.code;
+
+          return (
+            <TouchableOpacity
+              key={plan.code}
+              activeOpacity={0.85}
+              style={[
+                styles.downsellCard,
+                isSelected && styles.downsellCardPrimary,
+                isBusy && styles.downsellCardBusy,
+              ]}
+              onPress={() => onSelect(plan.code)}
+              disabled={busy}
+            >
+              <View style={styles.downsellCardTop}>
+                <Text style={styles.downsellPlanName}>{plan.name}</Text>
+                {saving > 0 && (
+                  <View style={styles.downsellSaveBadge}>
+                    <Text style={styles.downsellSaveBadgeText}>
+                      Save {saving}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.downsellPriceRow}>
+                <Text style={styles.downsellPrice}>₹{price}</Text>
+                <Text style={styles.downsellPeriod}>
+                  /{plan.period === 'yearly' ? 'year' : 'month'}
+                </Text>
+              </View>
+
+              {plan.period === 'yearly' && (
+                <Text style={styles.downsellPerMonth}>
+                  Works out to ₹{perMonth}/month
+                </Text>
+              )}
+
+              {/*
+                Two taps to spend money, deliberately. The first selects; only a
+                press on the already-selected card's button commits. A single tap
+                that went straight to Razorpay would make a mis-tap on the wrong
+                card a real charge.
+              */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[
+                  styles.downsellCta,
+                  !isSelected && styles.downsellCtaSecondary,
+                ]}
+                onPress={() =>
+                  isSelected ? onChoose(plan) : onSelect(plan.code)
+                }
+                disabled={busy}
+              >
+                {isBusy ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text
+                    style={[
+                      styles.downsellCtaText,
+                      !isSelected && styles.downsellCtaTextSecondary,
+                    ]}
+                  >
+                    {isSelected ? 'Confirm Plan' : 'Switch to this plan'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={styles.smallPrint}>
+        Switching cancels your trial and starts the plan you pick straight away.
+        The ₹1 activation fee is not refunded.
+      </Text>
     </View>
   );
 }
@@ -335,7 +493,8 @@ function ConfirmStep({ chargeDate, nextChargeAmount, planCode }: ConfirmStepProp
   );
 }
 
-// Owns the four-step cancel flow — reason capture, save, upcoming content, confirmation, and cancellation.
+// Owns the cancel flow — reason capture, save, upcoming content, an optional
+// downsell for trial users, confirmation, and cancellation.
 export default function CancelSubscriptionFlow({
   visible,
   onClose,
@@ -347,11 +506,13 @@ export default function CancelSubscriptionFlow({
   const sheetHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
 
   const [mounted, setMounted] = useState(visible);
-  const [step, setStep] = useState<FlowStep>(1);
+  const [stepIndex, setStepIndex] = useState(0);
   const [reason, setReason] = useState<CancelReasonCode | null>(null);
   const [otherText, setOtherText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(CONFIRM_DELAY_SECONDS);
+  const [switchingTo, setSwitchingTo] = useState<PlanCode | null>(null);
+  const [pickedDownsell, setPickedDownsell] = useState<PlanCode | null>(null);
   const terminalFiredRef = useRef(false);
   const wasVisibleRef = useRef(false);
   const translateY = useRef(new Animated.Value(windowHeight)).current;
@@ -361,6 +522,8 @@ export default function CancelSubscriptionFlow({
   const { data: upcomingData } = useUpcomingSeriesData();
   const { data: plansData } = useSubscriptionPlans();
   const { mutate: cancelSubscription, isPending } = useCancelSubscription();
+  const { mutateAsync: cancelSubscriptionAsync } = useCancelSubscription();
+  const { startCheckout } = useSubscriptionCheckout();
 
   const topWatch: ContinueWatchingItem | null =
     ((continueWatchingData?.items ?? []) as ContinueWatchingItem[])[0] ?? null;
@@ -369,19 +532,84 @@ export default function CancelSubscriptionFlow({
   const reasons = useMemo(() => getCancelReasons(subscription.planCode), [subscription.planCode]);
   const chargeDate = formatChargeDate(subscription.currentPeriodEnd);
 
-  const nextChargeAmount = useMemo(() => {
-    const targetCode = subscription.planCode === 'TRIAL' ? 'ANNUAL' : subscription.planCode;
-    const plan = plansData?.plans?.find(p => p.code === targetCode);
-    return plan ? plan.price / 100 : FALLBACK_PRICE_BY_PLAN[targetCode];
-  }, [plansData, subscription.planCode]);
+  // Cheaper plans this subscriber could move to instead of leaving.
+  //
+  // Trials only: a paid subscriber is already on one of these, so there is
+  // nothing to offer them. Filtered on price so this can never "downsell"
+  // somebody onto something dearer — which is exactly what would happen if the
+  // ₹499 TRIAL reached here and were shown the ₹499 annual plan as a saving.
+  const downsellPlans = useMemo<Plan[]>(() => {
+    if (!isTrialCode(subscription.planCode)) return [];
+    const offered = plansData?.plans ?? [];
+    return DOWNSELL_CODES.map(code =>
+      offered.find(p => p.code === code),
+    ).filter(
+      (p): p is Plan => !!p && p.price < subscription.amountSnapshot,
+    );
+  }, [plansData, subscription.planCode, subscription.amountSnapshot]);
+
+  // Annual is the default pick: the higher-value save, and the only option that
+  // holds the subscriber for a full year.
+  //
+  // DERIVED rather than seeded into state by an effect. `downsellPlans` is empty
+  // until GET /plans resolves, so an effect would have to re-run on arrival and
+  // would clobber a choice the user had already made in between. Falling back
+  // through `pickedDownsell ?? default` means the default simply applies until
+  // they pick, and their pick wins from then on.
+  const defaultDownsellCode =
+    downsellPlans.find(p => p.period === 'yearly')?.code ??
+    downsellPlans[0]?.code ??
+    null;
+  const selectedDownsell = pickedDownsell ?? defaultDownsellCode;
+
+  // The steps this run will actually show. "upcoming" needs something to show;
+  // "downsell" needs somewhere cheaper to go.
+  const steps = useMemo<StepName[]>(
+    () => [
+      'reason',
+      'save',
+      ...(displayUpcoming.length > 0 ? (['upcoming'] as StepName[]) : []),
+      ...(downsellPlans.length > 0 ? (['downsell'] as StepName[]) : []),
+      'confirm',
+    ],
+    [displayUpcoming.length, downsellPlans.length],
+  );
+
+  const currentStep = steps[Math.min(stepIndex, steps.length - 1)];
+  const goToStep = useCallback(
+    (name: StepName) => {
+      const next = steps.indexOf(name);
+      if (next >= 0) setStepIndex(next);
+    },
+    [steps],
+  );
+
+  // The charge that stops is the price frozen on THIS subscription, full stop.
+  //
+  // This used to map TRIAL → ANNUAL and look the price up in the offered plans.
+  // That breaks twice over now: a trial converts at its own price (₹899 for
+  // TRIAL_NEW, not ANNUAL's ₹499), and a user reaching this screen has already
+  // consumed their trial — so the trial is hidden from `plansData` entirely, the
+  // lookup misses, and the fallback map has no entry for a trial code. The
+  // result was a literal "₹undefined" on the confirm step.
+  //
+  // amountSnapshot has none of those failure modes: it is always present, it is
+  // what the mandate actually charges, and it stays right for a subscriber on a
+  // price that is no longer offered.
+  const nextChargeAmount = useMemo(
+    () => Math.round(subscription.amountSnapshot / 100),
+    [subscription.amountSnapshot],
+  );
 
   const canContinue =
     reason !== null && (reason !== 'OTHER' || otherText.trim().length >= OTHER_TEXT_MIN);
 
   useEffect(() => {
     if (!visible) return;
-    setStep(1);
+    setStepIndex(0);
     setReason(null);
+    setSwitchingTo(null);
+    setPickedDownsell(null);
     setOtherText('');
     setErrorMessage(null);
     setCountdown(CONFIRM_DELAY_SECONDS);
@@ -415,7 +643,7 @@ export default function CancelSubscriptionFlow({
   }, [visible, sheetHeight, translateY]);
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (currentStep !== 'confirm') return;
     setCountdown(CONFIRM_DELAY_SECONDS);
     const timer = setInterval(() => {
       setCountdown(current => {
@@ -427,7 +655,7 @@ export default function CancelSubscriptionFlow({
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [step]);
+  }, [currentStep]);
 
   // Exactly one of Completed / Saved / Abandoned may fire per flow, so re-renders and double-taps can't double-count.
   const fireTerminalEvent = useCallback(
@@ -453,16 +681,19 @@ export default function CancelSubscriptionFlow({
 
   const fireSavedOrAbandoned = useCallback(() => {
     if (reason) {
-      fireTerminalEvent('CancelFlow_Saved', { reason_code: reason, saved_at_step: step });
+      fireTerminalEvent('CancelFlow_Saved', {
+        reason_code: reason,
+        saved_at_step: currentStep,
+      });
     } else {
-      fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: step });
+      fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: currentStep });
     }
-  }, [fireTerminalEvent, reason, step]);
+  }, [currentStep, fireTerminalEvent, reason]);
 
   const handleDismiss = useCallback(() => {
-    fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: step });
+    fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: currentStep });
     slideOut(onClose);
-  }, [fireTerminalEvent, onClose, slideOut, step]);
+  }, [currentStep, fireTerminalEvent, onClose, slideOut]);
 
   const handleSaved = useCallback(() => {
     fireSavedOrAbandoned();
@@ -475,8 +706,8 @@ export default function CancelSubscriptionFlow({
       reason_code: reason,
       plan_code: subscription.planCode,
     });
-    setStep(2);
-  }, [canContinue, reason, subscription.planCode]);
+    goToStep('save');
+  }, [canContinue, goToStep, reason, subscription.planCode]);
 
   const handleKeepWatching = useCallback(() => {
     fireSavedOrAbandoned();
@@ -491,19 +722,95 @@ export default function CancelSubscriptionFlow({
     });
   }, [fireSavedOrAbandoned, navigation, onClose, slideOut, topWatch]);
 
-  const handleContinueToCancel = useCallback(() => {
-    track('CancelFlow_ReachedConfirm', { reason_code: reason ?? undefined });
-    setStep(4);
-  }, [reason]);
-
-  // With nothing upcoming, step 3 would render an empty screen — go straight to confirmation.
-  const handleContinueToComingSoon = useCallback(() => {
-    if (displayUpcoming.length === 0) {
-      handleContinueToCancel();
-      return;
+  // Advance one step. Which step that IS depends on `steps`, which already
+  // omits the ones this run has no content for — so nothing here re-derives a
+  // skip, and adding a step never touches this function.
+  const handleAdvance = useCallback(() => {
+    const next = Math.min(stepIndex + 1, steps.length - 1);
+    if (steps[next] === 'confirm') {
+      track('CancelFlow_ReachedConfirm', { reason_code: reason ?? undefined });
     }
-    setStep(3);
-  }, [displayUpcoming.length, handleContinueToCancel]);
+    setStepIndex(next);
+  }, [reason, stepIndex, steps]);
+
+  /**
+   * Take the downsell: cancel the trial, then buy the cheaper plan.
+   *
+   * The order is forced by the backend's single-active guard — a user may not
+   * open a second subscription while one is live (LIVE_STATUSES). Cancelling
+   * first drops the trial to CANCELLED, which is not "live", so the create is
+   * then accepted.
+   *
+   * That order also decides the failure mode, and it is the safe one: a trial
+   * cancel is immediate but CANCELLED still grants access through its window, so
+   * a user who abandons the Razorpay sheet keeps the catalogue until their trial
+   * would have ended anyway. They lose the trial, not their access.
+   */
+  const handleChooseDownsell = useCallback(
+    async (plan: Plan) => {
+      if (switchingTo) return;
+      setErrorMessage(null);
+      setSwitchingTo(plan.code);
+
+      try {
+        await cancelSubscriptionAsync({
+          subscriptionId: subscription.id,
+          reason: reason ?? undefined,
+          reasonText: reason === 'OTHER' ? otherText.trim() : undefined,
+        });
+
+        track('CancelFlow_DownsellAccepted', {
+          from_plan: subscription.planCode,
+          to_plan: plan.code,
+        });
+
+        const { activated } = await startCheckout(plan.code, plan);
+
+        fireTerminalEvent(
+          'CancelFlow_Saved',
+          {
+            reason_code: reason ?? undefined,
+            saved_at_step: 'downsell',
+            to_plan: plan.code,
+          },
+          subscription.id,
+        );
+
+        Toast.show({
+          type: activated ? 'success' : 'info',
+          text1: activated ? `Switched to ${plan.name}` : 'Activation pending',
+          text2: activated
+            ? 'Your new plan is active. Enjoy Canvas.'
+            : 'Payment received. We are activating your new plan — please refresh shortly.',
+          visibilityTime: activated ? 4000 : 6000,
+        });
+
+        slideOut(onClose);
+      } catch (error: unknown) {
+        // The trial is already cancelled at this point. Say so plainly rather
+        // than implying nothing happened — they still have access until the
+        // trial window ends, and can pick a plan again from the paywall.
+        setErrorMessage(
+          `${resolveErrorMessage(error)} Your trial has been cancelled and you keep access until ${chargeDate}. You can pick a plan any time from Settings.`,
+        );
+      } finally {
+        setSwitchingTo(null);
+      }
+    },
+    [
+      cancelSubscriptionAsync,
+      chargeDate,
+      fireTerminalEvent,
+      onClose,
+      otherText,
+      reason,
+      slideOut,
+      startCheckout,
+      subscription.id,
+      subscription.planCode,
+      switchingTo,
+    ],
+  );
 
   const handleConfirmCancel = useCallback(() => {
     setErrorMessage(null);
@@ -536,13 +843,8 @@ export default function CancelSubscriptionFlow({
   ]);
 
   const handleBack = useCallback(
-    () =>
-      setStep(current => {
-        if (current === 4) return displayUpcoming.length === 0 ? 2 : 3;
-        if (current === 3) return 2;
-        return 1;
-      }),
-    [displayUpcoming.length],
+    () => setStepIndex(current => Math.max(0, current - 1)),
+    [],
   );
 
   // Drag-to-dismiss is bound to the grab handle only, so the scrollable body keeps its own gestures.
@@ -578,7 +880,7 @@ export default function CancelSubscriptionFlow({
   const confirmLocked = countdown > 0;
 
   const renderFooter = () => {
-    if (step === 1) {
+    if (currentStep === 'reason') {
       return (
         <TouchableOpacity
           activeOpacity={0.9}
@@ -593,7 +895,11 @@ export default function CancelSubscriptionFlow({
       );
     }
 
-    if (step === 2 || step === 3) {
+    if (currentStep === 'save' || currentStep === 'upcoming') {
+      // Whether the next screen is the downsell or the confirmation depends on
+      // this run's step list, so the label has to follow it — promising "Cancel
+      // subscription" and then showing a plan picker would read as a bait.
+      const nextIsConfirm = steps[stepIndex + 1] === 'confirm';
       return (
         <>
           <TouchableOpacity
@@ -606,11 +912,27 @@ export default function CancelSubscriptionFlow({
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.ghostButton}
-            onPress={step === 2 ? handleContinueToComingSoon : handleContinueToCancel}
+            onPress={handleAdvance}
           >
             <Text style={styles.ghostButtonText}>
-              {step === 2 ? 'Continue to cancel' : 'Cancel subscription'}
+              {nextIsConfirm ? 'Cancel subscription' : 'Continue to cancel'}
             </Text>
+          </TouchableOpacity>
+        </>
+      );
+    }
+
+    if (currentStep === 'downsell') {
+      return (
+        <>
+          {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.ghostButton, !!switchingTo && styles.buttonDimmed]}
+            onPress={handleAdvance}
+            disabled={!!switchingTo}
+          >
+            <Text style={styles.ghostButtonText}>No thanks, cancel anyway</Text>
           </TouchableOpacity>
         </>
       );
@@ -664,7 +986,7 @@ export default function CancelSubscriptionFlow({
           </View>
 
           <View style={styles.header}>
-            {step > 1 ? (
+            {stepIndex > 0 ? (
               <TouchableOpacity activeOpacity={0.8} style={styles.headerButton} onPress={handleBack}>
                 <ChevronLeft size={20} color="#fff" />
               </TouchableOpacity>
@@ -681,7 +1003,7 @@ export default function CancelSubscriptionFlow({
             </TouchableOpacity>
           </View>
 
-          <ProgressBar step={step} />
+          <ProgressBar index={stepIndex} total={steps.length} />
 
           <ScrollView
             style={styles.body}
@@ -690,7 +1012,7 @@ export default function CancelSubscriptionFlow({
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
           >
-            {step === 1 && (
+            {currentStep === 'reason' && (
               <ReasonStep
                 reasons={reasons}
                 reason={reason}
@@ -700,11 +1022,11 @@ export default function CancelSubscriptionFlow({
               />
             )}
 
-            {step === 2 && (
+            {currentStep === 'save' && (
               <SaveStep chargeDate={chargeDate} topWatch={topWatch} recommended={recommended} />
             )}
 
-            {step === 3 && (
+            {currentStep === 'upcoming' && (
               <>
                 <StepHeading
                   eyebrow="Still to come"
@@ -715,7 +1037,18 @@ export default function CancelSubscriptionFlow({
               </>
             )}
 
-            {step === 4 && (
+            {currentStep === 'downsell' && (
+              <DownsellStep
+                plans={downsellPlans}
+                currentAmount={subscription.amountSnapshot}
+                selected={selectedDownsell}
+                switchingTo={switchingTo}
+                onSelect={setPickedDownsell}
+                onChoose={handleChooseDownsell}
+              />
+            )}
+
+            {currentStep === 'confirm' && (
               <ConfirmStep
                 chargeDate={chargeDate}
                 nextChargeAmount={nextChargeAmount}
@@ -1003,6 +1336,96 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.45)',
     lineHeight: 19,
     marginTop: 20,
+  },
+  downsellList: {
+    gap: 12,
+    marginTop: 4,
+  },
+  downsellCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#222',
+    padding: 16,
+  },
+  // The annual card carries the emphasis: a lit border against the monthly
+  // card's flat one, so the hierarchy reads even before the buttons are compared.
+  downsellCardPrimary: {
+    borderColor: '#ff6a00',
+    backgroundColor: 'rgba(255, 106, 0, 0.08)',
+  },
+  downsellCardBusy: {
+    borderColor: '#ff6a00',
+    opacity: 0.75,
+  },
+  downsellCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  downsellPlanName: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 16,
+    color: '#fff',
+  },
+  downsellSaveBadge: {
+    backgroundColor: '#ff6a00',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  downsellSaveBadgeText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 11,
+    color: '#000',
+  },
+  downsellPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 10,
+  },
+  downsellPrice: {
+    fontFamily: 'HelveticaNowDisplay-Black',
+    fontSize: 28,
+    color: '#fff',
+  },
+  downsellPeriod: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 14,
+    color: '#aaa',
+    marginLeft: 2,
+  },
+  downsellPerMonth: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 13,
+    color: '#ff6a00',
+    marginTop: 2,
+  },
+  downsellCta: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#ff6a00',
+    // Border declared on BOTH variants — the secondary only swaps the fill for
+    // transparent. Adding the border on the outlined one alone would make it
+    // 3px taller than the filled one and the two cards would stop lining up.
+    borderWidth: 1.5,
+    borderColor: '#ff6a00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Secondary = outlined. Same size and position as the primary so monthly is
+  // plainly still available, just not the option being pushed.
+  downsellCtaSecondary: {
+    backgroundColor: 'transparent',
+  },
+  downsellCtaText: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+    color: '#000',
+  },
+  downsellCtaTextSecondary: {
+    color: '#ff6a00',
   },
   link: {
     color: '#ffa05c',
