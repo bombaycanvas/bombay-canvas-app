@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -22,6 +28,7 @@ import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { Check, ChevronLeft, ShieldCheck, X } from 'lucide-react-native';
 import {
   CancelReasonCode,
+  isAppleManagedCancelError,
   Subscription,
   useCancelSubscription,
   useSubscriptionPlans,
@@ -33,7 +40,9 @@ import {
   useUpcomingSeriesData,
 } from '../../api/video';
 import { Movie } from '../../types/movie';
+import { getRailForSubscription } from '../../services/paymentRail';
 import { track } from '../../utils/analytics';
+import { IS_APPLE_RAIL } from '../../utils/paymentRail';
 import {
   CancelReasonOption,
   getCancelReasons,
@@ -43,6 +52,11 @@ import {
 import SubscriptionComingSoon from './SubscriptionComingSoon';
 
 const REFUND_POLICY_URL = 'https://canvasott.com/refund-policy';
+// The App Store adapter, addressed by name rather than looked up from the row's
+// provider, because the fallback below runs precisely when that field is wrong.
+const APPLE_MANAGED_RAIL = getRailForSubscription('APPLE');
+const APPLE_SETTINGS_UNAVAILABLE =
+  'We could not open your App Store settings. Cancel from Settings › your name › Subscriptions.';
 const CONFIRM_DELAY_SECONDS = 2;
 const MAX_RECOMMENDED_POSTERS = 3;
 const FALLBACK_PRICE_BY_PLAN = { MONTHLY: 99, ANNUAL: 499 } as const;
@@ -72,6 +86,12 @@ interface CancelSubscriptionFlowProps {
   visible: boolean;
   onClose: () => void;
   subscription: Subscription;
+  /**
+   * Fired only when the App Store subscription sheet was actually opened. Apple
+   * never reports back what the user did in there, so this is the caller's cue
+   * to start watching for the notification that eventually tells the server.
+   */
+  onDeferredToStore?: () => void;
 }
 
 const formatChargeDate = (dateString?: string | null): string => {
@@ -116,14 +136,23 @@ function ProgressBar({ step }: { step: FlowStep }) {
       {Array.from({ length: TOTAL_STEPS }, (_, index) => (
         <View
           key={index}
-          style={[styles.progressSegment, index < step && styles.progressSegmentActive]}
+          style={[
+            styles.progressSegment,
+            index < step && styles.progressSegmentActive,
+          ]}
         />
       ))}
     </View>
   );
 }
 
-function Poster({ path, style }: { path?: string; style: StyleProp<ImageStyle> }) {
+function Poster({
+  path,
+  style,
+}: {
+  path?: string;
+  style: StyleProp<ImageStyle>;
+}) {
   return (
     <FastImage
       source={
@@ -192,10 +221,17 @@ function ReasonStep({
               style={[styles.reasonRow, selected && styles.reasonRowActive]}
               onPress={() => onSelectReason(option.code)}
             >
-              <View style={[styles.radioOuter, selected && styles.radioOuterActive]}>
+              <View
+                style={[styles.radioOuter, selected && styles.radioOuterActive]}
+              >
                 {selected && <Check size={13} color="#fff" strokeWidth={3} />}
               </View>
-              <Text style={[styles.reasonLabel, selected && styles.reasonLabelActive]}>
+              <Text
+                style={[
+                  styles.reasonLabel,
+                  selected && styles.reasonLabelActive,
+                ]}
+              >
                 {option.label}
               </Text>
             </TouchableOpacity>
@@ -248,8 +284,9 @@ function SaveStep({ chargeDate, topWatch, recommended }: SaveStepProps) {
         </View>
         <Text style={styles.calloutText}>
           You will not be charged if you cancel any time before{' '}
-          <Text style={styles.calloutDate}>{chargeDate}</Text>. Cancelling now doesn't get you a
-          refund or extra time — you keep full access until then either way.
+          <Text style={styles.calloutDate}>{chargeDate}</Text>. Cancelling now
+          doesn't get you a refund or extra time — you keep full access until
+          then either way.
         </Text>
       </View>
 
@@ -267,7 +304,12 @@ function SaveStep({ chargeDate, topWatch, recommended }: SaveStepProps) {
               </Text>
               {progressPercent !== null && (
                 <View style={styles.watchProgressTrack}>
-                  <View style={[styles.watchProgressFill, { width: `${progressPercent}%` }]} />
+                  <View
+                    style={[
+                      styles.watchProgressFill,
+                      { width: `${progressPercent}%` },
+                    ]}
+                  />
                 </View>
               )}
             </View>
@@ -279,7 +321,11 @@ function SaveStep({ chargeDate, topWatch, recommended }: SaveStepProps) {
           {posters.length > 0 && (
             <View style={styles.posterRow}>
               {posters.map(series => (
-                <Poster key={series.id} path={series.posterUrl} style={styles.rowPoster} />
+                <Poster
+                  key={series.id}
+                  path={series.posterUrl}
+                  style={styles.rowPoster}
+                />
               ))}
             </View>
           )}
@@ -300,7 +346,11 @@ interface ConfirmStepProps {
   planCode: string;
 }
 
-function ConfirmStep({ chargeDate, nextChargeAmount, planCode }: ConfirmStepProps) {
+function ConfirmStep({
+  chargeDate,
+  nextChargeAmount,
+  planCode,
+}: ConfirmStepProps) {
   return (
     <View>
       <StepHeading
@@ -311,7 +361,9 @@ function ConfirmStep({ chargeDate, nextChargeAmount, planCode }: ConfirmStepProp
       <View style={styles.card}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Current plan</Text>
-          <Text style={styles.summaryValue}>{PLAN_LABEL[planCode] ?? planCode}</Text>
+          <Text style={styles.summaryValue}>
+            {PLAN_LABEL[planCode] ?? planCode}
+          </Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
@@ -321,12 +373,72 @@ function ConfirmStep({ chargeDate, nextChargeAmount, planCode }: ConfirmStepProp
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Access until</Text>
-          <Text style={[styles.summaryValue, styles.dateHighlight]}>{chargeDate}</Text>
+          <Text style={[styles.summaryValue, styles.dateHighlight]}>
+            {chargeDate}
+          </Text>
         </View>
       </View>
 
       <Text style={styles.smallPrint}>
-        Payments already made (including the ₹1 activation fee) are non-refundable.{' '}
+        Payments already made (including the ₹1 activation fee) are
+        non-refundable.{' '}
+        <Text style={styles.link} onPress={openRefundPolicy}>
+          Refund Policy
+        </Text>
+      </Text>
+    </View>
+  );
+}
+
+// Apple owns billing for an App Store subscription: an app may open the system
+// sheet and nothing more. So this step replaces the confirmation step rather
+// than dressing it up — none of its copy may suggest that tapping through here
+// cancelled anything, because only the user, inside Apple's own settings, can.
+// The charge amount is dropped with it: that figure is the DB accounting record,
+// and Apple bills each storefront in its own currency.
+function AppleManageStep({
+  chargeDate,
+  planCode,
+}: {
+  chargeDate: string;
+  planCode: string;
+}) {
+  return (
+    <View>
+      <StepHeading
+        title="Cancel with Apple"
+        subtitle="You bought this through the App Store, so Apple manages the billing."
+      />
+
+      <View style={styles.card}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Current plan</Text>
+          <Text style={styles.summaryValue}>
+            {PLAN_LABEL[planCode] ?? planCode}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Access until</Text>
+          <Text style={[styles.summaryValue, styles.dateHighlight]}>
+            {chargeDate}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.callout}>
+        <View style={styles.calloutIcon}>
+          <ShieldCheck size={18} color="#ff6a00" />
+        </View>
+        <Text style={styles.calloutText}>
+          {IS_APPLE_RAIL
+            ? 'We will open your App Store subscription settings. Turning off renewal there is what cancels the plan — nothing changes until you do.'
+            : 'This plan can only be cancelled on an iPhone or iPad signed in to the same Apple ID, under Settings › your name › Subscriptions.'}
+        </Text>
+      </View>
+
+      <Text style={styles.smallPrint}>
+        Apple handles billing and refunds for App Store purchases.{' '}
         <Text style={styles.link} onPress={openRefundPolicy}>
           Refund Policy
         </Text>
@@ -340,6 +452,7 @@ export default function CancelSubscriptionFlow({
   visible,
   onClose,
   subscription,
+  onDeferredToStore,
 }: CancelSubscriptionFlowProps) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -352,6 +465,8 @@ export default function CancelSubscriptionFlow({
   const [otherText, setOtherText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(CONFIRM_DELAY_SECONDS);
+  const [openingStoreSettings, setOpeningStoreSettings] = useState(false);
+  const [refusedAsAppleManaged, setRefusedAsAppleManaged] = useState(false);
   const terminalFiredRef = useRef(false);
   const wasVisibleRef = useRef(false);
   const translateY = useRef(new Animated.Value(windowHeight)).current;
@@ -362,21 +477,39 @@ export default function CancelSubscriptionFlow({
   const { data: plansData } = useSubscriptionPlans();
   const { mutate: cancelSubscription, isPending } = useCancelSubscription();
 
+  // Which rail SOLD this subscription — not necessarily the rail this build
+  // sells through: a grandfathered iOS user still holds a Razorpay mandate and
+  // cancels it here exactly as before, and an Apple subscription is visible from
+  // the Android app on the same account.
+  //
+  // `provider` is absent on a response from a server that predates the field, so
+  // a refusal from POST /cancel outranks it: the server has then told us in the
+  // clearest possible terms that Apple owns this subscription, and the flow must
+  // stop offering a cancellation it cannot perform.
+  const isAppleManaged =
+    refusedAsAppleManaged ||
+    getRailForSubscription(subscription.provider).rail === 'apple';
+
   const topWatch: ContinueWatchingItem | null =
     ((continueWatchingData?.items ?? []) as ContinueWatchingItem[])[0] ?? null;
   const recommended: Movie[] = recommendedData?.series ?? [];
   const displayUpcoming = upcomingData?.upcomingSeries ?? [];
-  const reasons = useMemo(() => getCancelReasons(subscription.planCode), [subscription.planCode]);
+  const reasons = useMemo(
+    () => getCancelReasons(subscription.planCode),
+    [subscription.planCode],
+  );
   const chargeDate = formatChargeDate(subscription.currentPeriodEnd);
 
   const nextChargeAmount = useMemo(() => {
-    const targetCode = subscription.planCode === 'TRIAL' ? 'ANNUAL' : subscription.planCode;
+    const targetCode =
+      subscription.planCode === 'TRIAL' ? 'ANNUAL' : subscription.planCode;
     const plan = plansData?.plans?.find(p => p.code === targetCode);
     return plan ? plan.price / 100 : FALLBACK_PRICE_BY_PLAN[targetCode];
   }, [plansData, subscription.planCode]);
 
   const canContinue =
-    reason !== null && (reason !== 'OTHER' || otherText.trim().length >= OTHER_TEXT_MIN);
+    reason !== null &&
+    (reason !== 'OTHER' || otherText.trim().length >= OTHER_TEXT_MIN);
 
   useEffect(() => {
     if (!visible) return;
@@ -385,6 +518,8 @@ export default function CancelSubscriptionFlow({
     setOtherText('');
     setErrorMessage(null);
     setCountdown(CONFIRM_DELAY_SECONDS);
+    setOpeningStoreSettings(false);
+    setRefusedAsAppleManaged(false);
     terminalFiredRef.current = false;
     track('CancelFlow_Opened', { plan_code: subscription.planCode });
   }, [visible, subscription.planCode]);
@@ -431,7 +566,11 @@ export default function CancelSubscriptionFlow({
 
   // Exactly one of Completed / Saved / Abandoned may fire per flow, so re-renders and double-taps can't double-count.
   const fireTerminalEvent = useCallback(
-    (name: string, params: Record<string, string | number | undefined>, eventId?: string) => {
+    (
+      name: string,
+      params: Record<string, string | number | undefined>,
+      eventId?: string,
+    ) => {
       if (terminalFiredRef.current) return;
       terminalFiredRef.current = true;
       track(name, params, eventId);
@@ -453,7 +592,10 @@ export default function CancelSubscriptionFlow({
 
   const fireSavedOrAbandoned = useCallback(() => {
     if (reason) {
-      fireTerminalEvent('CancelFlow_Saved', { reason_code: reason, saved_at_step: step });
+      fireTerminalEvent('CancelFlow_Saved', {
+        reason_code: reason,
+        saved_at_step: step,
+      });
     } else {
       fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: step });
     }
@@ -505,6 +647,55 @@ export default function CancelSubscriptionFlow({
     setStep(3);
   }, [displayUpcoming.length, handleContinueToCancel]);
 
+  // Deliberately not CancelFlow_Completed: the survey was answered but no
+  // subscription was cancelled, and only Apple's notification can tell us if one
+  // ever is. Counting it as a completion would overstate churn on iOS.
+  const fireDeferredToStore = useCallback(() => {
+    fireTerminalEvent(
+      'CancelFlow_DeferredToStore',
+      { reason_code: reason ?? undefined, plan_code: subscription.planCode },
+      subscription.id,
+    );
+  }, [fireTerminalEvent, reason, subscription.id, subscription.planCode]);
+
+  const handleManageWithApple = useCallback(async () => {
+    setErrorMessage(null);
+    setOpeningStoreSettings(true);
+    try {
+      await APPLE_MANAGED_RAIL.cancel({
+        subscriptionId: subscription.id,
+        reason: reason ?? undefined,
+        reasonText: reason === 'OTHER' ? otherText.trim() : undefined,
+      });
+      fireDeferredToStore();
+      // Only on the branch where the sheet actually opened. The caller uses this
+      // to start watching for Apple's notification, and arming it anywhere else
+      // would leave the screen waiting on a verdict that is never coming.
+      onDeferredToStore?.();
+      onClose();
+    } catch (error) {
+      console.warn(
+        '[iap] Could not open App Store subscription settings',
+        error,
+      );
+      setErrorMessage(APPLE_SETTINGS_UNAVAILABLE);
+    } finally {
+      setOpeningStoreSettings(false);
+    }
+  }, [
+    fireDeferredToStore,
+    onClose,
+    onDeferredToStore,
+    otherText,
+    reason,
+    subscription.id,
+  ]);
+
+  const handleAcknowledgeApple = useCallback(() => {
+    fireDeferredToStore();
+    slideOut(onClose);
+  }, [fireDeferredToStore, onClose, slideOut]);
+
   const handleConfirmCancel = useCallback(() => {
     setErrorMessage(null);
     cancelSubscription(
@@ -517,17 +708,35 @@ export default function CancelSubscriptionFlow({
         onSuccess: () => {
           fireTerminalEvent(
             'CancelFlow_Completed',
-            { reason_code: reason ?? undefined, plan_code: subscription.planCode },
+            {
+              reason_code: reason ?? undefined,
+              plan_code: subscription.planCode,
+            },
             subscription.id,
           );
           onClose();
         },
-        onError: (error: unknown) => setErrorMessage(resolveErrorMessage(error)),
+        onError: (error: unknown) => {
+          // The server refuses an App Store subscription outright, which is the
+          // only signal we get when `provider` was missing from GET /me. Swap the
+          // step to the Apple copy before anything else, so the sheet can never
+          // sit on a confirm screen for a cancellation that will not happen, then
+          // send an iOS user on to the only place it can happen. Elsewhere the
+          // swapped step already says to do it from an Apple device, so there is
+          // nothing left to show as an error.
+          if (isAppleManagedCancelError(error)) {
+            setRefusedAsAppleManaged(true);
+            if (IS_APPLE_RAIL) handleManageWithApple();
+            return;
+          }
+          setErrorMessage(resolveErrorMessage(error));
+        },
       },
     );
   }, [
     cancelSubscription,
     fireTerminalEvent,
+    handleManageWithApple,
     onClose,
     otherText,
     reason,
@@ -555,7 +764,10 @@ export default function CancelSubscriptionFlow({
           if (gesture.dy > 0) translateY.setValue(gesture.dy);
         },
         onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy > DISMISS_DRAG_DISTANCE || gesture.vy > DISMISS_DRAG_VELOCITY) {
+          if (
+            gesture.dy > DISMISS_DRAG_DISTANCE ||
+            gesture.vy > DISMISS_DRAG_VELOCITY
+          ) {
             handleDismiss();
             return;
           }
@@ -586,7 +798,12 @@ export default function CancelSubscriptionFlow({
           onPress={handleContinueFromReason}
           disabled={!canContinue}
         >
-          <Text style={[styles.primaryButtonText, !canContinue && styles.buttonTextDisabled]}>
+          <Text
+            style={[
+              styles.primaryButtonText,
+              !canContinue && styles.buttonTextDisabled,
+            ]}
+          >
             Continue
           </Text>
         </TouchableOpacity>
@@ -606,12 +823,57 @@ export default function CancelSubscriptionFlow({
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.ghostButton}
-            onPress={step === 2 ? handleContinueToComingSoon : handleContinueToCancel}
+            onPress={
+              step === 2 ? handleContinueToComingSoon : handleContinueToCancel
+            }
           >
             <Text style={styles.ghostButtonText}>
               {step === 2 ? 'Continue to cancel' : 'Cancel subscription'}
             </Text>
           </TouchableOpacity>
+        </>
+      );
+    }
+
+    if (isAppleManaged) {
+      return (
+        <>
+          {!!errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.primaryButton}
+            onPress={handleSaved}
+            disabled={openingStoreSettings}
+          >
+            <Text style={styles.primaryButtonText}>Keep my subscription</Text>
+          </TouchableOpacity>
+          {IS_APPLE_RAIL ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.dangerButton,
+                openingStoreSettings && styles.buttonDimmed,
+              ]}
+              onPress={handleManageWithApple}
+              disabled={openingStoreSettings}
+            >
+              {openingStoreSettings ? (
+                <ActivityIndicator size="small" color="#ff6b6b" />
+              ) : (
+                <Text style={styles.dangerButtonText}>Manage in Settings</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.ghostButton}
+              onPress={handleAcknowledgeApple}
+            >
+              <Text style={styles.ghostButtonText}>Got it</Text>
+            </TouchableOpacity>
+          )}
         </>
       );
     }
@@ -629,7 +891,10 @@ export default function CancelSubscriptionFlow({
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.dangerButton, (confirmLocked || isPending) && styles.buttonDimmed]}
+          style={[
+            styles.dangerButton,
+            (confirmLocked || isPending) && styles.buttonDimmed,
+          ]}
           onPress={handleConfirmCancel}
           disabled={confirmLocked || isPending}
         >
@@ -658,14 +923,23 @@ export default function CancelSubscriptionFlow({
           <Pressable style={StyleSheet.absoluteFill} onPress={handleDismiss} />
         </Animated.View>
 
-        <Animated.View style={[styles.sheet, { height: sheetHeight, transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            { height: sheetHeight, transform: [{ translateY }] },
+          ]}
+        >
           <View style={styles.handleArea} {...panResponder.panHandlers}>
             <View style={styles.handle} />
           </View>
 
           <View style={styles.header}>
             {step > 1 ? (
-              <TouchableOpacity activeOpacity={0.8} style={styles.headerButton} onPress={handleBack}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.headerButton}
+                onPress={handleBack}
+              >
                 <ChevronLeft size={20} color="#fff" />
               </TouchableOpacity>
             ) : (
@@ -701,7 +975,11 @@ export default function CancelSubscriptionFlow({
             )}
 
             {step === 2 && (
-              <SaveStep chargeDate={chargeDate} topWatch={topWatch} recommended={recommended} />
+              <SaveStep
+                chargeDate={chargeDate}
+                topWatch={topWatch}
+                recommended={recommended}
+              />
             )}
 
             {step === 3 && (
@@ -711,20 +989,31 @@ export default function CancelSubscriptionFlow({
                   title="Coming soon on Canvas"
                   subtitle="A glimpse of what is next. Your membership keeps the whole library open."
                 />
-                <SubscriptionComingSoon displayUpcoming={displayUpcoming} variant="sheet" />
+                <SubscriptionComingSoon
+                  displayUpcoming={displayUpcoming}
+                  variant="sheet"
+                />
               </>
             )}
 
-            {step === 4 && (
-              <ConfirmStep
-                chargeDate={chargeDate}
-                nextChargeAmount={nextChargeAmount}
-                planCode={subscription.planCode}
-              />
-            )}
+            {step === 4 &&
+              (isAppleManaged ? (
+                <AppleManageStep
+                  chargeDate={chargeDate}
+                  planCode={subscription.planCode}
+                />
+              ) : (
+                <ConfirmStep
+                  chargeDate={chargeDate}
+                  nextChargeAmount={nextChargeAmount}
+                  planCode={subscription.planCode}
+                />
+              ))}
           </ScrollView>
 
-          <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>{renderFooter()}</View>
+          <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
+            {renderFooter()}
+          </View>
         </Animated.View>
       </View>
     </Modal>
