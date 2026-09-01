@@ -2,9 +2,17 @@ import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import { getAppDataHeader } from './analytics/appData';
 
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
+
+// CFBundleShortVersionString / versionName — "2.3", not the build number. The
+// backend picks the payment rail from this, not from the platform alone: a
+// global flag plus "ios" would also switch the Razorpay binaries still on
+// customers' phones. getVersion() is synchronous and reads a value baked into
+// the bundle, so it cannot fail or change at runtime.
+export const CLIENT_APP_VERSION = DeviceInfo.getVersion();
 
 /** An HTTP failure from `api()`, carrying the server's stable error `code` and status so callers can branch on the cause instead of the message text. */
 export interface ApiError extends Error {
@@ -58,6 +66,7 @@ export const api = async (endpoint: string, config: any = {}) => {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       Authorization: accessToken ? `Bearer ${accessToken}` : '',
       'X-Client-Platform': CLIENT_PLATFORM,
+      'X-Client-App-Version': CLIENT_APP_VERSION,
       ...(appDataHeader ? { 'X-Client-App-Data': appDataHeader } : {}),
       ...headers,
     },
