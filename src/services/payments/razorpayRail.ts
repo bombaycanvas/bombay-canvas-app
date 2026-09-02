@@ -6,6 +6,7 @@ import {
   verifySubscription,
 } from '../../api/subscription';
 import { IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
+import { isCheckoutDismissal } from './razorpayError';
 import type {
   CancelOutcome,
   CancelParams,
@@ -50,12 +51,21 @@ const formatIndianMobile = (mobile?: string) => {
   return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
 };
 
+// null means the user closed the sheet without paying. That is a normal
+// outcome, not an error: rethrowing it made every caller render a failure for
+// something the user chose to do — and in the cancel-flow downsell, where the
+// trial has already been cancelled by then, the failure it rendered was
+// "couldn't cancel" for a cancellation that had in fact succeeded.
 const openCheckout = async (
   options: RazorpayOptions,
-): Promise<RazorpayResponse> => {
+): Promise<RazorpayResponse | null> => {
   try {
     return await RazorpayCheckout.open(options);
   } catch (error) {
+    if (isCheckoutDismissal(error)) {
+      console.log('Razorpay checkout dismissed by user');
+      return null;
+    }
     console.error('Razorpay SDK error:', error);
     throw error;
   }
@@ -98,6 +108,13 @@ const startPurchase = async ({
     },
     theme: { color: RAZORPAY_THEME_COLOR },
   });
+
+  // Nothing was authorised and nothing is coming. Return before /verify and
+  // before the dedup key is read, so no conversion can be reported for a
+  // purchase that did not happen.
+  if (paymentData === null) {
+    return { status: 'cancelled' };
+  }
 
   console.log(
     'Razorpay checkout completed. Payload keys:',

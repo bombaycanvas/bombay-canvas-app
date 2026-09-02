@@ -51,7 +51,8 @@ export const api = async (endpoint: string, config: any = {}) => {
   const { body, headers = {}, ...customConfig } = config;
 
   const accessToken = await getToken('accessToken');
-
+  console.log(accessToken)
+  console.log(config)
   const isFormData =
     body && typeof body === 'object' && typeof body.append === 'function';
 

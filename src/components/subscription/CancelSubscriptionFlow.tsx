@@ -87,7 +87,13 @@ const DOWNSELL_CODES: PlanCode[] = ['MONTHLY', 'ANNUAL'];
  * by hand in both the forward and back handlers, and adding a step renumbered
  * the others.
  */
-type StepName = 'reason' | 'save' | 'upcoming' | 'downsell' | 'confirm';
+type StepName =
+  | 'reason'
+  | 'save'
+  | 'upcoming'
+  | 'downsell'
+  | 'downsellConfirm'
+  | 'confirm';
 
 interface ContinueWatchingItem {
   seriesId: string;
@@ -280,9 +286,9 @@ interface DownsellStepProps {
   plans: Plan[];
   currentAmount: number;
   selected: PlanCode | null;
-  switchingTo: PlanCode | null;
   onSelect: (code: PlanCode) => void;
-  onChoose: (plan: Plan) => void;
+  /** Tapping the CTA on the already-selected card moves to the confirm step. */
+  onProceed: () => void;
 }
 
 /**
@@ -298,11 +304,9 @@ function DownsellStep({
   plans,
   currentAmount,
   selected,
-  switchingTo,
   onSelect,
-  onChoose,
+  onProceed,
 }: DownsellStepProps) {
-  const busy = switchingTo !== null;
 
   return (
     <View>
@@ -331,7 +335,6 @@ function DownsellStep({
             0,
             Math.round(((currentAmount - annualisedPrice) / currentAmount) * 100),
           );
-          const isBusy = switchingTo === plan.code;
           // Emphasis follows SELECTION, not the plan itself. Annual arrives
           // pre-selected (see `defaultDownsellCode`) so it is primary on entry,
           // but picking monthly has to move the highlight with it — a card whose
@@ -346,10 +349,8 @@ function DownsellStep({
               style={[
                 styles.downsellCard,
                 isSelected && styles.downsellCardPrimary,
-                isBusy && styles.downsellCardBusy,
               ]}
               onPress={() => onSelect(plan.code)}
-              disabled={busy}
             >
               <View style={styles.downsellCardTop}>
                 <Text style={styles.downsellPlanName}>{plan.name}</Text>
@@ -376,10 +377,10 @@ function DownsellStep({
               )}
 
               {/*
-                Two taps to spend money, deliberately. The first selects; only a
-                press on the already-selected card's button commits. A single tap
-                that went straight to Razorpay would make a mis-tap on the wrong
-                card a real charge.
+                The first tap only selects; a press on the already-selected
+                card's button moves to the confirmation step. Nothing is
+                cancelled or charged from here — a mis-tap on the wrong card
+                costs the user a step, never money.
               */}
               <TouchableOpacity
                 activeOpacity={0.9}
@@ -387,23 +388,16 @@ function DownsellStep({
                   styles.downsellCta,
                   !isSelected && styles.downsellCtaSecondary,
                 ]}
-                onPress={() =>
-                  isSelected ? onChoose(plan) : onSelect(plan.code)
-                }
-                disabled={busy}
+                onPress={() => (isSelected ? onProceed() : onSelect(plan.code))}
               >
-                {isBusy ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.downsellCtaText,
-                      !isSelected && styles.downsellCtaTextSecondary,
-                    ]}
-                  >
-                    {isSelected ? 'Confirm Plan' : 'Switch to this plan'}
-                  </Text>
-                )}
+                <Text
+                  style={[
+                    styles.downsellCtaText,
+                    !isSelected && styles.downsellCtaTextSecondary,
+                  ]}
+                >
+                  {isSelected ? 'Confirm Plan' : 'Switch to this plan'}
+                </Text>
               </TouchableOpacity>
             </TouchableOpacity>
           );
@@ -494,6 +488,81 @@ function SaveStep({ chargeDate, topWatch, recommended }: SaveStepProps) {
           </Text>
         </View>
       )}
+    </View>
+  );
+}
+
+interface DownsellConfirmStepProps {
+  plan: Plan;
+  chargeDate: string;
+  currentAmount: number;
+}
+
+/**
+ * Confirmation for taking the downsell — the counterpart of ConfirmStep, and
+ * required for the same reason.
+ *
+ * Switching is not a pure upgrade: the trial is cancelled FIRST, because the
+ * backend refuses a second subscription while one is live, and that cancel is
+ * not undone if the payment is then abandoned. So the step has to state plainly
+ * what is about to happen and in what order, and the user has to agree to it
+ * before anything irreversible runs. Selecting a card no longer commits.
+ *
+ * No countdown here, unlike ConfirmStep. That delay exists to slow down an
+ * irreversible cancellation; this action keeps the user subscribed, and putting
+ * friction in front of it would only push them toward leaving.
+ */
+function DownsellConfirmStep({
+  plan,
+  chargeDate,
+  currentAmount,
+}: DownsellConfirmStepProps) {
+  const price = Math.round(plan.price / 100);
+  const period = plan.period === 'yearly' ? 'year' : 'month';
+
+  return (
+    <View>
+      <StepHeading
+        eyebrow="Almost done"
+        title={`Switch to ${plan.name}?`}
+        subtitle="Confirm and we'll take you to payment. Nothing changes until you do."
+      />
+
+      <View style={styles.card}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>New plan</Text>
+          <Text style={styles.summaryValue}>{plan.name}</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>You pay</Text>
+          <Text style={[styles.summaryValue, styles.dateHighlight]}>
+            ₹{price}/{period}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Instead of</Text>
+          <Text style={styles.summaryValue}>
+            ₹{Math.round(currentAmount / 100)}/year
+          </Text>
+        </View>
+      </View>
+
+      {/*
+        The order is not an implementation detail the user can be spared: they
+        will see their trial end before the payment sheet opens, and if they
+        close that sheet the trial stays cancelled. Saying so here is what makes
+        that outcome unsurprising rather than a support ticket.
+      */}
+      <Text style={styles.smallPrint}>
+        Your ₹1 trial is cancelled first, then payment opens. If you don't
+        complete the payment your trial stays cancelled, and you keep access
+        until {chargeDate}. The ₹1 activation fee is non-refundable.{' '}
+        <Text style={styles.link} onPress={openRefundPolicy}>
+          Refund Policy
+        </Text>
+      </Text>
     </View>
   );
 }
@@ -665,24 +734,42 @@ export default function CancelSubscriptionFlow({
 
   // Cheaper plans this subscriber could move to instead of leaving.
   //
-  // Trials only: a paid subscriber is already on one of these, so there is
-  // nothing to offer them. Filtered on price so this can never "downsell"
-  // somebody onto something dearer — which is exactly what would happen if the
-  // ₹499 TRIAL reached here and were shown the ₹499 annual plan as a saving.
+  // Offered ONLY while the ₹1 trial is still running — status TRIAL, not merely
+  // a trial plan CODE. planCode stays TRIAL/TRIAL_NEW for the life of the
+  // subscription (the one-trial-per-user guard writes it once), so a code check
+  // alone keeps offering the downsell after the trial has converted. By then the
+  // subscriber has paid ₹899 for a year, and "switching" would cancel a year
+  // they already own to sell them a cheaper one — a downgrade that costs them
+  // money and us revenue. Nothing to offer a paid subscriber: they are already
+  // on one of these plans, or on a better one.
+  //
+  // Filtered on price so this can never "downsell" somebody onto something
+  // dearer — which is what would happen if the ₹499 TRIAL reached here and were
+  // shown the ₹499 annual plan as a saving.
   //
   // Razorpay rail ONLY. Accepting a downsell opens a checkout, and on iOS this
   // build may not open Razorpay's — guideline 3.1.1. A grandfathered iOS user
   // still holding a Razorpay mandate can reach this flow, so the platform, not
   // just the subscription's provider, has to gate the offer. They keep the plain
-  // cancel; they are simply not sold to from inside the app.
+  // cancel; they are simply not sold to from inside the app. An Apple-managed
+  // row is excluded for the same reason from the other direction: it is visible
+  // from the Android app, where IS_RAZORPAY_RAIL is true, and we can neither
+  // cancel it nor replace it through Razorpay.
   const downsellPlans = useMemo<Plan[]>(() => {
-    if (!IS_RAZORPAY_RAIL) return [];
+    if (!IS_RAZORPAY_RAIL || isAppleManaged) return [];
+    if (subscription.status !== 'TRIAL') return [];
     if (!isTrialCode(subscription.planCode)) return [];
     const offered = plansData?.plans ?? [];
     return DOWNSELL_CODES.map(code =>
       offered.find(p => p.code === code),
     ).filter((p): p is Plan => !!p && p.price < subscription.amountSnapshot);
-  }, [plansData, subscription.planCode, subscription.amountSnapshot]);
+  }, [
+    plansData,
+    isAppleManaged,
+    subscription.status,
+    subscription.planCode,
+    subscription.amountSnapshot,
+  ]);
 
   // Annual is the default pick: the higher-value save, and the only option that
   // holds the subscriber for a full year.
@@ -698,6 +785,11 @@ export default function CancelSubscriptionFlow({
     null;
   const selectedDownsell = pickedDownsell ?? defaultDownsellCode;
 
+  // The one plan both the confirmation copy and the switch itself read, so the
+  // screen can never describe one plan while buying another.
+  const selectedDownsellPlan =
+    downsellPlans.find(p => p.code === selectedDownsell) ?? null;
+
   // The steps this run will actually show. "upcoming" needs something to show;
   // "downsell" needs somewhere cheaper to go.
   const steps = useMemo<StepName[]>(
@@ -705,7 +797,9 @@ export default function CancelSubscriptionFlow({
       'reason',
       'save',
       ...(displayUpcoming.length > 0 ? (['upcoming'] as StepName[]) : []),
-      ...(downsellPlans.length > 0 ? (['downsell'] as StepName[]) : []),
+      ...(downsellPlans.length > 0
+        ? (['downsell', 'downsellConfirm'] as StepName[])
+        : []),
       'confirm',
     ],
     [displayUpcoming.length, downsellPlans.length],
@@ -909,14 +1003,34 @@ export default function CancelSubscriptionFlow({
 
         const { activated, outcome } = await startCheckout(plan.code, plan);
 
-        // They cancelled the trial, then backed out of the payment sheet. The
-        // cancel already stands, so this is not "nothing happened" — say what
-        // they still have rather than congratulating them on a switch that did
-        // not occur. Staying on the step lets them tap the plan again.
+        // They cancelled the trial, then backed out of the payment sheet.
+        //
+        // Nothing failed here: the cancellation they came for succeeded, and
+        // declining to buy a replacement is a choice, not an error. Treating it
+        // as one told the user "couldn't cancel your subscription" about a
+        // cancellation that had already gone through — the exact opposite of
+        // what happened. Close the sheet on the outcome that actually occurred,
+        // and report it as a completed cancellation rather than a save, because
+        // no downsell was taken.
         if (outcome.status === 'cancelled') {
-          setErrorMessage(
-            `Your trial has been cancelled and you keep access until ${chargeDate}. The payment was not completed, so no new plan was started — pick one above to switch.`,
+          fireTerminalEvent(
+            'CancelFlow_Completed',
+            {
+              reason_code: reason ?? undefined,
+              plan_code: subscription.planCode,
+              downsell_abandoned: 'true',
+            },
+            subscription.id,
           );
+
+          Toast.show({
+            type: 'info',
+            text1: 'Subscription cancelled',
+            text2: `You keep access until ${chargeDate}. You can pick a plan any time from Settings.`,
+            visibilityTime: 5000,
+          });
+
+          slideOut(onClose);
           return;
         }
 
@@ -1197,14 +1311,54 @@ export default function CancelSubscriptionFlow({
     if (currentStep === 'downsell') {
       return (
         <>
-          {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+          {!!errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+          {/*
+            Skips the downsell CONFIRMATION too, not just the offer — this is a
+            decision to leave, and handleAdvance would land them on the confirm
+            screen for a switch they just declined.
+          */}
           <TouchableOpacity
             activeOpacity={0.9}
-            style={[styles.ghostButton, !!switchingTo && styles.buttonDimmed]}
-            onPress={handleAdvance}
-            disabled={!!switchingTo}
+            style={styles.ghostButton}
+            onPress={() => goToStep('confirm')}
           >
             <Text style={styles.ghostButtonText}>No thanks, cancel anyway</Text>
+          </TouchableOpacity>
+        </>
+      );
+    }
+
+    if (currentStep === 'downsellConfirm') {
+      const busy = !!switchingTo;
+      return (
+        <>
+          {!!errorMessage && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.primaryButton, busy && styles.buttonDimmed]}
+            onPress={() =>
+              selectedDownsellPlan &&
+              handleChooseDownsell(selectedDownsellPlan)
+            }
+            disabled={busy || !selectedDownsellPlan}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Confirm &amp; pay</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.ghostButton, busy && styles.buttonDimmed]}
+            onPress={() => goToStep('downsell')}
+            disabled={busy}
+          >
+            <Text style={styles.ghostButtonText}>Choose a different plan</Text>
           </TouchableOpacity>
         </>
       );
@@ -1333,9 +1487,16 @@ export default function CancelSubscriptionFlow({
                 plans={downsellPlans}
                 currentAmount={subscription.amountSnapshot}
                 selected={selectedDownsell}
-                switchingTo={switchingTo}
                 onSelect={setPickedDownsell}
-                onChoose={handleChooseDownsell}
+                onProceed={() => goToStep('downsellConfirm')}
+              />
+            )}
+
+            {currentStep === 'downsellConfirm' && selectedDownsellPlan && (
+              <DownsellConfirmStep
+                plan={selectedDownsellPlan}
+                chargeDate={chargeDate}
+                currentAmount={subscription.amountSnapshot}
               />
             )}
 
