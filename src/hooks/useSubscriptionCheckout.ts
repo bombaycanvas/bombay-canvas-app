@@ -9,6 +9,7 @@ import {
 } from '../api/subscription';
 import { getPaymentRail } from '../services/paymentRail';
 import type { PurchaseOutcome } from '../services/paymentRail';
+import type { PurchasePhase } from '../components/subscription/SubscriptionActivatingOverlay';
 import { useAuthStore } from '../store/authStore';
 import { track } from '../utils/analytics';
 
@@ -51,7 +52,14 @@ export const useSubscriptionCheckout = () => {
    * not landed yet — a pending state, not a failure.
    */
   const startCheckout = useCallback(
-    async (planCode: PlanCode, plan?: Plan): Promise<CheckoutResult> => {
+    async (
+      planCode: PlanCode,
+      plan?: Plan,
+      // Lets a caller show the right copy for each half of the wait: the store
+      // sheet is the user's to act on, the poll afterwards is not. Optional,
+      // because a caller that renders no progress of its own needs neither.
+      onPhase?: (phase: PurchasePhase) => void,
+    ): Promise<CheckoutResult> => {
       // Meta wants the major currency unit. Read it from the plan the caller
       // rendered — never a hardcoded fallback, which is how a reported value
       // ends up disagreeing with what Razorpay actually charged. A trial reports
@@ -60,11 +68,12 @@ export const useSubscriptionCheckout = () => {
       const planValue = isTrialCode(planCode)
         ? undefined
         : plan
-          ? plan.price / 100
-          : undefined;
+        ? plan.price / 100
+        : undefined;
 
       track('InitiateCheckout', { value: planValue, currency: 'INR' });
 
+      onPhase?.('checkout');
       const outcome = await getPaymentRail().startPurchase({
         planCode,
         profile: {
@@ -77,6 +86,7 @@ export const useSubscriptionCheckout = () => {
       // Nothing was charged and nothing is coming: don't report a conversion and
       // don't spend 30 seconds polling for an entitlement that cannot arrive.
       if (outcome.status === 'cancelled') {
+        onPhase?.('idle');
         return { activated: false, outcome };
       }
 
@@ -98,6 +108,10 @@ export const useSubscriptionCheckout = () => {
           );
         }
       }
+
+      // The store is done with the user either way; everything past here is us
+      // catching up with it.
+      onPhase?.('activating');
 
       let activated = false;
       for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {

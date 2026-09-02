@@ -192,6 +192,13 @@ const SettingsScreen = () => {
           onClose={() => setIsCancelSubModal(false)}
           subscription={subscription}
           onDeferredToStore={armCancelWatch}
+          // They swapped the trial for a different plan. Leaving them here would
+          // park them on a subscription card describing the plan they just
+          // cancelled, and it only corrects itself once the webhook lands.
+          // Home also means this screen refetches from scratch on the way back.
+          onSwitchedPlan={() =>
+            navigation.navigate('MainTabs', { screen: 'Home' })
+          }
         />
       )}
 

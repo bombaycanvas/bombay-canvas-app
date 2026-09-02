@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useVideoStore } from '../store/videoStore';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useUpcomingSeriesData } from '../api/video';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,16 +33,8 @@ import { buildPaywallOffers } from '../components/subscription/paywallOffers';
 import SubscriptionComingSoon from '../components/subscription/SubscriptionComingSoon';
 import SubscriptionTrustBadges from '../components/subscription/SubscriptionTrustBadges';
 import SubscriptionPaymentFooter from '../components/subscription/SubscriptionPaymentFooter';
-
-// The window between the store taking the money and the server granting the
-// entitlement is the one moment the user has paid and has nothing to show for
-// it, so it gets its own state and its own copy rather than an anonymous
-// spinner. `checkout` covers the payment sheet; `activating` covers the server
-// verify and the entitlement poll behind it.
-type PurchasePhase = 'idle' | 'checkout' | 'activating';
-
-const ACTIVATING_MESSAGE =
-  'Payment received. Activating your subscription — please keep the app open.';
+import SubscriptionActivatingOverlay from '../components/subscription/SubscriptionActivatingOverlay';
+import type { PurchasePhase } from '../components/subscription/SubscriptionActivatingOverlay';
 
 export default function SubscriptionScreen() {
   const route = useRoute<any>();
@@ -132,8 +118,8 @@ export default function SubscriptionScreen() {
       plan === 'trial'
         ? pickTrialPlan(subscriptionPlans?.plans)?.code
         : plan === 'annual'
-          ? 'ANNUAL'
-          : 'MONTHLY';
+        ? 'ANNUAL'
+        : 'MONTHLY';
 
     // The trial card is only rendered once its plan is known, so this means the
     // plans call has not landed yet. Better to no-op than to guess a code and
@@ -152,14 +138,13 @@ export default function SubscriptionScreen() {
     const planDetails = subscriptionPlans?.plans?.find(
       p => p.code === planCode,
     );
-    const planValue =
-      isTrialCode(planCode)
-        ? undefined
-        : planDetails
-        ? planDetails.price / 100
-        : planCode === 'ANNUAL'
-        ? 499
-        : 99;
+    const planValue = isTrialCode(planCode)
+      ? undefined
+      : planDetails
+      ? planDetails.price / 100
+      : planCode === 'ANNUAL'
+      ? 499
+      : 99;
 
     // The trial card is the trial on both rails now: Razorpay sells it as the ₹1
     // TRIAL plan, and on Apple it is the annual product wearing its free-days
@@ -377,14 +362,7 @@ export default function SubscriptionScreen() {
 
       <Toast topOffset={insets.top + 10} position="top" />
 
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#ff6600" />
-          {phase === 'activating' && (
-            <Text style={styles.loadingText}>{ACTIVATING_MESSAGE}</Text>
-          )}
-        </View>
-      )}
+      <SubscriptionActivatingOverlay phase={phase} />
     </View>
   );
 }
@@ -399,21 +377,5 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 0,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  loadingText: {
-    color: '#aaa',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 16,
-    marginHorizontal: 40,
-    fontFamily: 'HelveticaNowDisplay-Regular',
   },
 });

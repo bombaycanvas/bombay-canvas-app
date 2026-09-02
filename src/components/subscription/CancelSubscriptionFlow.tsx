@@ -46,6 +46,8 @@ import {
 } from '../../api/video';
 import { Movie } from '../../types/movie';
 import { getRailForSubscription } from '../../services/paymentRail';
+import SubscriptionActivatingOverlay from './SubscriptionActivatingOverlay';
+import type { PurchasePhase } from './SubscriptionActivatingOverlay';
 import { track } from '../../utils/analytics';
 import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
 import {
@@ -114,6 +116,13 @@ interface CancelSubscriptionFlowProps {
    * to start watching for the notification that eventually tells the server.
    */
   onDeferredToStore?: () => void;
+  /**
+   * Fired once a downsell has been paid for. The subscription the caller handed
+   * us no longer exists in the form it was rendered from — it was cancelled and
+   * replaced — so the caller is expected to leave this screen rather than sit on
+   * a view of the old plan waiting for the webhook to catch up.
+   */
+  onSwitchedPlan?: () => void;
 }
 
 const formatChargeDate = (dateString?: string | null): string => {
@@ -307,7 +316,6 @@ function DownsellStep({
   onSelect,
   onProceed,
 }: DownsellStepProps) {
-
   return (
     <View>
       <StepHeading
@@ -333,7 +341,9 @@ function DownsellStep({
             plan.period === 'yearly' ? plan.price : plan.price * 12;
           const saving = Math.max(
             0,
-            Math.round(((currentAmount - annualisedPrice) / currentAmount) * 100),
+            Math.round(
+              ((currentAmount - annualisedPrice) / currentAmount) * 100,
+            ),
           );
           // Emphasis follows SELECTION, not the plan itself. Annual arrives
           // pre-selected (see `defaultDownsellCode`) so it is primary on entry,
@@ -681,6 +691,7 @@ export default function CancelSubscriptionFlow({
   onClose,
   subscription,
   onDeferredToStore,
+  onSwitchedPlan,
 }: CancelSubscriptionFlowProps) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -695,6 +706,8 @@ export default function CancelSubscriptionFlow({
   const [countdown, setCountdown] = useState(CONFIRM_DELAY_SECONDS);
   const [switchingTo, setSwitchingTo] = useState<PlanCode | null>(null);
   const [pickedDownsell, setPickedDownsell] = useState<PlanCode | null>(null);
+  // Drives the post-cancel purchase overlay, which outlives the sheet itself.
+  const [purchasePhase, setPurchasePhase] = useState<PurchasePhase>('idle');
   const [openingStoreSettings, setOpeningStoreSettings] = useState(false);
   const [refusedAsAppleManaged, setRefusedAsAppleManaged] = useState(false);
   const terminalFiredRef = useRef(false);
@@ -841,6 +854,7 @@ export default function CancelSubscriptionFlow({
     setReason(null);
     setSwitchingTo(null);
     setPickedDownsell(null);
+    setPurchasePhase('idle');
     setOtherText('');
     setErrorMessage(null);
     setCountdown(CONFIRM_DELAY_SECONDS);
@@ -1001,7 +1015,21 @@ export default function CancelSubscriptionFlow({
           to_plan: plan.code,
         });
 
-        const { activated, outcome } = await startCheckout(plan.code, plan);
+        // The cancel is done and the sheet has nothing left to say: everything
+        // after this belongs to the purchase, which gets the same full-screen
+        // treatment as a purchase started from the paywall. Leaving the sheet up
+        // would park the user on a cancellation flow while their payment sheet
+        // opens over it, and drop them back onto it afterwards.
+        //
+        // Closing here rather than at the end also means the buttons below
+        // cannot be pressed again mid-purchase.
+        slideOut(onClose);
+
+        const { activated, outcome } = await startCheckout(
+          plan.code,
+          plan,
+          setPurchasePhase,
+        );
 
         // They cancelled the trial, then backed out of the payment sheet.
         //
@@ -1029,8 +1057,6 @@ export default function CancelSubscriptionFlow({
             text2: `You keep access until ${chargeDate}. You can pick a plan any time from Settings.`,
             visibilityTime: 5000,
           });
-
-          slideOut(onClose);
           return;
         }
 
@@ -1053,16 +1079,26 @@ export default function CancelSubscriptionFlow({
           visibilityTime: activated ? 4000 : 6000,
         });
 
-        slideOut(onClose);
+        // Money moved, whether or not the webhook has landed yet. Either way the
+        // plan this screen was rendered from is gone, so hand control back to
+        // the caller instead of leaving the user looking at the old one.
+        onSwitchedPlan?.();
       } catch (error: unknown) {
-        // The trial is already cancelled at this point. Say so plainly rather
-        // than implying nothing happened — they still have access until the
-        // trial window ends, and can pick a plan again from the paywall.
-        setErrorMessage(
-          `${resolveErrorMessage(error)} Your trial has been cancelled and you keep access until ${chargeDate}. You can pick a plan any time from Settings.`,
-        );
+        // The trial is already cancelled by the time anything here can fail, and
+        // the sheet may already be gone — so this has to be a toast, not inline
+        // copy on a step nobody is looking at. Say what actually happened rather
+        // than implying nothing did.
+        Toast.show({
+          type: 'error',
+          text1: 'Could not start the new plan',
+          text2: `${resolveErrorMessage(
+            error,
+          )} Your trial is cancelled and you keep access until ${chargeDate}. You can pick a plan any time from Settings.`,
+          visibilityTime: 7000,
+        });
       } finally {
         setSwitchingTo(null);
+        setPurchasePhase('idle');
       }
     },
     [
@@ -1072,6 +1108,7 @@ export default function CancelSubscriptionFlow({
       onClose,
       otherText,
       reason,
+      onSwitchedPlan,
       slideOut,
       startCheckout,
       subscription.id,
@@ -1341,8 +1378,7 @@ export default function CancelSubscriptionFlow({
             activeOpacity={0.9}
             style={[styles.primaryButton, busy && styles.buttonDimmed]}
             onPress={() =>
-              selectedDownsellPlan &&
-              handleChooseDownsell(selectedDownsellPlan)
+              selectedDownsellPlan && handleChooseDownsell(selectedDownsellPlan)
             }
             disabled={busy || !selectedDownsellPlan}
           >
@@ -1397,130 +1433,156 @@ export default function CancelSubscriptionFlow({
   };
 
   return (
-    <Modal
-      transparent
-      visible={mounted}
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={handleDismiss}
-    >
-      <View style={styles.overlay}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleDismiss} />
-        </Animated.View>
+    <>
+      <Modal
+        transparent
+        visible={mounted}
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={handleDismiss}
+      >
+        <View style={styles.overlay}>
+          <Animated.View
+            style={[styles.backdrop, { opacity: backdropOpacity }]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={handleDismiss}
+            />
+          </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            { height: sheetHeight, transform: [{ translateY }] },
-          ]}
-        >
-          <View style={styles.handleArea} {...panResponder.panHandlers}>
-            <View style={styles.handle} />
-          </View>
+          <Animated.View
+            style={[
+              styles.sheet,
+              { height: sheetHeight, transform: [{ translateY }] },
+            ]}
+          >
+            <View style={styles.handleArea} {...panResponder.panHandlers}>
+              <View style={styles.handle} />
+            </View>
 
-          <View style={styles.header}>
-            {stepIndex > 0 ? (
+            <View style={styles.header}>
+              {stepIndex > 0 ? (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.headerButton}
+                  onPress={handleBack}
+                >
+                  <ChevronLeft size={20} color="#fff" />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.headerButton} />
+              )}
+
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={styles.headerButton}
-                onPress={handleBack}
+                onPress={handleDismiss}
               >
-                <ChevronLeft size={20} color="#fff" />
+                <X size={18} color="#fff" />
               </TouchableOpacity>
-            ) : (
-              <View style={styles.headerButton} />
-            )}
+            </View>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.headerButton}
-              onPress={handleDismiss}
+            <ProgressBar index={stepIndex} total={steps.length} />
+
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
             >
-              <X size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <ProgressBar index={stepIndex} total={steps.length} />
-
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets
-          >
-            {currentStep === 'reason' && (
-              <ReasonStep
-                reasons={reasons}
-                reason={reason}
-                otherText={otherText}
-                onSelectReason={setReason}
-                onChangeOtherText={setOtherText}
-              />
-            )}
-
-            {currentStep === 'save' && (
-              <SaveStep
-                chargeDate={chargeDate}
-                topWatch={topWatch}
-                recommended={recommended}
-              />
-            )}
-
-            {currentStep === 'upcoming' && (
-              <>
-                <StepHeading
-                  eyebrow="Still to come"
-                  title="Coming soon on Canvas"
-                  subtitle="A glimpse of what is next. Your membership keeps the whole library open."
+              {currentStep === 'reason' && (
+                <ReasonStep
+                  reasons={reasons}
+                  reason={reason}
+                  otherText={otherText}
+                  onSelectReason={setReason}
+                  onChangeOtherText={setOtherText}
                 />
-                <SubscriptionComingSoon
-                  displayUpcoming={displayUpcoming}
-                  variant="sheet"
-                />
-              </>
-            )}
+              )}
 
-            {currentStep === 'downsell' && (
-              <DownsellStep
-                plans={downsellPlans}
-                currentAmount={subscription.amountSnapshot}
-                selected={selectedDownsell}
-                onSelect={setPickedDownsell}
-                onProceed={() => goToStep('downsellConfirm')}
-              />
-            )}
-
-            {currentStep === 'downsellConfirm' && selectedDownsellPlan && (
-              <DownsellConfirmStep
-                plan={selectedDownsellPlan}
-                chargeDate={chargeDate}
-                currentAmount={subscription.amountSnapshot}
-              />
-            )}
-
-            {currentStep === 'confirm' &&
-              (isAppleManaged ? (
-                <AppleManageStep
+              {currentStep === 'save' && (
+                <SaveStep
                   chargeDate={chargeDate}
-                  planCode={subscription.planCode}
+                  topWatch={topWatch}
+                  recommended={recommended}
                 />
-              ) : (
-                <ConfirmStep
-                  chargeDate={chargeDate}
-                  nextChargeAmount={nextChargeAmount}
-                  planCode={subscription.planCode}
-                />
-              ))}
-          </ScrollView>
+              )}
 
-          <View style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}>
-            {renderFooter()}
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+              {currentStep === 'upcoming' && (
+                <>
+                  <StepHeading
+                    eyebrow="Still to come"
+                    title="Coming soon on Canvas"
+                    subtitle="A glimpse of what is next. Your membership keeps the whole library open."
+                  />
+                  <SubscriptionComingSoon
+                    displayUpcoming={displayUpcoming}
+                    variant="sheet"
+                  />
+                </>
+              )}
+
+              {currentStep === 'downsell' && (
+                <DownsellStep
+                  plans={downsellPlans}
+                  currentAmount={subscription.amountSnapshot}
+                  selected={selectedDownsell}
+                  onSelect={setPickedDownsell}
+                  onProceed={() => goToStep('downsellConfirm')}
+                />
+              )}
+
+              {currentStep === 'downsellConfirm' && selectedDownsellPlan && (
+                <DownsellConfirmStep
+                  plan={selectedDownsellPlan}
+                  chargeDate={chargeDate}
+                  currentAmount={subscription.amountSnapshot}
+                />
+              )}
+
+              {currentStep === 'confirm' &&
+                (isAppleManaged ? (
+                  <AppleManageStep
+                    chargeDate={chargeDate}
+                    planCode={subscription.planCode}
+                  />
+                ) : (
+                  <ConfirmStep
+                    chargeDate={chargeDate}
+                    nextChargeAmount={nextChargeAmount}
+                    planCode={subscription.planCode}
+                  />
+                ))}
+            </ScrollView>
+
+            <View
+              style={[styles.footer, { paddingBottom: 20 + insets.bottom }]}
+            >
+              {renderFooter()}
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/*
+        A SEPARATE modal, because it has to outlive the sheet. The purchase runs
+        after the cancel sheet has slid away, so an overlay rendered inside that
+        modal would vanish exactly when the user needs it — mid-payment, with
+        money already committed and nothing on screen to say so.
+        Idle renders nothing, so this costs nothing on the Apple path or on a
+        plain cancellation.
+      */}
+      <Modal
+        transparent
+        visible={purchasePhase !== 'idle'}
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <SubscriptionActivatingOverlay phase={purchasePhase} />
+      </Modal>
+    </>
   );
 }
 
