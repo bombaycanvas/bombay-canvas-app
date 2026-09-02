@@ -26,6 +26,16 @@ export const isStaleSubscriptionStateError = (error: unknown): boolean => {
   return typeof code === 'string' && STALE_STATE_ERROR_CODES.includes(code);
 };
 
+// POST /cancel refuses an App Store subscription outright, because only the user
+// can cancel one and only from inside Apple's settings. The client is supposed
+// to read `provider` off GET /me and never send the request at all — but a build
+// talking to an older server, or a cache holding a response from before the
+// field existed, will send it anyway. Branching on the code rather than on the
+// message keeps that fallback working when the copy is reworded.
+/** True when the server refused a cancel because Apple, not us, owns that subscription's billing. */
+export const isAppleManagedCancelError = (error: unknown): boolean =>
+  (error as ApiError | undefined)?.code === 'APPLE_CANCEL_NOT_SUPPORTED';
+
 // Every cache whose contents depend on subscription state: the subscription
 // itself, the denormalized user record, the content lists and detail that carry
 // per-user lock flags, and the offered plans (the trial disappears once it is
@@ -33,6 +43,10 @@ export const isStaleSubscriptionStateError = (error: unknown): boolean => {
 // screen is left rendering a mix.
 const ENTITLEMENT_QUERY_KEYS = [
   ['mySubscription'],
+  // Apple's intro-offer eligibility is spent by the purchase that consumes it,
+  // so the App Store catalogue is subscription-dependent too. No-op elsewhere:
+  // nothing registers this query off the Apple rail.
+  ['appleCatalogue'],
   ['userData'],
   ['subscriptionPlans'],
   ['moviesData'],
@@ -61,53 +75,27 @@ export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
  * API offers (see `pickTrialPlan`). Never branch on `=== 'TRIAL'` — use
  * `isTrialCode`, or a `TRIAL_NEW` subscriber gets treated as a paid annual one.
  */
-export type PlanCode = 'MONTHLY' | 'ANNUAL' | 'TRIAL' | 'TRIAL_NEW';
-
-/** Trial codes in ascending preference order — later entries win. */
-export const TRIAL_CODES: PlanCode[] = ['TRIAL', 'TRIAL_NEW'];
-
-/** Whether a plan code is a trial, at any price. */
-export const isTrialCode = (code?: string | null): boolean =>
-  code != null && TRIAL_CODES.includes(code as PlanCode);
-
-export interface Plan {
-  code: PlanCode;
-  name: string;
-  description: string;
-  period: 'monthly' | 'yearly';
-  /** PAISE. Divide by 100 to display. For a trial this is the POST-trial price. */
-  price: number;
-  currency: string;
-  trial?: {
-    days: number;
-    /** Real window length; shortened from `days` only in test environments. */
-    durationMinutes: number;
-    /** PAISE charged today to authorise the mandate (₹1 = 100). */
-    upfrontAmount: number;
-  };
-}
-
-/**
- * The single trial to show, out of everything the API returned: the newest code
- * in `TRIAL_CODES` that is actually present.
- *
- * This is what stops the paywall rendering two trial cards at two prices. The
- * choice lives client-side because the server cannot tell an old build from a
- * new one — it offers both and each client takes the newest code it understands.
- */
-export const pickTrialPlan = (plans?: Plan[] | null): Plan | undefined => {
-  if (!Array.isArray(plans)) return undefined;
-  for (let i = TRIAL_CODES.length - 1; i >= 0; i--) {
-    const match = plans.find(p => p.code === TRIAL_CODES[i]);
-    if (match) return match;
-  }
-  return undefined;
-};
+// The plan vocabulary lives in planCodes so side-effect-free modules can use it
+// without pulling this file's AsyncStorage-backed client in behind it.
+// Re-exported so existing callers keep importing from here.
+import type { Plan, PlanCode } from './planCodes';
+export type { Plan, PlanCode } from './planCodes';
+export { TRIAL_CODES, isTrialCode, pickTrialPlan } from './planCodes';
 
 export interface Subscription {
   id: string;
   planCode: PlanCode;
-  status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'TRIAL' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  status:
+    | 'CREATED'
+    | 'AUTHENTICATED'
+    | 'PENDING'
+    | 'ACTIVE'
+    | 'TRIAL'
+    | 'PAUSED'
+    | 'HALTED'
+    | 'CANCELLED'
+    | 'COMPLETED'
+    | 'EXPIRED';
   /**
    * The recurring price frozen when this subscription was created, in PAISE.
    * THE authoritative "what will I be charged next" number — a subscriber keeps
@@ -124,6 +112,10 @@ export interface Subscription {
   cancelAtPeriodEnd: boolean;
   createdAt: string;
   updatedAt: string;
+  // Which door the money came through. Only the owning provider may be asked to
+  // cancel: Apple never lets an app cancel its own subscription, and the
+  // Razorpay cancel endpoint refuses an Apple row outright.
+  provider?: 'RAZORPAY' | 'APPLE';
 }
 
 export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
@@ -141,23 +133,32 @@ export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
 export interface SubscriptionPlansResponse {
   plans: Plan[];
   trialEligible: boolean;
+  // Minted lazily by the backend and only for a signed-in iOS caller, so it is
+  // null while anonymous. Apple needs a real UUID here to tie a purchase back to
+  // this account, so the purchase path must gate on it rather than assume one.
+  appleAppAccountToken?: string | null;
 }
 
-export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse> => {
-  try {
-    const response = await api(`/api/monetize/subscription/plans?_cb=${Date.now()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return {
-      plans: response?.data?.plans ?? [],
-      trialEligible: response?.data?.trialEligible ?? false,
-    };
-  } catch (error) {
-    console.error('Fetch Plans Error:', error);
-    throw error;
-  }
-};
+export const getSubscriptionPlans =
+  async (): Promise<SubscriptionPlansResponse> => {
+    try {
+      const response = await api(
+        `/api/monetize/subscription/plans?_cb=${Date.now()}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      return {
+        plans: response?.data?.plans ?? [],
+        trialEligible: response?.data?.trialEligible ?? false,
+        appleAppAccountToken: response?.data?.appleAppAccountToken ?? null,
+      };
+    } catch (error) {
+      console.error('Fetch Plans Error:', error);
+      throw error;
+    }
+  };
 
 export const createSubscription = async (planCode: PlanCode) => {
   try {
@@ -240,8 +241,6 @@ export const cancelSubscription = async (
   }
 };
 
-
-
 export const useSubscriptionPlans = () => {
   const user = useAuthStore(state => state.user);
   return useQuery({
@@ -256,6 +255,7 @@ export const useMySubscription = () => {
   return useQuery({
     queryKey: ['mySubscription', user?.id || 'anonymous'],
     queryFn: getMySubscription,
+    enabled: !!user?.id,
     staleTime: 0,
   });
 };
@@ -304,7 +304,8 @@ export const useCancelSubscription = () => {
       Toast.show({
         type: 'error',
         text1: 'Cancellation Failed',
-        text2: typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
+        text2:
+          typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
       });
     },
   });
@@ -320,22 +321,34 @@ export interface SubscriptionCharge {
   periodEnd: string | null;
 }
 
-export const getSubscriptionHistory = async (page = 1, limit = 20): Promise<SubscriptionCharge[]> => {
+export const getSubscriptionHistory = async (
+  page = 1,
+  limit = 20,
+): Promise<SubscriptionCharge[]> => {
   try {
     console.log('[History API] Requesting page:', page, 'limit:', limit);
-    const response = await api(`/api/monetize/subscription/history?page=${page}&limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await api(
+      `/api/monetize/subscription/history?page=${page}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     console.log('[History API] Response keys:', Object.keys(response || {}));
-    console.log('[History API] Response data keys:', Object.keys(response?.data || {}));
+    console.log(
+      '[History API] Response data keys:',
+      Object.keys(response?.data || {}),
+    );
 
     const subscriptions = response?.data?.subscriptions ?? [];
     console.log('[History API] Subscriptions found:', subscriptions.length);
     const charges: SubscriptionCharge[] = [];
 
     subscriptions.forEach((sub: any, index: number) => {
-      console.log(`[History API] Sub ${index} has charges:`, sub.charges ? sub.charges.length : 'none');
+      console.log(
+        `[History API] Sub ${index} has charges:`,
+        sub.charges ? sub.charges.length : 'none',
+      );
       if (sub.charges && Array.isArray(sub.charges)) {
         charges.push(...sub.charges);
       }

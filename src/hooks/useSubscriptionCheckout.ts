@@ -1,28 +1,29 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import RazorpayCheckout from 'react-native-razorpay';
 import {
   getMySubscription,
   invalidateEntitlementQueries,
   isTrialCode,
-  useCreateSubscription,
-  useVerifySubscription,
   type Plan,
   type PlanCode,
 } from '../api/subscription';
+import { getPaymentRail } from '../services/paymentRail';
+import type { PurchaseOutcome } from '../services/paymentRail';
 import { useAuthStore } from '../store/authStore';
 import { track } from '../utils/analytics';
 
 /**
- * The ONE implementation of "buy a plan": create the subscription server-side,
- * open Razorpay, confirm the signature, report the conversion, then poll until
- * the webhook has actually activated it.
+ * "Buy a plan, then wait until it is really active."
  *
- * Shared because there are two entry points into it — the paywall and the
- * cancel-flow downsell — and every duplicated copy of a payment flow eventually
- * drifts on the details that matter (which plan code is sent, what value is
- * reported to Meta, whether the sheet's copy matches the mandate). Surfaces
- * differ only in what they render around it, which is what the callbacks are for.
+ * The purchase itself belongs to the rail adapter — this deliberately does NOT
+ * open a checkout of its own. It used to call RazorpayCheckout.open directly,
+ * which on iOS is an App Store guideline 3.1.1 rejection; routing through
+ * getPaymentRail() means there is no reachable Razorpay call site on that
+ * platform rather than merely a hidden button.
+ *
+ * What it adds on top of the adapter is the part every caller needs and none
+ * should re-implement: report the conversion once, poll until the webhook has
+ * actually granted entitlement, and invalidate the caches that depend on it.
  */
 
 /** How long to wait for the webhook to land before giving up and telling the user. */
@@ -32,27 +33,22 @@ const POLL_INTERVAL_MS = 2500;
 export interface CheckoutResult {
   /** True once GET /me reports ACTIVE or TRIAL within the poll window. */
   activated: boolean;
-  /** The Razorpay subscription the mandate was authorised against. */
-  razorpaySubscriptionId: string;
+  /**
+   * How the store said the attempt ended. `cancelled` means the user backed out
+   * and nothing was charged — callers must not report that as a purchase.
+   */
+  outcome: PurchaseOutcome;
 }
-
-const formatIndianMobile = (mobile?: string): string | undefined => {
-  if (!mobile) return undefined;
-  const digitsOnly = mobile.replace(/\D/g, '');
-  return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
-};
 
 export const useSubscriptionCheckout = () => {
   const queryClient = useQueryClient();
   const user = useAuthStore(state => state.user);
-  const createSubMutation = useCreateSubscription();
-  const verifySubMutation = useVerifySubscription();
 
   /**
-   * Runs the whole purchase. Throws if the subscription cannot be created or the
-   * user dismisses the Razorpay sheet — callers surface that as they see fit.
+   * Runs the whole purchase. Throws only when the rail itself failed; a user
+   * dismissing the sheet comes back as `outcome.status === 'cancelled'`.
    * Resolves with `activated: false` when the money moved but the webhook has
-   * not landed yet; that is a pending state, not a failure.
+   * not landed yet — a pending state, not a failure.
    */
   const startCheckout = useCallback(
     async (planCode: PlanCode, plan?: Plan): Promise<CheckoutResult> => {
@@ -69,72 +65,38 @@ export const useSubscriptionCheckout = () => {
 
       track('InitiateCheckout', { value: planValue, currency: 'INR' });
 
-      const createRes = await createSubMutation.mutateAsync(planCode);
-      if (!createRes || !createRes.razorpaySubscriptionId) {
-        throw new Error('Failed to create subscription on server');
-      }
-
-      const { razorpaySubscriptionId, razorpayKeyId, checkoutDescription } =
-        createRes;
-
-      const paymentData: any = await RazorpayCheckout.open({
-        key: razorpayKeyId || 'rzp_test_123',
-        subscription_id: razorpaySubscriptionId,
-        name: 'Bombay Canvas',
-        // Built server-side from the same plan config it bills against, so the
-        // sheet can never quote a price the mandate does not match.
-        description: checkoutDescription || `${plan?.name ?? 'Premium'} Subscription`,
-        prefill: {
-          contact: formatIndianMobile(
-            user?.mobile || user?.phone || user?.contact,
-          ),
-          email: user?.email,
+      const outcome = await getPaymentRail().startPurchase({
+        planCode,
+        profile: {
           name: user?.name,
+          email: user?.email,
+          mobile: user?.mobile || user?.phone || user?.contact,
         },
-        theme: { color: '#ff6600' },
       });
 
-      // Card checkout always hands back the signed triple. A UPI-intent mandate
-      // (GPay/PhonePe) is authorised in the external app and signed by Razorpay
-      // server-side, so this payload can be partial — commonly payment_id only,
-      // sometimes not even that. Recover the subscription id from /create.
-      const paymentId = paymentData?.razorpay_payment_id;
-      const subscriptionId =
-        paymentData?.razorpay_subscription_id || razorpaySubscriptionId;
-      const signature = paymentData?.razorpay_signature;
-
-      // /verify is UX confirmation ONLY — it checks the HMAC and echoes local
-      // status. It grants nothing; activation is webhook-driven. So a payload we
-      // cannot sign-check, or a verify that fails, must NOT abort the flow — the
-      // money has already moved. The poll below is the sole judge.
-      if (paymentId && subscriptionId && signature) {
-        try {
-          await verifySubMutation.mutateAsync({
-            razorpay_payment_id: paymentId,
-            razorpay_subscription_id: subscriptionId,
-            razorpay_signature: signature,
-          });
-        } catch (verifyError) {
-          console.warn(
-            'Signature verify failed; falling back to GET /me polling',
-            verifyError,
-          );
-        }
+      // Nothing was charged and nothing is coming: don't report a conversion and
+      // don't spend 30 seconds polling for an entitlement that cannot arrive.
+      if (outcome.status === 'cancelled') {
+        return { activated: false, outcome };
       }
 
       // Money changed hands. Fire immediately — do NOT wait for the poll, the
-      // user can background the app at any point during it.
-      if (isTrialCode(planCode)) {
-        track('StartTrial', undefined, razorpaySubscriptionId);
-      } else {
-        // The dedup key must never be undefined or this double-counts against
-        // the backend's own event. UPI intent can withhold the payment id, so
-        // fall back to the subscription id, which we always have.
-        track(
-          'Subscribe',
-          { value: planValue, currency: 'INR' },
-          paymentId || razorpaySubscriptionId,
-        );
+      // user can background the app at any point during it. An `unresolved`
+      // outcome reports nothing: the store never confirmed the sale, and a
+      // conversion we cannot stand behind is worse than a missing one.
+      if (outcome.status === 'paid') {
+        if (isTrialCode(planCode)) {
+          track('StartTrial', undefined, outcome.dedupKey);
+        } else {
+          // The dedup key must never be undefined or this double-counts against
+          // the backend's own event; the rail picks the id the backend reports
+          // the same conversion under.
+          track(
+            'Subscribe',
+            { value: planValue, currency: 'INR' },
+            outcome.dedupKey,
+          );
+        }
       }
 
       let activated = false;
@@ -152,9 +114,9 @@ export const useSubscriptionCheckout = () => {
       invalidateEntitlementQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ['subscriptionHistory'] });
 
-      return { activated, razorpaySubscriptionId };
+      return { activated, outcome };
     },
-    [createSubMutation, queryClient, user, verifySubMutation],
+    [queryClient, user],
   );
 
   return { startCheckout };

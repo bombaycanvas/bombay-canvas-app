@@ -1,27 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useVideoStore } from '../store/videoStore';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { useUpcomingSeriesData } from '../api/video';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '../store/authStore';
 import {
+  getMySubscription,
   useMySubscription,
   useSubscriptionPlans,
   isSubscriptionActive,
   isStaleSubscriptionStateError,
   invalidateEntitlementQueries,
+  isTrialCode,
   pickTrialPlan,
   type PlanCode,
 } from '../api/subscription';
-import { useSubscriptionCheckout } from '../hooks/useSubscriptionCheckout';
+import { getPaymentRail } from '../services/paymentRail';
+import { classifyVerifyFailure } from '../services/iap/verifyFailure';
+import { useAppleCatalogue } from '../hooks/useAppleCatalogue';
+import { useAppleOwnershipConflict } from '../hooks/useAppleIapSync';
+import { IS_RAZORPAY_RAIL } from '../utils/paymentRail';
+import { track } from '../utils/analytics';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
+import RestorePurchasesButton from '../components/subscription/RestorePurchasesButton';
+import AppleOwnershipConflictNotice from '../components/subscription/AppleOwnershipConflictNotice';
+import { buildPaywallOffers } from '../components/subscription/paywallOffers';
 import SubscriptionComingSoon from '../components/subscription/SubscriptionComingSoon';
 import SubscriptionTrustBadges from '../components/subscription/SubscriptionTrustBadges';
 import SubscriptionPaymentFooter from '../components/subscription/SubscriptionPaymentFooter';
+
+// The window between the store taking the money and the server granting the
+// entitlement is the one moment the user has paid and has nothing to show for
+// it, so it gets its own state and its own copy rather than an anonymous
+// spinner. `checkout` covers the payment sheet; `activating` covers the server
+// verify and the entitlement poll behind it.
+type PurchasePhase = 'idle' | 'checkout' | 'activating';
+
+const ACTIVATING_MESSAGE =
+  'Payment received. Activating your subscription — please keep the app open.';
 
 export default function SubscriptionScreen() {
   const route = useRoute<any>();
@@ -29,28 +56,46 @@ export default function SubscriptionScreen() {
   const { purchaseSeries, resetPurchaseState, setPaused } = useVideoStore();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const user = useAuthStore(state => state.user);
 
   const [selectedPlan, setSelectedPlan] = useState<
     'trial' | 'monthly' | 'annual'
   >('annual');
-  const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<PurchasePhase>('idle');
+  const loading = phase !== 'idle';
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
+  const { data: appleCatalogue } = useAppleCatalogue();
 
-  // Preselect the trial when one is actually on offer. Keyed on the plan being
-  // present — the same signal SubscriptionPlans renders the card from — so the
-  // preselected option can never be a card that isn't shown.
+  // Written by the silent restore on launch and on every login, so the paywall
+  // knows before the user taps anything that the App Store would charge for a
+  // subscription this account cannot be granted. Always null off the Apple rail.
+  const ownershipConflict = useAppleOwnershipConflict();
+
+  // What the active rail can actually honour. On Apple that means the App
+  // Store's own prices and its own answer on trial eligibility — the backend's
+  // eligibility flag cannot see an Apple ID's offer history, so the builder does
+  // not take it: the Razorpay card is driven by which trial plan was offered.
+  const offers = useMemo(
+    () =>
+      buildPaywallOffers({
+        plans: subscriptionPlans?.plans,
+        appleCatalogue,
+      }),
+    [subscriptionPlans, appleCatalogue],
+  );
+
+  // Preselect the trial only when there is a trial card to select; on Apple that
+  // arrives with the store catalogue, not with the plans call.
   useEffect(() => {
-    if (pickTrialPlan(subscriptionPlans?.plans)) {
+    if (offers.trial) {
       setSelectedPlan('trial');
     }
-  }, [subscriptionPlans]);
+  }, [offers.trial]);
   const { data: mySubscription } = useMySubscription();
   const activePlan = isSubscriptionActive(mySubscription)
     ? mySubscription!.planCode
     : null;
-
-  const { startCheckout } = useSubscriptionCheckout();
 
   const { data: upcomingData } = useUpcomingSeriesData();
   const displayUpcoming = upcomingData?.upcomingSeries || [];
@@ -64,19 +109,35 @@ export default function SubscriptionScreen() {
   };
 
   const handlePurchase = async (plan: 'trial' | 'monthly' | 'annual') => {
-    // For the trial, buy the SAME code the card rendered. There are two trial
-    // codes at two prices and the paywall shows whichever pickTrialPlan chose —
-    // hardcoding 'TRIAL' here would quote ₹899 on screen and charge ₹499.
-    const trialPlan = pickTrialPlan(subscriptionPlans?.plans);
+    // The buy actions are already inert while a conflict stands, so reaching
+    // here means the verdict landed between render and tap. Refusing costs a
+    // user nothing; letting it through costs them the price of a subscription
+    // the server will decline to grant.
+    if (ownershipConflict) {
+      Toast.show({
+        type: 'info',
+        text1: 'Already Linked Elsewhere',
+        text2:
+          "This Apple ID's subscription belongs to another Canvas account.",
+        visibilityTime: 6000,
+      });
+      return;
+    }
+
+    // Buy the SAME code the card rendered. There are two trial codes at two
+    // different post-trial prices and the paywall shows whichever pickTrialPlan
+    // chose; hardcoding 'TRIAL' here quotes ₹899 on screen and charges ₹499.
+    // On Apple the code is mapped back to the annual product either way.
     const planCode: PlanCode | undefined =
       plan === 'trial'
-        ? trialPlan?.code
+        ? pickTrialPlan(subscriptionPlans?.plans)?.code
         : plan === 'annual'
           ? 'ANNUAL'
           : 'MONTHLY';
 
-    // Nothing to buy if the plans call hasn't landed — better to no-op than to
-    // guess a code and charge an amount the user was never shown.
+    // The trial card is only rendered once its plan is known, so this means the
+    // plans call has not landed yet. Better to no-op than to guess a code and
+    // charge an amount the user was never shown.
     if (!planCode) {
       Toast.show({
         type: 'info',
@@ -86,24 +147,119 @@ export default function SubscriptionScreen() {
       return;
     }
 
-    const planDetails = subscriptionPlans?.plans?.find(p => p.code === planCode);
+    // Plan.price is in paise; Meta expects the major currency unit. Same
+    // fallbacks SubscriptionPlans.tsx uses when the plans call hasn't landed.
+    const planDetails = subscriptionPlans?.plans?.find(
+      p => p.code === planCode,
+    );
+    const planValue =
+      isTrialCode(planCode)
+        ? undefined
+        : planDetails
+        ? planDetails.price / 100
+        : planCode === 'ANNUAL'
+        ? 499
+        : 99;
 
-    setLoading(true);
+    // The trial card is the trial on both rails now: Razorpay sells it as the ₹1
+    // TRIAL plan, and on Apple it is the annual product wearing its free-days
+    // offer, which appleRail maps back to ANNUAL. Either way nothing is charged,
+    // so the conversion carries no value.
+    const isTrialStart = plan === 'trial';
+    const conversionValue = isTrialStart ? undefined : planValue;
+
+    // They opened checkout. No dedup key — the backend never reports this one,
+    // so there's nothing to merge with.
+    track('InitiateCheckout', { value: conversionValue, currency: 'INR' });
+
+    setPhase('checkout');
     try {
-      // create → Razorpay → verify → report → poll, all in one place so this
-      // screen and the cancel-flow downsell can never drift apart on it.
-      const { activated: isActivated } = await startCheckout(
+      // One call, whichever rail this build sells through. On iOS that is the
+      // App Store: there is no branch below this line that can reach Razorpay.
+      const outcome = await getPaymentRail().startPurchase({
         planCode,
-        planDetails,
-      );
+        profile: {
+          name: user?.name,
+          email: user?.email,
+          mobile: user?.mobile || user?.phone || user?.contact,
+        },
+        appleAppAccountToken: subscriptionPlans?.appleAppAccountToken,
+      });
 
-      setLoading(false);
+      // Backing out of the App Store sheet is a normal outcome, not a failure —
+      // say nothing and leave the paywall exactly as it was.
+      if (outcome.status === 'cancelled') {
+        setPhase('idle');
+        return;
+      }
+
+      // Money changed hands. Fire immediately — do NOT wait for the /me poll
+      // below, because the user can background the app at any point during it.
+      // An `unresolved` outcome deliberately reports nothing: the store never
+      // confirmed the sale, and a conversion we cannot stand behind is worse
+      // than a missing one. The poll below still runs, because the charge may
+      // have gone through regardless.
+      if (outcome.status === 'paid') {
+        if (isTrialStart) {
+          // No value. The Razorpay trial charges ₹1 to authorise the mandate and
+          // Apple's charges nothing at all; reporting either would make Meta
+          // optimise for a conversion worth about 500x less than the plan. The
+          // real price goes in predicted_ltv, which the backend sends.
+          track('StartTrial', undefined, outcome.dedupKey);
+        } else {
+          // Dedup key must never be undefined — that would stop this event
+          // merging with the backend's and double-count the conversion. The rail
+          // picks the id the backend will report the same conversion under.
+          track(
+            'Subscribe',
+            { value: conversionValue, currency: 'INR' },
+            outcome.dedupKey,
+          );
+        }
+      }
+
+      // The store is done with the user either way; everything past this point
+      // is us catching up with it.
+      setPhase('activating');
+
+      console.log('Purchase settled. Polling GET /me...');
+      let isActivated = false;
+      let attempts = 0;
+      const maxAttempts = 12;
+      const intervalMs = 2500;
+
+      while (attempts < maxAttempts) {
+        attempts++;
+        console.log(
+          `Polling subscription status: attempt ${attempts}/${maxAttempts}`,
+        );
+        const subData = await getMySubscription();
+        if (
+          subData &&
+          (subData.status === 'ACTIVE' || subData.status === 'TRIAL')
+        ) {
+          isActivated = true;
+          break;
+        }
+        await new Promise<void>(resolve => setTimeout(resolve, intervalMs));
+      }
+
+      setPhase('idle');
 
       if (isActivated) {
+        // The trial's name comes from the rail that sold it: Apple's free days
+        // are not the Razorpay "3-Day Trial" and must not be announced as it.
+        const planLabel =
+          plan === 'trial'
+            ? offers.trial?.title || '3-Day Trial'
+            : plan === 'annual'
+            ? 'Annual'
+            : 'Monthly';
+
         Toast.show({
           type: 'success',
           text1: 'Subscription Active!',
-          text2: `Welcome to Canvas Premium (${planDetails?.name ?? 'Premium'} Plan).`,
+          text2: `Welcome to Canvas Premium (${planLabel} Plan).`,
         });
 
         if (series) {
@@ -140,7 +296,7 @@ export default function SubscriptionScreen() {
       }
     } catch (error: any) {
       console.error('Subscription purchase flow error:', error);
-      setLoading(false);
+      setPhase('idle');
 
       const msg = error?.message || 'Please try again.';
       const text2 =
@@ -151,6 +307,14 @@ export default function SubscriptionScreen() {
       // checkout whose webhook never landed. Retrying can only fail the same
       // way, so pull the real state and let the screen re-render rather than
       // leaving the paywall selling a plan the user already owns.
+      // The Apple rail already told the user why, and showed copy that names
+      // what to do about it. A second, vaguer "Subscription Failed" on top of
+      // it would only bury the actionable one.
+      if (classifyVerifyFailure(error).kind === 'terminal') {
+        invalidateEntitlementQueries(queryClient);
+        return;
+      }
+
       if (isStaleSubscriptionStateError(error)) {
         invalidateEntitlementQueries(queryClient);
         Toast.show({
@@ -192,14 +356,23 @@ export default function SubscriptionScreen() {
           handlePurchase={handlePurchase}
           loading={loading}
           activePlan={activePlan}
-          plans={subscriptionPlans?.plans}
+          offers={offers}
+          purchaseBlockedLabel={ownershipConflict ? 'Unavailable' : null}
         />
+
+        {/* Above the restore button, because restoring is one of the two ways
+            out the notice names and the user should not have to hunt for it. */}
+        {ownershipConflict && <AppleOwnershipConflictNotice />}
+
+        <RestorePurchasesButton />
 
         <SubscriptionComingSoon displayUpcoming={displayUpcoming} />
 
         <SubscriptionTrustBadges />
 
-        <SubscriptionPaymentFooter />
+        {/* Card and UPI marks. They describe the Razorpay checkout and nothing
+            about an App Store purchase, so they must not appear on iOS. */}
+        {IS_RAZORPAY_RAIL && <SubscriptionPaymentFooter />}
       </ScrollView>
 
       <Toast topOffset={insets.top + 10} position="top" />
@@ -207,6 +380,9 @@ export default function SubscriptionScreen() {
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#ff6600" />
+          {phase === 'activating' && (
+            <Text style={styles.loadingText}>{ACTIVATING_MESSAGE}</Text>
+          )}
         </View>
       )}
     </View>
@@ -230,5 +406,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
+  },
+  loadingText: {
+    color: '#aaa',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 16,
+    marginHorizontal: 40,
+    fontFamily: 'HelveticaNowDisplay-Regular',
   },
 });
