@@ -1215,8 +1215,17 @@ export default function CancelSubscriptionFlow({
   ]);
 
   const handleBack = useCallback(
-    () => setStepIndex(current => Math.max(0, current - 1)),
-    [],
+    () =>
+      setStepIndex(current => {
+        const next = Math.max(0, current - 1);
+        // 'downsellConfirm' is not a stop on the way out — it is reachable ONLY
+        // by choosing a plan on the downsell step. Declining the offer jumps
+        // straight to 'confirm', so a plain index-1 back would walk the user
+        // into a confirmation for a switch they just turned down.
+        if (steps[next] === 'downsellConfirm') return Math.max(0, next - 1);
+        return next;
+      }),
+    [steps],
   );
 
   // Drag-to-dismiss is bound to the grab handle only, so the scrollable body keeps its own gestures.
