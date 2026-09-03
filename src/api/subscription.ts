@@ -252,10 +252,23 @@ export const useSubscriptionPlans = () => {
 
 export const useMySubscription = () => {
   const user = useAuthStore(state => state.user);
+  // Gated on the TOKEN, not on the cached user object, because the token is what
+  // actually authorises GET /me — the server reads the caller off it and never
+  // looks at anything the client holds.
+  //
+  // `enabled: !!user?.id` looked equivalent and is not. `user` is hydrated from
+  // AsyncStorage separately from the token and can legitimately be null on a
+  // perfectly valid session (nothing was ever written under 'user', or a login
+  // path called setUser with an undefined payload). A disabled query is not
+  // merely idle: invalidateQueries SKIPS it, while refetch() runs anyway. So a
+  // cancel would invalidate ['mySubscription'] to no effect and the card kept
+  // offering "Cancel Subscription" for a subscription already cancelled, right
+  // up until useFocusEffect's refetch on the next visit papered over it.
+  const token = useAuthStore(state => state.token);
   return useQuery({
     queryKey: ['mySubscription', user?.id || 'anonymous'],
     queryFn: getMySubscription,
-    enabled: !!user?.id,
+    enabled: !!token,
     staleTime: 0,
   });
 };
