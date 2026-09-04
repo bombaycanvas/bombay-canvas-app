@@ -157,9 +157,18 @@ export default function SubscriptionPlans({
   const hasActiveSubscription =
     isTrialActive || isMonthlyActive || isAnnualActive;
 
-  const trial = offers.trial;
+  const { trial, offered, trialConsumedNotice } = offers;
   return (
     <View style={styles.plansWrapper}>
+      {/* Stands exactly where the trial card would: the user came here for the
+          trial, and the first thing the screen owes them is why it is gone. */}
+      {!trial && trialConsumedNotice && (
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeLabel}>{trialConsumedNotice.label}</Text>
+          <Text style={styles.noticeBody}>{trialConsumedNotice.body}</Text>
+        </View>
+      )}
+
       {trial && (
         <TouchableOpacity
           activeOpacity={0.9}
@@ -222,7 +231,7 @@ export default function SubscriptionPlans({
         </TouchableOpacity>
       )}
 
-      {trial && (
+      {trial && (offered.monthly || offered.annual) && (
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>OR PICK A PLAN</Text>
@@ -231,116 +240,125 @@ export default function SubscriptionPlans({
       )}
 
       <View style={styles.plansRow}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'monthly' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('monthly')}
-        >
-          <View style={styles.radioAbsoluteLeft}>
-            <View
-              style={[
-                styles.radioOuter,
-                selectedPlan === 'monthly' && styles.radioOuterActive,
-              ]}
-            >
-              {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
+        {offered.monthly && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[
+              styles.planCard,
+              selectedPlan === 'monthly' && styles.planCardActive,
+            ]}
+            onPress={() => setSelectedPlan('monthly')}
+          >
+            <View style={styles.radioAbsoluteLeft}>
+              <View
+                style={[
+                  styles.radioOuter,
+                  selectedPlan === 'monthly' && styles.radioOuterActive,
+                ]}
+              >
+                {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
+              </View>
             </View>
-          </View>
 
-          <Text style={styles.planTitleText}>MONTHLY</Text>
+            <Text style={styles.planTitleText}>MONTHLY</Text>
 
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Price
-                price={offers.monthly}
-                amountStyle={styles.priceText}
-                periodStyle={styles.pricePeriod}
-              />
+            <View style={styles.planPriceContainer}>
+              <View style={styles.priceMainRow}>
+                <Price
+                  price={offers.monthly}
+                  amountStyle={styles.priceText}
+                  periodStyle={styles.pricePeriod}
+                />
+              </View>
+              <Text style={styles.planSubtext}>
+                Billed monthly{'\n'}Cancel anytime
+              </Text>
             </View>
-            <Text style={styles.planSubtext}>
-              Billed monthly{'\n'}Cancel anytime
-            </Text>
-          </View>
 
-          <PurchaseAction
-            theme={PLAN_ACTION_THEME}
-            label="Continue Monthly"
-            selected={selectedPlan === 'monthly'}
-            loading={loading}
-            blockedLabel={purchaseBlockedLabel}
-            spinnerColor="#fff"
-            isActivePlan={isMonthlyActive}
-            hasActiveSubscription={hasActiveSubscription}
-            onPress={() => handlePurchase('monthly')}
-          />
-        </TouchableOpacity>
+            <PurchaseAction
+              theme={PLAN_ACTION_THEME}
+              label="Continue Monthly"
+              selected={selectedPlan === 'monthly'}
+              loading={loading}
+              blockedLabel={purchaseBlockedLabel}
+              spinnerColor="#fff"
+              isActivePlan={isMonthlyActive}
+              hasActiveSubscription={hasActiveSubscription}
+              onPress={() => handlePurchase('monthly')}
+            />
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'annual' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('annual')}
-        >
-          <View style={styles.popularBadge}>
-            <View style={styles.popularBadgeTextContainer}>
-              <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
+        {offered.annual && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[
+              styles.planCard,
+              selectedPlan === 'annual' && styles.planCardActive,
+            ]}
+            onPress={() => setSelectedPlan('annual')}
+          >
+            <View style={styles.popularBadge}>
+              <View style={styles.popularBadgeTextContainer}>
+                <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.radioAbsoluteLeft}>
-            <View
-              style={[
-                styles.radioOuter,
-                selectedPlan === 'annual' && styles.radioOuterActive,
-              ]}
-            >
-              {selectedPlan === 'annual' ? (
-                <View style={styles.radioInner} />
+            <View style={styles.radioAbsoluteLeft}>
+              <View
+                style={[
+                  styles.radioOuter,
+                  selectedPlan === 'annual' && styles.radioOuterActive,
+                ]}
+              >
+                {selectedPlan === 'annual' ? (
+                  <View style={styles.radioInner} />
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={styles.planTitleText}>ANNUAL</Text>
+
+            <View style={styles.planPriceContainer}>
+              {offers.annualStrikePrice ? (
+                <Text style={styles.planStrikePrice}>
+                  {offers.annualStrikePrice}
+                </Text>
+              ) : null}
+              <View style={styles.priceMainRow}>
+                <Price
+                  price={offers.annual}
+                  amountStyle={styles.priceText}
+                  periodStyle={styles.pricePeriod}
+                />
+              </View>
+              {offers.annualPerMonthLabel ? (
+                <Text style={styles.planSavingsText}>
+                  {offers.annualPerMonthLabel}
+                </Text>
+              ) : null}
+              {offers.savingsPercent !== null ? (
+                <View style={styles.planSavingsBadge}>
+                  <Text style={styles.planSavingsBadgeText}>
+                    Save {offers.savingsPercent}%
+                  </Text>
+                </View>
               ) : null}
             </View>
-          </View>
 
-          <Text style={styles.planTitleText}>ANNUAL</Text>
-
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Price
-                price={offers.annual}
-                amountStyle={styles.priceText}
-                periodStyle={styles.pricePeriod}
-              />
-            </View>
-            {offers.annualPerMonthLabel ? (
-              <Text style={styles.planSavingsText}>
-                {offers.annualPerMonthLabel}
-              </Text>
-            ) : null}
-            {offers.savingsPercent !== null ? (
-              <View style={styles.planSavingsBadge}>
-                <Text style={styles.planSavingsBadgeText}>
-                  Save {offers.savingsPercent}%
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          <PurchaseAction
-            theme={PLAN_ACTION_THEME}
-            label="Join Canvas"
-            selected={selectedPlan === 'annual'}
-            loading={loading}
-            blockedLabel={purchaseBlockedLabel}
-            spinnerColor="#000"
-            isActivePlan={isAnnualActive}
-            hasActiveSubscription={hasActiveSubscription}
-            onPress={() => handlePurchase('annual')}
-          />
-        </TouchableOpacity>
+            <PurchaseAction
+              theme={PLAN_ACTION_THEME}
+              label="Join Canvas"
+              selected={selectedPlan === 'annual'}
+              loading={loading}
+              blockedLabel={purchaseBlockedLabel}
+              spinnerColor="#000"
+              isActivePlan={isAnnualActive}
+              hasActiveSubscription={hasActiveSubscription}
+              onPress={() => handlePurchase('annual')}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.secureTextRow}>
@@ -466,6 +484,13 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontFamily: 'HelveticaNowDisplay-Regular',
   },
+  planStrikePrice: {
+    color: '#888',
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    marginBottom: 2,
+  },
   planSavingsText: {
     color: '#ff6a00',
     fontSize: 13,
@@ -541,6 +566,29 @@ const styles = StyleSheet.create({
   },
   planButtonTextDisabled: {
     color: '#666',
+  },
+  noticeCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#222',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  noticeLabel: {
+    color: '#ff6a00',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  noticeBody: {
+    color: '#888',
+    fontSize: 14,
+    lineHeight: 19,
+    fontFamily: 'HelveticaNowDisplay-Regular',
   },
   trialCard: {
     backgroundColor: '#121212',

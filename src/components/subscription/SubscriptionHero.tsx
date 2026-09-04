@@ -7,12 +7,17 @@ interface SubscriptionHeroProps {
   series: any;
   onClose: () => void;
   paddingTop: number;
+  // A returning user whose trial is spent is not being invited to join — they
+  // already did. Selling them the same promise again reads as a screen that has
+  // not noticed, so the headline names where they actually are.
+  trialConsumed?: boolean;
 }
 
 export default function SubscriptionHero({
   series,
   onClose,
   paddingTop,
+  trialConsumed = false,
 }: SubscriptionHeroProps) {
   return (
     <View style={[styles.heroContainer, { paddingTop }]}>
@@ -26,12 +31,21 @@ export default function SubscriptionHero({
 
       <View style={styles.heroContent}>
         <View style={styles.heroTextContainer}>
-          <Text style={styles.heroTitle}>
-            The story's{'\n'}
-            <Text style={styles.heroTitleOrange}>not over yet.</Text>
-          </Text>
+          {trialConsumed ? (
+            <Text style={styles.heroTitle}>
+              Your trial's{'\n'}
+              <Text style={styles.heroTitleOrange}>done. The story isn't.</Text>
+            </Text>
+          ) : (
+            <Text style={styles.heroTitle}>
+              The story's{'\n'}
+              <Text style={styles.heroTitleOrange}>not over yet.</Text>
+            </Text>
+          )}
           <Text style={styles.heroSubtitle}>
-            Join Canvas to see how it ends and unlock thousands of creator-led stories.
+            {trialConsumed
+              ? 'Activate a plan to pick up where you left off and keep every premium series unlocked.'
+              : 'Join Canvas to see how it ends and unlock thousands of creator-led stories.'}
           </Text>
         </View>
 

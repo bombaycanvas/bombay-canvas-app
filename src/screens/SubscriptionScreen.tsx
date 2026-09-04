@@ -67,17 +67,32 @@ export default function SubscriptionScreen() {
       buildPaywallOffers({
         plans: subscriptionPlans?.plans,
         appleCatalogue,
+        trialEligible: subscriptionPlans?.trialEligible,
       }),
     [subscriptionPlans, appleCatalogue],
   );
 
+  const hasTrial = !!offers.trial;
+  const { monthly: offersMonthly, annual: offersAnnual } = offers.offered;
+
   // Preselect the trial only when there is a trial card to select; on Apple that
-  // arrives with the store catalogue, not with the plans call.
+  // arrives with the store catalogue, not with the plans call. Failing that,
+  // preselect a plan the rail actually offers: the default is 'annual', so a
+  // rail selling only MONTHLY would otherwise render its single card unselected
+  // — and a card's buy button stays inert until it is.
+  //
+  // Depends on booleans rather than on the offer objects. `offers` is rebuilt
+  // whenever its inputs change, so `offers.trial` is a fresh object each time
+  // and would re-run this over a selection the user had since changed.
   useEffect(() => {
-    if (offers.trial) {
+    if (hasTrial) {
       setSelectedPlan('trial');
+    } else if (!offersAnnual && offersMonthly) {
+      setSelectedPlan('monthly');
+    } else if (!offersMonthly && offersAnnual) {
+      setSelectedPlan('annual');
     }
-  }, [offers.trial]);
+  }, [hasTrial, offersMonthly, offersAnnual]);
   const { data: mySubscription } = useMySubscription();
   const activePlan = isSubscriptionActive(mySubscription)
     ? mySubscription!.planCode
@@ -333,6 +348,7 @@ export default function SubscriptionScreen() {
           series={series}
           onClose={close}
           paddingTop={insets.top}
+          trialConsumed={!!offers.trialConsumedNotice}
         />
 
         <SubscriptionPlans
