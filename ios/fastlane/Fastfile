@@ -1,0 +1,181 @@
+require "shellwords"
+
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.bombaycanvas.app1"
+XCODEPROJ      = "bombaycanvas.xcodeproj"
+WORKSPACE      = "bombaycanvas.xcworkspace"
+SCHEME         = "bombaycanvas"
+
+# fastlane runs lanes with cwd = ios/fastlane, so raw Ruby (as opposed to
+# fastlane actions) must not use paths relative to the project root.
+IOS_DIR        = File.expand_path("..", __dir__)
+REPO_DIR       = File.expand_path("..", IOS_DIR)
+XCODEPROJ_ABS  = File.join(IOS_DIR, XCODEPROJ)
+ENV_FILE       = File.join(REPO_DIR, ".env")
+
+ASC_KEY_ID    = ENV.fetch("ASC_KEY_ID", "HW75F3WM88")
+ASC_ISSUER_ID = ENV.fetch("ASC_ISSUER_ID", "3e76ad7c-ce98-42f7-900e-4b2f8157da4a")
+ASC_KEY_PATH  = File.expand_path(
+  ENV.fetch("ASC_KEY_PATH", "~/.appstoreconnect/private_keys/AuthKey_#{ASC_KEY_ID}.p8")
+)
+
+# TestFlight build numbers here are dotted ("1.4"), so bump the last segment to
+# stay ordered against what App Store Connect already has.
+def bump_last_segment(build)
+  parts = build.to_s.strip.split(".")
+  parts = ["0"] if parts.empty?
+  parts[-1] = (parts[-1].to_i + 1).to_s
+  parts.join(".")
+end
+
+# agvtool rewrites Info.plist and destroys the $(CURRENT_PROJECT_VERSION)
+# indirection, so set the build setting directly instead.
+def set_build_number(build)
+  require "xcodeproj"
+  project = Xcodeproj::Project.open(XCODEPROJ_ABS)
+  [project.build_configurations, project.targets.flat_map(&:build_configurations)].flatten.each do |config|
+    config.build_settings["CURRENT_PROJECT_VERSION"] = build
+  end
+  project.save
+end
+
+# react-native-dotenv inlines .env at compile time, so a stale Metro cache or an
+# uncommented dev URL ships silently. Fail the lane instead.
+DEV_BACKEND = /ngrok|localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2|:5050/
+
+def expected_backend_url
+  env = File.read(ENV_FILE)
+  line = env.lines.find { |l| l =~ /^\s*NEXT_PUBLIC_BASE_URL\s*=/ }
+  UI.user_error!("No active NEXT_PUBLIC_BASE_URL in .env") if line.nil?
+  line.split("=", 2).last.strip.delete('"').delete("'")
+end
+
+def verify_bundle_backend(archive)
+  bundle = Dir.glob("#{archive}/Products/Applications/*.app/main.jsbundle").first
+  UI.user_error!("main.jsbundle not found in #{archive}") if bundle.nil?
+
+  urls = File.binread(bundle).scan(%r{https?://[a-zA-Z0-9._:-]+}).uniq
+  bad = urls.grep(DEV_BACKEND)
+  UI.user_error!("Bundle points at dev backend(s): #{bad.join(', ')}") unless bad.empty?
+
+  expected = expected_backend_url
+  unless urls.any? { |u| u.start_with?(expected) }
+    UI.user_error!("Bundle is missing #{expected} — Metro cache is probably stale. " \
+                   "Run: rm -rf \"$TMPDIR\"/metro-* \"$TMPDIR\"/react-* and rebuild.")
+  end
+  UI.success("Bundle backend verified: #{expected}")
+end
+
+def asc_api_key
+  UI.user_error!("App Store Connect key not found at #{ASC_KEY_PATH}") unless File.exist?(ASC_KEY_PATH)
+  app_store_connect_api_key(
+    key_id: ASC_KEY_ID,
+    issuer_id: ASC_ISSUER_ID,
+    key_filepath: ASC_KEY_PATH,
+    in_house: false,
+  )
+end
+
+platform :ios do
+  desc "Show what is currently on TestFlight"
+  lane :status do
+    api_key = asc_api_key
+    version = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    latest = latest_testflight_build_number(
+      api_key: api_key, app_identifier: APP_IDENTIFIER, version: version, initial_build_number: "0"
+    )
+    UI.success("Local #{version} (#{get_build_number(xcodeproj: XCODEPROJ)}) | TestFlight latest for #{version}: #{latest}")
+  end
+
+  desc "Build and upload a new build to TestFlight"
+  lane :beta do |options|
+    api_key = asc_api_key
+
+    version = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    latest = latest_testflight_build_number(
+      api_key: api_key, app_identifier: APP_IDENTIFIER, version: version, initial_build_number: "0"
+    )
+    next_build = options[:build_number] || bump_last_segment(latest)
+    UI.important("#{version}: TestFlight has #{latest}, building #{next_build}")
+
+    set_build_number(next_build)
+
+    build_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "bombaycanvas.ipa",
+      clean: options.fetch(:clean, false),
+      xcargs: [
+        "-allowProvisioningUpdates",
+        "-authenticationKeyPath #{ASC_KEY_PATH.shellescape}",
+        "-authenticationKeyID #{ASC_KEY_ID}",
+        "-authenticationKeyIssuerID #{ASC_ISSUER_ID}",
+      ].join(" "),
+    )
+
+    verify_bundle_backend(lane_context[SharedValues::XCODEBUILD_ARCHIVE])
+
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      skip_waiting_for_build_processing: options.fetch(:wait, false) == false,
+      changelog: options[:changelog],
+    )
+
+    UI.success("Uploaded #{version} (#{next_build}) to TestFlight")
+  end
+
+  desc "Export + upload an already-built .xcarchive (skips the ~15min rebuild)"
+  lane :upload_archive do |options|
+    api_key = asc_api_key
+    archive = options[:archive] || Dir.glob(File.expand_path("~/Library/Developer/Xcode/Archives/*/*.xcarchive"))
+                                     .max_by { |f| File.mtime(f) }
+    UI.user_error!("No .xcarchive found") if archive.nil?
+    UI.important("Exporting #{archive}")
+
+    verify_bundle_backend(archive)
+    ipa = export_archive_to_ipa(archive)
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      ipa: ipa,
+      skip_waiting_for_build_processing: true,
+      changelog: options[:changelog],
+    )
+    UI.success("Uploaded #{ipa} to TestFlight")
+  end
+
+  def export_archive_to_ipa(archive)
+    out = File.expand_path("build")
+    plist = "/tmp/export_options_bombaycanvas.plist"
+    File.write(plist, <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0"><dict>
+        <key>method</key><string>app-store-connect</string>
+        <key>teamID</key><string>UKWJKZWBXY</string>
+        <key>uploadSymbols</key><true/>
+      </dict></plist>
+    PLIST
+    sh("xcodebuild -exportArchive " \
+       "-archivePath #{archive.shellescape} " \
+       "-exportOptionsPlist #{plist.shellescape} " \
+       "-exportPath #{out.shellescape} " \
+       "-allowProvisioningUpdates " \
+       "-authenticationKeyPath #{ASC_KEY_PATH.shellescape} " \
+       "-authenticationKeyID #{ASC_KEY_ID} " \
+       "-authenticationKeyIssuerID #{ASC_ISSUER_ID}")
+    Dir.glob("#{out}/*.ipa").max_by { |f| File.mtime(f) }
+  end
+
+  desc "Check an archive's baked-in backend URL without uploading"
+  lane :verify_archive do |options|
+    archive = options[:archive] || Dir.glob(File.expand_path("~/Library/Developer/Xcode/Archives/*/*.xcarchive"))
+                                      .max_by { |f| File.mtime(f) }
+    verify_bundle_backend(archive)
+  end
+end
