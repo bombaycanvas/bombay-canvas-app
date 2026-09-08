@@ -49,6 +49,44 @@ export interface TrialConsumedNotice {
   body: string;
 }
 
+/** The hero's savings callout: a figure and what it was measured against. */
+export interface SavingsNote {
+  /** "Save ₹400" — the gap itself, never a percentage of an unnamed base. */
+  headline: string;
+  /** The other price the gap was measured from, in words. */
+  body: string;
+}
+
+/**
+ * Copy for the annual-hero layout, which leads with the annual card and demotes
+ * the trial to a secondary choice beside monthly.
+ *
+ * Every string here is assembled from a price the rail has actually quoted, so
+ * a figure the store never gave leaves its line null rather than falling back to
+ * one — the same rule the price fields above follow, applied to prose.
+ *
+ * Null on the Razorpay rail, which renders the older trial-first layout.
+ */
+export interface PaywallHeroCopy {
+  /** The hero action, carrying the price the tap charges. */
+  ctaLabel: string;
+  savings: SavingsNote | null;
+  /** The line under the hero action. */
+  footnote: string;
+  /** Why someone would pick the secondary card, one line each. */
+  monthlyNote: string;
+  /** Null exactly when there is no trial card to explain. */
+  trialNote: string | null;
+  /** "Then ₹899.00/year" under the trial card's own price. */
+  trialConversionLabel: string | null;
+  /**
+   * Fine print for the whole sheet, per selected card. The screen shows the one
+   * belonging to the card the user is actually about to buy; the trial's fine
+   * print is `trial.footnote`, which already states both of its prices.
+   */
+  renewalNote: { monthly: string | null; annual: string | null };
+}
+
 export interface PaywallOffers {
   monthly: PriceDisplay;
   annual: PriceDisplay;
@@ -89,6 +127,8 @@ export interface PaywallOffers {
    * they have used something they never had.
    */
   trialConsumedNotice: TrialConsumedNotice | null;
+  /** See PaywallHeroCopy. Null on rails that render the trial-first layout. */
+  heroCopy: PaywallHeroCopy | null;
 }
 
 export interface PaywallOffersInput {
@@ -291,6 +331,9 @@ const buildRazorpayOffers = ({
     trialConsumedNotice: trialConsumed
       ? buildTrialConsumedNotice(offered)
       : null,
+    // This rail keeps the trial-first layout: its hook is the ₹1 charge, not a
+    // free window, and the annual card has no free trial to be measured against.
+    heroCopy: null,
   };
 };
 
@@ -322,7 +365,7 @@ const readPerMonthLabel = (
   currency: string,
 ): string | null => {
   const formatted = formatCurrency(annualAmount / 12, currency);
-  return formatted ? `Only ${formatted}/month` : null;
+  return formatted ? `That's just ${formatted}/month` : null;
 };
 
 // No fallback. The DB price is an INR accounting figure; quoting it to a buyer
@@ -406,8 +449,11 @@ const buildAppleIntroCard = (
     };
   }
 
+  // Titled by the window Apple reports rather than by the word "free", so the
+  // card reads as the third plan it now is ("3-Day Trial" beside "Monthly" and
+  // "Annual") instead of as a headline. The price beside it already says free.
   return {
-    title: `${toTitleCase(introOffer.periodLabel)} Free`,
+    title: `${toHeadlineDuration(introOffer)} Trial`,
     price: buildFreePrice(currency),
     buttonLabel: 'Start Free Trial →',
     footnote: `${introOffer.periodLabel} free, then ${conversion}`,
@@ -453,6 +499,97 @@ const buildAppleTrialCard = (
   return { planCode: 'ANNUAL_POST_TRIAL', ...card };
 };
 
+const SAVINGS_VS_TRIAL = 'compared with starting with the trial';
+const SAVINGS_VS_MONTHLY = 'compared with paying monthly';
+
+// The gap between the annual price and whatever the hero is arguing against, in
+// the storefront's own currency. Null unless BOTH figures came from the store
+// and the annual one is genuinely lower — a "Save" line the user can check
+// against two prices printed on the same screen, or no line at all.
+const buildSavingsNote = (
+  annualAmount: number | null,
+  comparedAmount: number | null,
+  currency: string | undefined,
+  body: string,
+): SavingsNote | null => {
+  if (annualAmount === null || comparedAmount === null || !currency)
+    return null;
+  if (comparedAmount <= annualAmount) return null;
+  const saved = formatCurrency(comparedAmount - annualAmount, currency);
+  return saved ? { headline: `Save ${saved}`, body } : null;
+};
+
+// The trial converts on its own product at more than the plain annual costs, so
+// taking the free days first is the more expensive first year. That gap is the
+// hero's whole argument, and it is the same figure the trial card owns up to.
+//
+// Falls back to twelve monthly payments when there is no trial on offer: the
+// comparison has to name a price the user can also see, and with the trial card
+// gone the monthly card is the only other one left.
+const buildAnnualSavings = (
+  annualAmount: number | null,
+  monthlyAmount: number | null,
+  trialConversionAmount: number | null,
+  currency: string | undefined,
+): SavingsNote | null =>
+  buildSavingsNote(
+    annualAmount,
+    trialConversionAmount,
+    currency,
+    SAVINGS_VS_TRIAL,
+  ) ??
+  buildSavingsNote(
+    annualAmount,
+    monthlyAmount === null ? null : monthlyAmount * 12,
+    currency,
+    SAVINGS_VS_MONTHLY,
+  );
+
+/** "Renews at ₹499.00/year. Cancel anytime in Settings." */
+const buildRenewalNote = (price: PriceDisplay): string | null =>
+  price.amount === null
+    ? null
+    : `Renews at ${price.amount}${price.period}. Cancel anytime in Settings.`;
+
+const buildHeroCopy = (
+  annual: PriceDisplay,
+  monthly: PriceDisplay,
+  trial: TrialOffer | null,
+  savings: SavingsNote | null,
+  extraFirstYear: string | null,
+  monthlyCostsMore: boolean,
+  trialConversion: PriceDisplay | null,
+): PaywallHeroCopy => ({
+  // The price rides in the label so the action states what it charges. Without
+  // one there is no figure to promise and the button says only what it does —
+  // it is inert in that state anyway. See PurchaseAction.
+  ctaLabel:
+    annual.amount === null
+      ? 'Join Canvas'
+      : `Join Canvas for ${annual.amount}${annual.period} →`,
+  savings,
+  footnote: trial
+    ? 'No trial. No waiting. Full access today.'
+    : 'Full access today. Cancel anytime.',
+  monthlyNote: monthlyCostsMore
+    ? 'Flexible option. Higher cost over time than annual.'
+    : 'Flexible option. Cancel anytime.',
+  // Names the cost of trying first only when the store priced both sides of it.
+  trialNote: !trial
+    ? null
+    : extraFirstYear
+    ? `Great if you want to try first, but you'll pay ${extraFirstYear} more in the first year.`
+    : 'Great if you want to try first before you commit.',
+  trialConversionLabel:
+    trial && trialConversion?.amount
+      ? `Then ${trialConversion.amount}${trialConversion.period}`
+      : null,
+  renewalNote: {
+    monthly: buildRenewalNote(monthly),
+    annual: buildRenewalNote(annual),
+  },
+});
+
 const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
   const products = input.appleCatalogue?.products;
   const monthlyProduct = products?.find(
@@ -477,16 +614,51 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
   const annualAmount = annualProduct?.price ?? null;
   const hasStoreAmounts = monthlyAmount !== null && annualAmount !== null;
 
+  const trial = buildAppleTrialCard(
+    trialProduct,
+    !!input.appleCatalogue?.introOfferEligible,
+    trialPrice,
+  );
+
+  // Only counts while a trial card is actually rendered. The product can be in
+  // the catalogue with this Apple ID no longer eligible for its offer, and a
+  // comparison against a card nobody can see explains nothing.
+  const trialConversionAmount = trial ? trialProduct?.price ?? null : null;
+  const savings = buildAnnualSavings(
+    annualAmount,
+    monthlyAmount,
+    trialConversionAmount,
+    annualProduct?.currency,
+  );
+  // The same gap the hero advertises, stated from the trial card's side. Read
+  // off the note rather than recomputed so the two can never disagree.
+  const extraFirstYear =
+    savings && savings.body === SAVINGS_VS_TRIAL
+      ? savings.headline.replace('Save ', '')
+      : null;
+
+  const pricesUnavailable =
+    monthly.amount === null ||
+    annual.amount === null ||
+    (!input.appleCatalogue &&
+      (!!input.appleCatalogueLoading || !!input.appleCatalogueError));
+
+  if (pricesUnavailable) {
+    console.log('[paywall] Apple store prices missing', {
+      skus: products?.map(product => product.sku) ?? null,
+      monthly: monthly.amount,
+      annual: annual.amount,
+      catalogueLoading: !!input.appleCatalogueLoading,
+      catalogueError: !!input.appleCatalogueError,
+    });
+  }
+
   return {
     // A card the store did not price cannot be sold, whether its product is
     // missing from an otherwise good catalogue or the catalogue itself never
     // arrived. See PaywallOffersInput on why the query's own state is taken
     // rather than inferred, and why it is ignored once a catalogue has landed.
-    pricesUnavailable:
-      monthly.amount === null ||
-      annual.amount === null ||
-      (!input.appleCatalogue &&
-        (!!input.appleCatalogueLoading || !!input.appleCatalogueError)),
+    pricesUnavailable,
     monthly,
     annual,
     // Both lines are percentages OF a price. With no store figure to divide
@@ -498,13 +670,10 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
     savingsPercent: hasStoreAmounts
       ? readSavingsPercent(monthlyAmount, annualAmount)
       : null,
-    trial: buildAppleTrialCard(
-      trialProduct,
-      !!input.appleCatalogue?.introOfferEligible,
-      trialPrice,
-    ),
-    // Apple's free days ride on the annual product itself, so what the trial
-    // converts at IS the annual price — there is never a gap to strike.
+    trial,
+    // The hero states the gap as money saved rather than as a struck price: the
+    // trial is a card of its own on this layout, so the figure it converts at is
+    // already printed a few points below and does not need striking here too.
     annualStrikePrice: null,
     // Both App Store products are always on offer, and the trial-consumed notice
     // is a Razorpay-rail answer: `trialEligible` is false for every iOS caller,
@@ -513,6 +682,15 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
     // Apple user of using a trial they never had.
     offered: { monthly: true, annual: true },
     trialConsumedNotice: null,
+    heroCopy: buildHeroCopy(
+      annual,
+      monthly,
+      trial,
+      savings,
+      extraFirstYear,
+      hasStoreAmounts && monthlyAmount * 12 > annualAmount,
+      trialPrice,
+    ),
   };
 };
 
@@ -538,10 +716,17 @@ export type PaywallPlanKey = 'trial' | 'monthly' | 'annual';
 export const preselectedPlan = (
   offers: PaywallOffers,
 ): PaywallPlanKey | null => {
-  if (offers.trial) return 'trial';
-
   const monthly = offers.offered.monthly && offers.monthly.amount !== null;
   const annual = offers.offered.annual && offers.annual.amount !== null;
+
+  // The hero layout leads with annual, and every other card's action is inert
+  // while it is unselected — landing on the trial there would leave the one
+  // button the screen is built around dead until the user found out that
+  // tapping a card body moves the selection. Falls through when the store never
+  // priced the annual product, which is the case the rest of this handles.
+  if (offers.heroCopy && annual) return 'annual';
+
+  if (offers.trial) return 'trial';
 
   if (monthly === annual) return null;
   return annual ? 'annual' : 'monthly';
