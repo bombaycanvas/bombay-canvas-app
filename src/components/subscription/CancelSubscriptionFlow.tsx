@@ -77,8 +77,12 @@ const PLAN_LABEL: Record<string, string> = {
   ANNUAL: 'Annual',
 };
 
-/** The cheaper plans offered instead of losing the user outright, in display order. */
-const DOWNSELL_CODES: PlanCode[] = ['MONTHLY', 'ANNUAL'];
+/**
+ * The cheaper plans offered instead of losing the user outright, in display
+ * order. Annual leads: it is the offer being made, and the one the countdown
+ * and the price comparison are about.
+ */
+const DOWNSELL_CODES: PlanCode[] = ['ANNUAL', 'MONTHLY'];
 
 /**
  * The steps this flow can show, in fixed order. Which of them actually appear is
@@ -305,9 +309,9 @@ interface DownsellStepProps {
  * catalogue at a price they have not already rejected.
  *
  * Only reached when there is genuinely something cheaper to move to — see
- * `downsellPlans`. Every amount is rendered from the plan the API returned, so
- * the saving quoted here is arithmetic on real prices rather than copy that goes
- * stale the next time a plan is re-priced.
+ * `downsellPlans`. Every amount is rendered from the plan the API returned and
+ * from the price frozen on this subscription, so the comparison is arithmetic on
+ * two real numbers rather than copy that goes stale at the next repricing.
  */
 function DownsellStep({
   plans,
@@ -316,35 +320,39 @@ function DownsellStep({
   onSelect,
   onProceed,
 }: DownsellStepProps) {
+  const currentRupees = Math.round(currentAmount / 100);
+  const currentPerMonth = Math.round(currentRupees / 12);
+
+  // The offer is the YEARLY plan and only ever the yearly plan: `currentAmount`
+  // is a yearly price (both trial codes bill annually), so it is the one card
+  // that can be set beside it without annualising anything first. Monthly is a
+  // downsell on COMMITMENT (₹99 now instead of ₹899), not on annual cost —
+  // twelve of those months cost MORE than the trial they would be pitched
+  // against, so it carries no comparison at all.
+  const offerPlan = plans.find(plan => plan.period === 'yearly') ?? null;
+  const offerRupees = offerPlan ? Math.round(offerPlan.price / 100) : 0;
+  const savingRupees = Math.max(0, currentRupees - offerRupees);
+
   return (
     <View>
       <StepHeading
         eyebrow="Before you go"
-        title="Keep Canvas for less"
-        subtitle="You picked the trial because the catalogue looked worth it. It still is — just at a price that suits you better."
+        title={
+          offerPlan
+            ? `A year of Canvas for ₹${offerRupees}`
+            : 'Keep Canvas for less'
+        }
+        subtitle={
+          offerPlan
+            ? `One-time offer, only on this screen. Same catalogue, ₹${savingRupees} off your current yearly price.`
+            : 'You picked the trial because the catalogue looked worth it. It still is — just at a price that suits you better.'
+        }
       />
 
       <View style={styles.downsellList}>
         {plans.map(plan => {
           const price = Math.round(plan.price / 100);
-          const perMonth =
-            plan.period === 'yearly' ? Math.round(price / 12) : price;
-          // Compare like with like: `currentAmount` is a YEARLY price (both trial
-          // codes bill annually), so a monthly plan has to be annualised before
-          // it can be measured against it. Comparing the raw ₹99 to ₹899 read as
-          // "Save 89%" when twelve of those months actually cost ₹1,188 — ₹289
-          // MORE than the trial it was pitched as a saving on.
-          //
-          // Monthly therefore shows no badge here, which is correct: it is a
-          // downsell on COMMITMENT (₹99 now instead of ₹899), not on annual cost.
-          const annualisedPrice =
-            plan.period === 'yearly' ? plan.price : plan.price * 12;
-          const saving = Math.max(
-            0,
-            Math.round(
-              ((currentAmount - annualisedPrice) / currentAmount) * 100,
-            ),
-          );
+          const isOffer = plan.code === offerPlan?.code;
           // Emphasis follows SELECTION, not the plan itself. Annual arrives
           // pre-selected (see `defaultDownsellCode`) so it is primary on entry,
           // but picking monthly has to move the highlight with it — a card whose
@@ -364,26 +372,41 @@ function DownsellStep({
             >
               <View style={styles.downsellCardTop}>
                 <Text style={styles.downsellPlanName}>{plan.name}</Text>
-                {saving > 0 && (
-                  <View style={styles.downsellSaveBadge}>
-                    <Text style={styles.downsellSaveBadgeText}>
-                      Save {saving}%
+              </View>
+
+              {isOffer ? (
+                <View style={styles.compareRow}>
+                  <View style={styles.compareColumn}>
+                    <Text style={styles.compareLabel}>CURRENT</Text>
+                    <View style={styles.downsellPriceRow}>
+                      <Text style={styles.comparePriceWas}>
+                        ₹{currentRupees}
+                      </Text>
+                      <Text style={styles.comparePeriodWas}>/year</Text>
+                    </View>
+                    <Text style={styles.comparePerMonthWas}>
+                      ₹{currentPerMonth}/month
                     </Text>
                   </View>
-                )}
-              </View>
 
-              <View style={styles.downsellPriceRow}>
-                <Text style={styles.downsellPrice}>₹{price}</Text>
-                <Text style={styles.downsellPeriod}>
-                  /{plan.period === 'yearly' ? 'year' : 'month'}
-                </Text>
-              </View>
-
-              {plan.period === 'yearly' && (
-                <Text style={styles.downsellPerMonth}>
-                  Works out to ₹{perMonth}/month
-                </Text>
+                  <View style={styles.compareColumn}>
+                    <Text style={styles.compareLabelOffer}>YOUR PRICE</Text>
+                    <View style={styles.downsellPriceRow}>
+                      <Text style={styles.downsellPrice}>₹{price}</Text>
+                      <Text style={styles.downsellPeriod}>/year</Text>
+                    </View>
+                    <Text style={styles.downsellPerMonth}>
+                      ₹{Math.round(price / 12)}/month
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.downsellPriceRow}>
+                  <Text style={styles.downsellPrice}>₹{price}</Text>
+                  <Text style={styles.downsellPeriod}>
+                    /{plan.period === 'yearly' ? 'year' : 'month'}
+                  </Text>
+                </View>
               )}
 
               {/*
@@ -819,6 +842,7 @@ export default function CancelSubscriptionFlow({
   );
 
   const currentStep = steps[Math.min(stepIndex, steps.length - 1)];
+
   const goToStep = useCallback(
     (name: StepName) => {
       const next = steps.indexOf(name);
@@ -1868,6 +1892,47 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 20,
   },
+  compareRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
+  compareColumn: {
+    flex: 1,
+  },
+  compareLabel: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 10,
+    letterSpacing: 1,
+    color: '#777',
+    marginBottom: 4,
+  },
+  compareLabelOffer: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 10,
+    letterSpacing: 1,
+    color: '#ff6a00',
+    marginBottom: 4,
+  },
+  comparePriceWas: {
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 22,
+    color: '#777',
+    textDecorationLine: 'line-through',
+  },
+  comparePeriodWas: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 13,
+    color: '#777',
+    marginLeft: 2,
+    textDecorationLine: 'line-through',
+  },
+  comparePerMonthWas: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 13,
+    color: '#777',
+    marginTop: 2,
+  },
   downsellList: {
     gap: 12,
     marginTop: 4,
@@ -1898,17 +1963,6 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontSize: 16,
     color: '#fff',
-  },
-  downsellSaveBadge: {
-    backgroundColor: '#ff6a00',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  downsellSaveBadgeText: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontSize: 11,
-    color: '#000',
   },
   downsellPriceRow: {
     flexDirection: 'row',
