@@ -7,43 +7,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { CreditCard } from 'lucide-react-native';
-import { Subscription, isTrialCode } from '../../api/subscription';
+import { Subscription } from '../../api/subscription';
 import { formatDate } from '../../utils/formatDate';
-
-// Name only — never a price. Keyed by string rather than the planCode union so a
-// plan the server adds before the app ships renders a sane label instead of
-// `undefined`.
-const PLAN_NAME: Record<string, string> = {
-  TRIAL: 'Trial',
-  TRIAL_NEW: 'Trial',
-  ANNUAL: 'Annual',
-  MONTHLY: 'Monthly',
-};
-
-/** Whole rupees from a paise amount. */
-const rupees = (paise?: number | null) => `₹${Math.round((paise || 0) / 100)}`;
-
-/**
- * What this subscriber is actually on, built from THEIR subscription rather than
- * a hardcoded table.
- *
- * The old table read "Trial ₹1 then ₹499/yr" for every trial. There are now two
- * trials at different prices, and any subscriber can be on a price the current
- * plans no longer offer — so the only honest source is `amountSnapshot`, the
- * price frozen on the row and the one the mandate actually charges.
- */
-const planCopy = (sub: Subscription): string => {
-  const name = PLAN_NAME[sub.planCode] ?? 'Premium plan';
-  const period = sub.planCode === 'MONTHLY' ? 'month' : 'yr';
-  const recurring = `${rupees(sub.amountSnapshot)}/${period}`;
-  if (isTrialCode(sub.planCode) && sub.isTrial) {
-    const today = sub.upfrontAmount != null ? rupees(sub.upfrontAmount) : null;
-    return today
-      ? `${name} ${today} then ${recurring}`
-      : `${name}, then ${recurring}`;
-  }
-  return `${name} ${recurring}`;
-};
+import { useAppleCatalogue } from '../../hooks/useAppleCatalogue';
+import { planCopy } from './subscriptionDetailsCopy';
+import type { CancelWatchPhase } from '../../hooks/useAppleCancelWatch';
 
 // Days before currentPeriodEnd at which we start warning about expiry.
 const NEAR_EXPIRY_DAYS = 10;
@@ -53,20 +21,29 @@ interface SubscriptionDetailsCardProps {
   subscription: Subscription;
   onCancelPress: () => void;
   /**
-   * The user has been through Apple's subscription sheet and the server has not
-   * heard from Apple yet. Offering the cancel button again here would invite a
-   * second trip for something that may already be done.
+   * Where the wait for Apple's notification has got to, and whether the store
+   * itself already reported the cancellation. While a verdict is outstanding the
+   * cancel button is withheld: offering it again would invite a second trip for
+   * something that may already be done.
    */
-  confirmingCancel?: boolean;
+  cancelWatch?: { phase: CancelWatchPhase; confirmedByStore: boolean };
 }
 
 /** Plan, access window, expiry warning and the cancel action for one subscription. */
 export default function SubscriptionDetailsCard({
   subscription,
   onCancelPress,
-  confirmingCancel = false,
+  cancelWatch = { phase: 'idle', confirmedByStore: false },
 }: SubscriptionDetailsCardProps) {
   const { currentPeriodEnd, cancelAtPeriodEnd } = subscription;
+
+  // An Apple trial's row carries no price — Apple's free-trial transaction
+  // quotes zero and neither side records that as the recurring figure — so the
+  // store's own catalogue is where the post-trial price comes from. Read here
+  // rather than threaded down from SettingsScreen because this card is its only
+  // consumer, and the query is shared with the paywall's, five-minute-fresh and
+  // idle off the Apple rail, so Android renders exactly as before.
+  const { data: catalogue } = useAppleCatalogue();
 
   const isNearExpiry = useMemo(() => {
     if (!currentPeriodEnd) return false;
@@ -87,7 +64,9 @@ export default function SubscriptionDetailsCard({
           <CreditCard size={18} color="#ff6a00" />
         </View>
         <View style={styles.planDetails}>
-          <Text style={styles.planValue}>{planCopy(subscription)}</Text>
+          <Text style={styles.planValue}>
+            {planCopy(subscription, catalogue?.products)}
+          </Text>
         </View>
       </View>
 
@@ -111,14 +90,31 @@ export default function SubscriptionDetailsCard({
             .
           </Text>
         </View>
-      ) : confirmingCancel ? (
+      ) : cancelWatch.phase === 'watching' ? (
         <View style={styles.pendingContainer}>
           <ActivityIndicator size="small" color="#ff6a00" />
           <Text style={styles.pendingText}>
-            Checking with the App Store…{'\n'}
+            {cancelWatch.confirmedByStore
+              ? 'Cancelled with the App Store…'
+              : 'Checking with the App Store…'}
+            {'\n'}
             <Text style={styles.pendingSubText}>
-              This can take a moment. Your access is unchanged either way.
+              {cancelWatch.confirmedByStore
+                ? 'Updating your account now. Your access is unchanged until it expires.'
+                : 'This can take a moment. Your access is unchanged either way.'}
             </Text>
+          </Text>
+        </View>
+      ) : // A timeout with the store's own confirmation is not a failure to
+      // report — Apple has the cancellation and only the notification is late.
+      // Saying so beats a spinner that silently stopped, and the card corrects
+      // itself the moment the row does. Without that confirmation the user most
+      // likely backed out of the sheet, so the plain cancel button returns.
+      cancelWatch.phase === 'timedOut' && cancelWatch.confirmedByStore ? (
+        <View style={styles.cardRow}>
+          <Text style={styles.cancelledNotice}>
+            Cancelled with the App Store. Your account can take a few minutes to
+            catch up — access continues until {accessUntil}.
           </Text>
         </View>
       ) : (

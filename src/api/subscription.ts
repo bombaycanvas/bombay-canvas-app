@@ -97,15 +97,31 @@ export interface Subscription {
     | 'COMPLETED'
     | 'EXPIRED';
   /**
-   * The recurring price frozen when this subscription was created, in PAISE.
-   * THE authoritative "what will I be charged next" number — a subscriber keeps
-   * the price they signed up at even after the plan is re-priced, so never
-   * re-derive it from a plan lookup.
+   * The recurring price frozen when this subscription was created, in PAISE —
+   * always INR, because it is the accounting record of the plan that was sold.
+   * A subscriber keeps the price they signed up at even after the plan is
+   * re-priced, so never re-derive it from a plan lookup.
+   *
+   * It is NOT what an App Store buyer is charged. Apple prices every storefront
+   * itself, so a Californian on a $59.99 subscription still has 49900 here.
+   * Anything user-facing must go through `displayAmount` first.
    */
   amountSnapshot: number;
-  /** True while inside the ₹1 trial window. Server-computed. */
+  /**
+   * Minor units of `displayCurrency` — what the storefront actually charges.
+   * Apple rail only; null on Razorpay, where `amountSnapshot` + INR is correct,
+   * and null on a server that predates the field.
+   */
+  displayAmount?: number | null;
+  /** ISO-4217 code for `displayAmount`. Null on the Razorpay rail. */
+  displayCurrency?: string | null;
+  /** True while inside the trial window (₹1 on Razorpay, free on Apple). Server-computed. */
   isTrial?: boolean;
-  /** PAISE actually charged today (the activation fee), when in a trial. */
+  /**
+   * Minor units actually charged today to open the trial — the ₹1 Razorpay
+   * mandate. Apple's trial costs nothing, so it is 0 there and there is no
+   * activation fee to disclose.
+   */
   upfrontAmount?: number | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
