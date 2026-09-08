@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
   Alert,
   Modal,
   ActivityIndicator,
@@ -22,6 +21,9 @@ import { ChevronRight } from 'lucide-react-native';
 import CancelSubscriptionFlow from '../components/subscription/CancelSubscriptionFlow';
 import SubscriptionDetailsCard from '../components/subscription/SubscriptionDetailsCard';
 import BillingHistoryList from '../components/subscription/BillingHistoryList';
+import { useAppleCancelWatch } from '../hooks/useAppleCancelWatch';
+import { useRefetchOnForeground } from '../hooks/useRefetchOnForeground';
+import handleOpenURL from '../services/handleOpenUrl';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<any>();
@@ -37,20 +39,24 @@ const SettingsScreen = () => {
     refetch: refetchHistory,
   } = useSubscriptionHistory();
 
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-      refetchHistory();
-    }, [refetch, refetchHistory])
-  );
-  const handleOpenURL = async (url: string) => {
-    try {
-      await Linking.openURL(url);
-    } catch (error) {
-      console.error('Failed to open URL:', error);
-      Alert.alert('Error', 'Something went wrong while opening the link');
-    }
-  };
+  const refetchBilling = useCallback(() => {
+    refetch();
+    refetchHistory();
+  }, [refetch, refetchHistory]);
+
+  useFocusEffect(refetchBilling);
+
+  // Screen focus never fires for the App Store subscription sheet — it leaves
+  // this screen mounted and focused — so the same read is repeated on the one
+  // event that does happen when the user comes back.
+  useRefetchOnForeground(refetchBilling);
+
+  const { isWatching: isConfirmingCancel, arm: armCancelWatch } =
+    useAppleCancelWatch({
+      settled: !!subscription?.cancelAtPeriodEnd,
+      refetch,
+    });
+  
 
   const handleOpenModal = () => {
     setIsDeleteAccountModal(true);
@@ -115,9 +121,7 @@ const SettingsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
-          onPress={() =>
-            handleOpenURL('https://canvasott.com/privacy-policy')
-          }
+          onPress={() => handleOpenURL('https://canvasott.com/privacy-policy')}
         >
           <Text style={styles.rowLabel}>Privacy Policy</Text>
         </TouchableOpacity>
@@ -160,11 +164,9 @@ const SettingsScreen = () => {
             <SubscriptionDetailsCard
               subscription={subscription}
               onCancelPress={() => setIsCancelSubModal(true)}
+              confirmingCancel={isConfirmingCancel}
             />
-            <BillingHistoryList
-              charges={charges}
-              loading={isHistoryLoading}
-            />
+            <BillingHistoryList charges={charges} loading={isHistoryLoading} />
           </View>
         )}
 
@@ -182,6 +184,14 @@ const SettingsScreen = () => {
           visible={isCancelSubModal}
           onClose={() => setIsCancelSubModal(false)}
           subscription={subscription}
+          onDeferredToStore={armCancelWatch}
+          // They swapped the trial for a different plan. Leaving them here would
+          // park them on a subscription card describing the plan they just
+          // cancelled, and it only corrects itself once the webhook lands.
+          // Home also means this screen refetches from scratch on the way back.
+          onSwitchedPlan={() =>
+            navigation.navigate('MainTabs', { screen: 'Home' })
+          }
         />
       )}
 

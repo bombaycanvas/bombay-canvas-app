@@ -26,6 +26,16 @@ export const isStaleSubscriptionStateError = (error: unknown): boolean => {
   return typeof code === 'string' && STALE_STATE_ERROR_CODES.includes(code);
 };
 
+// POST /cancel refuses an App Store subscription outright, because only the user
+// can cancel one and only from inside Apple's settings. The client is supposed
+// to read `provider` off GET /me and never send the request at all — but a build
+// talking to an older server, or a cache holding a response from before the
+// field existed, will send it anyway. Branching on the code rather than on the
+// message keeps that fallback working when the copy is reworded.
+/** True when the server refused a cancel because Apple, not us, owns that subscription's billing. */
+export const isAppleManagedCancelError = (error: unknown): boolean =>
+  (error as ApiError | undefined)?.code === 'APPLE_CANCEL_NOT_SUPPORTED';
+
 // Every cache whose contents depend on subscription state: the subscription
 // itself, the denormalized user record, the content lists and detail that carry
 // per-user lock flags, and the offered plans (the trial disappears once it is
@@ -33,6 +43,10 @@ export const isStaleSubscriptionStateError = (error: unknown): boolean => {
 // screen is left rendering a mix.
 const ENTITLEMENT_QUERY_KEYS = [
   ['mySubscription'],
+  // Apple's intro-offer eligibility is spent by the purchase that consumes it,
+  // so the App Store catalogue is subscription-dependent too. No-op elsewhere:
+  // nothing registers this query off the Apple rail.
+  ['appleCatalogue'],
   ['userData'],
   ['subscriptionPlans'],
   ['moviesData'],
@@ -48,29 +62,60 @@ export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
   );
 };
 
-export interface Plan {
-  code: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
-  name: string;
-  description: string;
-  period: 'monthly' | 'yearly';
-  price: number;
-  currency: string;
-  trial?: {
-    days: number;
-    upfrontAmount: number;
-  };
-}
+/**
+ * Plan codes this client may receive or send.
+ *
+ * There are TWO trial codes at two different post-trial prices — `TRIAL`
+ * (₹1 → ₹499/yr) and `TRIAL_NEW` (₹1 → ₹899/yr) — and the backend sends the app
+ * BOTH. Builds already in the field hardcode ₹499 copy and look up only `TRIAL`,
+ * so `TRIAL_NEW` arrives unread and changes nothing for them. That is the
+ * compatibility mechanism; there is no version negotiation.
+ *
+ * This build reads every price from the API, so it takes the newest trial the
+ * API offers (see `pickTrialPlan`). Never branch on `=== 'TRIAL'` — use
+ * `isTrialCode`, or a `TRIAL_NEW` subscriber gets treated as a paid annual one.
+ */
+// The plan vocabulary lives in planCodes so side-effect-free modules can use it
+// without pulling this file's AsyncStorage-backed client in behind it.
+// Re-exported so existing callers keep importing from here.
+import type { Plan, PlanCode } from './planCodes';
+export type { Plan, PlanCode } from './planCodes';
+export { TRIAL_CODES, isTrialCode, pickTrialPlan } from './planCodes';
 
 export interface Subscription {
   id: string;
-  planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL';
-  status: 'CREATED' | 'AUTHENTICATED' | 'PENDING' | 'ACTIVE' | 'TRIAL' | 'PAUSED' | 'HALTED' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  planCode: PlanCode;
+  status:
+    | 'CREATED'
+    | 'AUTHENTICATED'
+    | 'PENDING'
+    | 'ACTIVE'
+    | 'TRIAL'
+    | 'PAUSED'
+    | 'HALTED'
+    | 'CANCELLED'
+    | 'COMPLETED'
+    | 'EXPIRED';
+  /**
+   * The recurring price frozen when this subscription was created, in PAISE.
+   * THE authoritative "what will I be charged next" number — a subscriber keeps
+   * the price they signed up at even after the plan is re-priced, so never
+   * re-derive it from a plan lookup.
+   */
   amountSnapshot: number;
+  /** True while inside the ₹1 trial window. Server-computed. */
+  isTrial?: boolean;
+  /** PAISE actually charged today (the activation fee), when in a trial. */
+  upfrontAmount?: number | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   createdAt: string;
   updatedAt: string;
+  // Which door the money came through. Only the owning provider may be asked to
+  // cancel: Apple never lets an app cancel its own subscription, and the
+  // Razorpay cancel endpoint refuses an Apple row outright.
+  provider?: 'RAZORPAY' | 'APPLE';
 }
 
 export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
@@ -88,25 +133,48 @@ export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
 export interface SubscriptionPlansResponse {
   plans: Plan[];
   trialEligible: boolean;
+  /**
+   * PAISE the trial converts to — the post-trial charge — quoted whether or not
+   * this caller may still start one.
+   *
+   * It is the only copy of that price once the trial is consumed, because the
+   * plan carrying it leaves `plans` at that moment. The paywall strikes it
+   * against the annual price.
+   *
+   * Null on an older server that predates the field, and on the Apple rail,
+   * where the free days convert at the annual price already in `plans`. Both
+   * mean "not stated" — never substitute a figure.
+   */
+  trialConversionAmount?: number | null;
+  // Minted lazily by the backend and only for a signed-in iOS caller, so it is
+  // null while anonymous. Apple needs a real UUID here to tie a purchase back to
+  // this account, so the purchase path must gate on it rather than assume one.
+  appleAppAccountToken?: string | null;
 }
 
-export const getSubscriptionPlans = async (): Promise<SubscriptionPlansResponse> => {
-  try {
-    const response = await api(`/api/monetize/subscription/plans?_cb=${Date.now()}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return {
-      plans: response?.data?.plans ?? [],
-      trialEligible: response?.data?.trialEligible ?? false,
-    };
-  } catch (error) {
-    console.error('Fetch Plans Error:', error);
-    throw error;
-  }
-};
+export const getSubscriptionPlans =
+  async (): Promise<SubscriptionPlansResponse> => {
+    try {
+      const response = await api(
+        `/api/monetize/subscription/plans?_cb=${Date.now()}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      return {
+        plans: response?.data?.plans ?? [],
+        trialEligible: response?.data?.trialEligible ?? false,
+        trialConversionAmount: response?.data?.trialConversionAmount ?? null,
+        appleAppAccountToken: response?.data?.appleAppAccountToken ?? null,
+      };
+    } catch (error) {
+      console.error('Fetch Plans Error:', error);
+      throw error;
+    }
+  };
 
-export const createSubscription = async (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => {
+export const createSubscription = async (planCode: PlanCode) => {
   try {
     const response = await api('/api/monetize/subscription/create', {
       method: 'POST',
@@ -187,29 +255,57 @@ export const cancelSubscription = async (
   }
 };
 
-
-
 export const useSubscriptionPlans = () => {
   const user = useAuthStore(state => state.user);
   return useQuery({
     queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
     queryFn: getSubscriptionPlans,
     staleTime: 0,
+    // staleTime alone does NOT get this refetched. The client-wide default is
+    // refetchOnMount:false, which suppresses the fetch whenever data is already
+    // in the cache however stale it is — and the cache is persisted to
+    // AsyncStorage for a week, so "already there" is the normal case on launch.
+    //
+    // What that costs is `trialEligible`: a paywall opened after the trial was
+    // consumed would keep rendering the answer from before it, offering a trial
+    // that create would then refuse. Now that a mounted-at-root observer holds
+    // this query from app start, opening the paywall is a SECOND observer and
+    // would never have fetched at all.
+    refetchOnMount: true,
   });
 };
 
 export const useMySubscription = () => {
   const user = useAuthStore(state => state.user);
+  // Gated on the TOKEN, not on the cached user object, because the token is what
+  // actually authorises GET /me — the server reads the caller off it and never
+  // looks at anything the client holds.
+  //
+  // `enabled: !!user?.id` looked equivalent and is not. `user` is hydrated from
+  // AsyncStorage separately from the token and can legitimately be null on a
+  // perfectly valid session (nothing was ever written under 'user', or a login
+  // path called setUser with an undefined payload). A disabled query is not
+  // merely idle: invalidateQueries SKIPS it, while refetch() runs anyway. So a
+  // cancel would invalidate ['mySubscription'] to no effect and the card kept
+  // offering "Cancel Subscription" for a subscription already cancelled, right
+  // up until useFocusEffect's refetch on the next visit papered over it.
+  const token = useAuthStore(state => state.token);
   return useQuery({
     queryKey: ['mySubscription', user?.id || 'anonymous'],
     queryFn: getMySubscription,
+    enabled: !!token,
     staleTime: 0,
+    // Same defeat of staleTime as useSubscriptionPlans above, and the same fix.
+    // This one decides whether the user is entitled right now, so serving it
+    // from a week-old persisted cache is how a lapsed subscriber keeps being
+    // treated as active.
+    refetchOnMount: true,
   });
 };
 
 export const useCreateSubscription = () => {
   return useMutation({
-    mutationFn: (planCode: 'MONTHLY' | 'ANNUAL' | 'TRIAL') => createSubscription(planCode),
+    mutationFn: (planCode: PlanCode) => createSubscription(planCode),
   });
 };
 
@@ -251,7 +347,8 @@ export const useCancelSubscription = () => {
       Toast.show({
         type: 'error',
         text1: 'Cancellation Failed',
-        text2: typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
+        text2:
+          typeof msg === 'object' ? msg.message || JSON.stringify(msg) : msg,
       });
     },
   });
@@ -267,22 +364,34 @@ export interface SubscriptionCharge {
   periodEnd: string | null;
 }
 
-export const getSubscriptionHistory = async (page = 1, limit = 20): Promise<SubscriptionCharge[]> => {
+export const getSubscriptionHistory = async (
+  page = 1,
+  limit = 20,
+): Promise<SubscriptionCharge[]> => {
   try {
     console.log('[History API] Requesting page:', page, 'limit:', limit);
-    const response = await api(`/api/monetize/subscription/history?page=${page}&limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await api(
+      `/api/monetize/subscription/history?page=${page}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
     console.log('[History API] Response keys:', Object.keys(response || {}));
-    console.log('[History API] Response data keys:', Object.keys(response?.data || {}));
+    console.log(
+      '[History API] Response data keys:',
+      Object.keys(response?.data || {}),
+    );
 
     const subscriptions = response?.data?.subscriptions ?? [];
     console.log('[History API] Subscriptions found:', subscriptions.length);
     const charges: SubscriptionCharge[] = [];
 
     subscriptions.forEach((sub: any, index: number) => {
-      console.log(`[History API] Sub ${index} has charges:`, sub.charges ? sub.charges.length : 'none');
+      console.log(
+        `[History API] Sub ${index} has charges:`,
+        sub.charges ? sub.charges.length : 'none',
+      );
       if (sub.charges && Array.isArray(sub.charges)) {
         charges.push(...sub.charges);
       }

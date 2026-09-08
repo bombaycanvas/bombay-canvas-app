@@ -10,8 +10,6 @@ import {
   Platform,
   Image,
   ActivityIndicator,
-  Linking,
-  Alert,
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
@@ -42,6 +40,7 @@ import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentica
 import { useForm, Controller } from 'react-hook-form';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
+import handleOpenURL from '../services/handleOpenUrl';
 
 const { height } = Dimensions.get('window');
 
@@ -219,14 +218,6 @@ const StartLoginScreen = () => {
     });
   };
 
-  const handleOpenURL = async (url: string) => {
-    try {
-      await Linking.openURL(url);
-    } catch (error) {
-      console.error('Failed to open URL:', error);
-      Alert.alert('Error', 'Something went wrong while opening the link');
-    }
-  };
 
   const handlePhoneInputChange = (value: string) => {
     const digitsOnly = value.replace(/\D/g, '');
@@ -387,7 +378,7 @@ const StartLoginScreen = () => {
           <Text
             style={styles.footerLink}
             onPress={() =>
-              handleOpenURL('https://www.bombaycanvas.com/privacy-policy')
+              handleOpenURL('https://canvasott.com/privacy-policy')
             }
           >
             Privacy Policy
@@ -396,7 +387,7 @@ const StartLoginScreen = () => {
           <Text
             style={styles.footerLink}
             onPress={() =>
-              handleOpenURL('https://www.bombaycanvas.com/terms-and-condition')
+              handleOpenURL('https://canvasott.com/terms-and-condition')
             }
           >
             T&C

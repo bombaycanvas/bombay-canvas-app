@@ -16,6 +16,9 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   isDestructive?: boolean;
+  // Drawn above the title in a tinted circle. The dialog owns the badge so every
+  // caller gets the same one; the caller supplies only the glyph.
+  icon?: React.ReactNode;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -27,6 +30,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   isDestructive = false,
+  icon,
 }) => {
   return (
     <Modal
@@ -39,6 +43,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
+          {icon ? <View style={styles.iconBadge}>{icon}</View> : null}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{message}</Text>
 
@@ -86,6 +91,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  iconBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,106,0,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
   },
   title: {
     fontFamily: 'HelveticaNowDisplay-Bold',
