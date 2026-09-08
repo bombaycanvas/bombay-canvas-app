@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
   Alert,
   Modal,
   ActivityIndicator,
@@ -24,6 +23,7 @@ import SubscriptionDetailsCard from '../components/subscription/SubscriptionDeta
 import BillingHistoryList from '../components/subscription/BillingHistoryList';
 import { useAppleCancelWatch } from '../hooks/useAppleCancelWatch';
 import { useRefetchOnForeground } from '../hooks/useRefetchOnForeground';
+import handleOpenURL from '../services/handleOpenUrl';
 
 const SettingsScreen = () => {
   const navigation = useNavigation<any>();
@@ -56,14 +56,8 @@ const SettingsScreen = () => {
       settled: !!subscription?.cancelAtPeriodEnd,
       refetch,
     });
-  const handleOpenURL = async (url: string) => {
-    try {
-      await Linking.openURL(url);
-    } catch (error) {
-      console.error('Failed to open URL:', error);
-      Alert.alert('Error', 'Something went wrong while opening the link');
-    }
-  };
+
+  
 
   const handleOpenModal = () => {
     setIsDeleteAccountModal(true);
