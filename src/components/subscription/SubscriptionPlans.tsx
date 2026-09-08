@@ -1,16 +1,143 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import LockOutlined from '../../assets/LockOutlined';
-import { Plan } from '../../api/subscription';
+import { isTrialCode } from '../../api/planCodes';
+import type { PlanCode } from '../../api/planCodes';
+import type { PaywallOffers, PriceDisplay } from './paywallOffers';
 
 interface SubscriptionPlansProps {
   selectedPlan: 'trial' | 'monthly' | 'annual';
   setSelectedPlan: (plan: 'trial' | 'monthly' | 'annual') => void;
   handlePurchase: (plan: 'trial' | 'monthly' | 'annual') => void;
   loading: boolean;
-  activePlan?: 'TRIAL' | 'MONTHLY' | 'ANNUAL' | null;
-  plans?: Plan[];
-  trialEligible?: boolean;
+  activePlan?: PlanCode | null;
+  offers: PaywallOffers;
+  // Set when the rail cannot sell to this account at all — today, an Apple ID
+  // whose subscription is bound to a different Canvas account. The cards keep
+  // their prices so the paywall still explains what Premium is; only the actions
+  // become inert, because the App Store would take the money and the server
+  // would then refuse to grant it.
+  purchaseBlockedLabel?: string | null;
+}
+
+// The two pill shapes the paywall draws a purchase action in. Only the styling
+// differs, so the behaviour below is written once.
+interface ActionTheme {
+  button: StyleProp<ViewStyle>;
+  buttonSelected: StyleProp<ViewStyle>;
+  buttonUnselected: StyleProp<ViewStyle>;
+  buttonDisabled: StyleProp<ViewStyle>;
+  text: StyleProp<TextStyle>;
+  textSelected: StyleProp<TextStyle>;
+  textUnselected: StyleProp<TextStyle>;
+  textDisabled: StyleProp<TextStyle>;
+}
+
+interface PurchaseActionProps {
+  theme: ActionTheme;
+  label: string;
+  selected: boolean;
+  loading: boolean;
+  spinnerColor: string;
+  isActivePlan: boolean;
+  hasActiveSubscription: boolean;
+  blockedLabel?: string | null;
+  onPress: () => void;
+}
+
+// A subscribed user must not be able to start a second purchase: both rails
+// would take the money, and on Apple that is a charge no in-app flow can
+// reverse. So the action is removed rather than merely disabled, leaving an
+// inert status pill on the plan they already hold and nothing at all on the
+// others.
+function PurchaseAction({
+  theme,
+  label,
+  selected,
+  loading,
+  spinnerColor,
+  isActivePlan,
+  hasActiveSubscription,
+  blockedLabel,
+  onPress,
+}: PurchaseActionProps) {
+  // Unlike the subscribed case this shows on EVERY card: no plan is buyable, so
+  // leaving some cards actionless and others not would read as a broken button
+  // rather than as a deliberate block.
+  if (blockedLabel) {
+    return (
+      <View
+        style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
+      >
+        <Text style={[theme.text, theme.textDisabled]}>{blockedLabel}</Text>
+      </View>
+    );
+  }
+
+  if (hasActiveSubscription) {
+    if (!isActivePlan) return null;
+    return (
+      <View
+        style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
+      >
+        <Text style={[theme.text, theme.textDisabled]}>Active</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={[
+        theme.button,
+        selected ? theme.buttonSelected : theme.buttonUnselected,
+      ]}
+      onPress={onPress}
+      disabled={loading || !selected}
+    >
+      {loading && selected ? (
+        <ActivityIndicator size="small" color={spinnerColor} />
+      ) : (
+        <Text
+          style={[
+            theme.text,
+            selected ? theme.textSelected : theme.textUnselected,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// The card renders the symbol in its own smaller style, but Apple hands back a
+// single localised string ("₹499.00", "$5.99") that must not be taken apart.
+function Price({
+  price,
+  amountStyle,
+  periodStyle,
+}: {
+  price: PriceDisplay;
+  amountStyle: StyleProp<TextStyle>;
+  periodStyle: StyleProp<TextStyle>;
+}) {
+  return (
+    <>
+      {price.currency ? (
+        <Text style={styles.priceCurrency}>{price.currency}</Text>
+      ) : null}
+      <Text style={amountStyle}>{price.amount}</Text>
+      <Text style={periodStyle}>{price.period}</Text>
+    </>
+  );
 }
 
 export default function SubscriptionPlans({
@@ -19,32 +146,30 @@ export default function SubscriptionPlans({
   handlePurchase,
   loading,
   activePlan,
-  plans,
-  trialEligible,
+  offers,
+  purchaseBlockedLabel,
 }: SubscriptionPlansProps) {
-  const isTrialActive = activePlan === 'TRIAL';
+  const isTrialActive = isTrialCode(activePlan);
   const isMonthlyActive = activePlan === 'MONTHLY';
   const isAnnualActive = activePlan === 'ANNUAL';
-  const hasAnyActive = isTrialActive || isMonthlyActive || isAnnualActive;
+  // activePlan is only ever set for a subscription isSubscriptionActive() has
+  // already approved, so this is that same entitlement answer.
+  const hasActiveSubscription =
+    isTrialActive || isMonthlyActive || isAnnualActive;
 
-  const trialPlan = plans?.find(p => p.code === 'TRIAL');
-  const monthlyPlan = plans?.find(p => p.code === 'MONTHLY');
-  const annualPlan = plans?.find(p => p.code === 'ANNUAL');
-
-  const monthlyPrice = monthlyPlan ? monthlyPlan.price / 100 : 99;
-  const annualPrice = annualPlan ? annualPlan.price / 100 : 499;
-
-
-  const annualPricePerMonth = Math.round(annualPrice / 12);
-
-  const savingsPercent = monthlyPrice > 0
-    ? Math.round(((monthlyPrice * 12 - annualPrice) / (monthlyPrice * 12)) * 100)
-    : 58;
-
-  const showTrial = trialEligible || !!trialPlan;
+  const { trial, offered, trialConsumedNotice } = offers;
   return (
     <View style={styles.plansWrapper}>
-      {showTrial && (
+      {/* Stands exactly where the trial card would: the user came here for the
+          trial, and the first thing the screen owes them is why it is gone. */}
+      {!trial && trialConsumedNotice && (
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeLabel}>{trialConsumedNotice.label}</Text>
+          <Text style={styles.noticeBody}>{trialConsumedNotice.body}</Text>
+        </View>
+      )}
+
+      {trial && (
         <TouchableOpacity
           activeOpacity={0.9}
           style={[
@@ -62,52 +187,51 @@ export default function SubscriptionPlans({
           <View style={styles.trialMainContent}>
             <View style={styles.trialLeftInfo}>
               <View style={styles.trialRadioRow}>
-                <View style={[styles.radioOuter, selectedPlan === 'trial' && styles.radioOuterActive, { marginRight: 10 }]}>
-                  {selectedPlan === 'trial' && <View style={styles.radioInner} />}
+                <View
+                  style={[
+                    styles.radioOuter,
+                    selectedPlan === 'trial' && styles.radioOuterActive,
+                    { marginRight: 10 },
+                  ]}
+                >
+                  {selectedPlan === 'trial' && (
+                    <View style={styles.radioInner} />
+                  )}
                 </View>
-                <Text style={styles.trialTitleText}>{trialPlan?.name || '3-Day Trial'}</Text>
+                <Text style={styles.trialTitleText}>{trial.title}</Text>
               </View>
 
               <View style={styles.trialPriceContainer}>
-                <Text style={styles.trialPriceCurrency}>₹</Text>
-                <Text style={styles.trialPriceText}>1</Text>
-                <Text style={styles.trialPricePeriod}> today</Text>
+                {trial.price.currency ? (
+                  <Text style={styles.trialPriceCurrency}>
+                    {trial.price.currency}
+                  </Text>
+                ) : null}
+                <Text style={styles.trialPriceText}>{trial.price.amount}</Text>
+                <Text style={styles.trialPricePeriod}>
+                  {trial.price.period}
+                </Text>
               </View>
             </View>
 
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={[
-                styles.trialButton,
-                selectedPlan === 'trial' ? styles.trialButtonActive : styles.trialButtonInactive,
-                hasAnyActive && styles.trialButtonDisabled,
-              ]}
+            <PurchaseAction
+              theme={TRIAL_ACTION_THEME}
+              label={trial.buttonLabel}
+              selected={selectedPlan === 'trial'}
+              loading={loading}
+              blockedLabel={purchaseBlockedLabel}
+              spinnerColor="#000"
+              isActivePlan={isTrialActive}
+              hasActiveSubscription={hasActiveSubscription}
               onPress={() => handlePurchase('trial')}
-              disabled={loading || hasAnyActive || selectedPlan !== 'trial'}
-            >
-              {loading && selectedPlan === 'trial' ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <Text
-                  style={[
-                    styles.trialButtonText,
-                    selectedPlan === 'trial' ? styles.trialButtonTextActive : styles.trialButtonTextInactive,
-                    hasAnyActive && styles.planButtonTextDisabled,
-                  ]}
-                >
-                  {isTrialActive ? 'Active' : 'Start for ₹1 →'}
-                </Text>
-              )}
-            </TouchableOpacity>
+            />
           </View>
 
-          <Text style={styles.trialBottomText}>
-            3 days full access, then ₹{annualPrice}/year. Cancel anytime. The ₹1 activation fee is non-refundable.
-          </Text>
+          <Text style={styles.trialBottomText}>{trial.footnote}</Text>
         </TouchableOpacity>
       )}
 
-      {showTrial && (
+      {trial && (offered.monthly || offered.annual) && (
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>OR PICK A PLAN</Text>
@@ -116,123 +240,132 @@ export default function SubscriptionPlans({
       )}
 
       <View style={styles.plansRow}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'monthly' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('monthly')}
-        >
-          <View style={styles.radioAbsoluteLeft}>
-            <View style={[styles.radioOuter, selectedPlan === 'monthly' && styles.radioOuterActive]}>
-              {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
-            </View>
-          </View>
-
-          <Text style={styles.planTitleText}>MONTHLY</Text>
-
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Text style={styles.priceCurrency}>₹</Text>
-              <Text style={styles.priceText}>{monthlyPrice}</Text>
-              <Text style={styles.pricePeriod}>/month</Text>
-            </View>
-            <Text style={styles.planSubtext}>Billed monthly{'\n'}Cancel anytime</Text>
-          </View>
-
+        {offered.monthly && (
           <TouchableOpacity
             activeOpacity={0.9}
             style={[
-              styles.planButton,
-              selectedPlan === 'monthly' ? styles.planButtonActive : styles.planButtonInactive,
-              isMonthlyActive && styles.planButtonDisabled,
+              styles.planCard,
+              selectedPlan === 'monthly' && styles.planCardActive,
             ]}
-            onPress={() => handlePurchase('monthly')}
-            disabled={loading || isMonthlyActive || selectedPlan !== 'monthly'}
+            onPress={() => setSelectedPlan('monthly')}
           >
-            {loading && selectedPlan === 'monthly' ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text
+            <View style={styles.radioAbsoluteLeft}>
+              <View
                 style={[
-                  styles.planButtonText,
-                  selectedPlan === 'monthly' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  isMonthlyActive && styles.planButtonTextDisabled,
+                  styles.radioOuter,
+                  selectedPlan === 'monthly' && styles.radioOuterActive,
                 ]}
               >
-                {isMonthlyActive ? 'Active' : 'Continue Monthly'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[
-            styles.planCard,
-            selectedPlan === 'annual' && styles.planCardActive,
-          ]}
-          onPress={() => setSelectedPlan('annual')}
-        >
-          <View style={styles.popularBadge}>
-            <View style={styles.popularBadgeTextContainer}>
-              <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
+                {selectedPlan === 'monthly' && <View style={styles.radioInner} />}
+              </View>
             </View>
-          </View>
 
-          <View style={styles.radioAbsoluteLeft}>
-            <View style={[styles.radioOuter, selectedPlan === 'annual' && styles.radioOuterActive]}>
-              {selectedPlan === 'annual' ? (
-                <View style={styles.radioInner} />
+            <Text style={styles.planTitleText}>MONTHLY</Text>
+
+            <View style={styles.planPriceContainer}>
+              <View style={styles.priceMainRow}>
+                <Price
+                  price={offers.monthly}
+                  amountStyle={styles.priceText}
+                  periodStyle={styles.pricePeriod}
+                />
+              </View>
+              <Text style={styles.planSubtext}>
+                Billed monthly{'\n'}Cancel anytime
+              </Text>
+            </View>
+
+            <PurchaseAction
+              theme={PLAN_ACTION_THEME}
+              label="Continue Monthly"
+              selected={selectedPlan === 'monthly'}
+              loading={loading}
+              blockedLabel={purchaseBlockedLabel}
+              spinnerColor="#fff"
+              isActivePlan={isMonthlyActive}
+              hasActiveSubscription={hasActiveSubscription}
+              onPress={() => handlePurchase('monthly')}
+            />
+          </TouchableOpacity>
+        )}
+
+        {offered.annual && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[
+              styles.planCard,
+              selectedPlan === 'annual' && styles.planCardActive,
+            ]}
+            onPress={() => setSelectedPlan('annual')}
+          >
+            <View style={styles.popularBadge}>
+              <View style={styles.popularBadgeTextContainer}>
+                <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
+              </View>
+            </View>
+
+            <View style={styles.radioAbsoluteLeft}>
+              <View
+                style={[
+                  styles.radioOuter,
+                  selectedPlan === 'annual' && styles.radioOuterActive,
+                ]}
+              >
+                {selectedPlan === 'annual' ? (
+                  <View style={styles.radioInner} />
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={styles.planTitleText}>ANNUAL</Text>
+
+            <View style={styles.planPriceContainer}>
+              {offers.annualStrikePrice ? (
+                <Text style={styles.planStrikePrice}>
+                  {offers.annualStrikePrice}
+                </Text>
+              ) : null}
+              <View style={styles.priceMainRow}>
+                <Price
+                  price={offers.annual}
+                  amountStyle={styles.priceText}
+                  periodStyle={styles.pricePeriod}
+                />
+              </View>
+              {offers.annualPerMonthLabel ? (
+                <Text style={styles.planSavingsText}>
+                  {offers.annualPerMonthLabel}
+                </Text>
+              ) : null}
+              {offers.savingsPercent !== null ? (
+                <View style={styles.planSavingsBadge}>
+                  <Text style={styles.planSavingsBadgeText}>
+                    Save {offers.savingsPercent}%
+                  </Text>
+                </View>
               ) : null}
             </View>
-          </View>
 
-          <Text style={styles.planTitleText}>ANNUAL</Text>
-
-          <View style={styles.planPriceContainer}>
-            <View style={styles.priceMainRow}>
-              <Text style={styles.priceCurrency}>₹</Text>
-              <Text style={styles.priceText}>{annualPrice}</Text>
-              <Text style={styles.pricePeriod}>/year</Text>
-            </View>
-            <Text style={styles.planSavingsText}>Only ₹{annualPricePerMonth}/month</Text>
-            <View style={styles.planSavingsBadge}>
-              <Text style={styles.planSavingsBadgeText}>Save {savingsPercent}%</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={[
-              styles.planButton,
-              selectedPlan === 'annual' ? styles.planButtonActive : styles.planButtonInactive,
-              isAnnualActive && styles.planButtonDisabled,
-            ]}
-            onPress={() => handlePurchase('annual')}
-            disabled={loading || isAnnualActive || selectedPlan !== 'annual'}
-          >
-            {loading && selectedPlan === 'annual' ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <Text
-                style={[
-                  styles.planButtonText,
-                  selectedPlan === 'annual' ? styles.planButtonTextActive : styles.planButtonTextInactive,
-                  isAnnualActive && styles.planButtonTextDisabled,
-                ]}
-              >
-                {isAnnualActive ? 'Active' : 'Join Canvas'}
-              </Text>
-            )}
+            <PurchaseAction
+              theme={PLAN_ACTION_THEME}
+              label="Join Canvas"
+              selected={selectedPlan === 'annual'}
+              loading={loading}
+              blockedLabel={purchaseBlockedLabel}
+              spinnerColor="#000"
+              isActivePlan={isAnnualActive}
+              hasActiveSubscription={hasActiveSubscription}
+              onPress={() => handlePurchase('annual')}
+            />
           </TouchableOpacity>
-        </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.secureTextRow}>
         <LockOutlined width={11} height={11} color="#777" />
-        <Text style={styles.secureText}>Secure payments. Cancel anytime from settings.</Text>
+        <Text style={styles.secureText}>
+          Secure payments. Cancel anytime from settings.
+        </Text>
       </View>
     </View>
   );
@@ -351,6 +484,13 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontFamily: 'HelveticaNowDisplay-Regular',
   },
+  planStrikePrice: {
+    color: '#888',
+    fontSize: 14,
+    textDecorationLine: 'line-through',
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    marginBottom: 2,
+  },
   planSavingsText: {
     color: '#ff6a00',
     fontSize: 13,
@@ -426,6 +566,29 @@ const styles = StyleSheet.create({
   },
   planButtonTextDisabled: {
     color: '#666',
+  },
+  noticeCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#222',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  noticeLabel: {
+    color: '#ff6a00',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+  },
+  noticeBody: {
+    color: '#888',
+    fontSize: 14,
+    lineHeight: 19,
+    fontFamily: 'HelveticaNowDisplay-Regular',
   },
   trialCard: {
     backgroundColor: '#121212',
@@ -559,3 +722,25 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
   },
 });
+
+const PLAN_ACTION_THEME: ActionTheme = {
+  button: styles.planButton,
+  buttonSelected: styles.planButtonActive,
+  buttonUnselected: styles.planButtonInactive,
+  buttonDisabled: styles.planButtonDisabled,
+  text: styles.planButtonText,
+  textSelected: styles.planButtonTextActive,
+  textUnselected: styles.planButtonTextInactive,
+  textDisabled: styles.planButtonTextDisabled,
+};
+
+const TRIAL_ACTION_THEME: ActionTheme = {
+  button: styles.trialButton,
+  buttonSelected: styles.trialButtonActive,
+  buttonUnselected: styles.trialButtonInactive,
+  buttonDisabled: styles.trialButtonDisabled,
+  text: styles.trialButtonText,
+  textSelected: styles.trialButtonTextActive,
+  textUnselected: styles.trialButtonTextInactive,
+  textDisabled: styles.planButtonTextDisabled,
+};

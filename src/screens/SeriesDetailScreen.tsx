@@ -18,6 +18,7 @@ import { VideoHeader } from '../components/seriesDetail/VideoHeader';
 import { SeriesActions } from '../components/seriesDetail/SeriesActions';
 import { CastingControls } from '../components/seriesDetail/CastingControls';
 import { CreatorRow } from '../components/seriesDetail/CreatorRow';
+import { useOpenPaywall } from '../hooks/useOpenPaywall';
 import { SeriesFooter } from '../components/seriesDetail/SeriesFooter';
 import { useSeriesDetail } from '../hooks/useSeriesDetail';
 import { track } from '../utils/analytics';
@@ -41,7 +42,6 @@ const SeriesDetailScreen: React.FC = () => {
     setIsPlaying,
     setIsReady,
     setIsLockedVisibleModal,
-    setPurchaseSeries,
     setAuthRedirect,
     isEpisodesSheetOpen,
     setIsEpisodesSheetOpen,
@@ -75,6 +75,8 @@ const SeriesDetailScreen: React.FC = () => {
     play,
     pause,
   } = useSeriesDetail();
+
+  const openPaywall = useOpenPaywall();
 
   useEffect(() => {
     if (series?.id) track('ViewContent');
@@ -169,10 +171,7 @@ const SeriesDetailScreen: React.FC = () => {
                       params: { id, posterUrl },
                     });
                   }}
-                  onPurchasePress={() => {
-                    setPurchaseSeries(series);
-                    navigation.navigate('SubscriptionScreen', { series });
-                  }}
+                  onPurchasePress={() => openPaywall(series)}
                   onWatchPress={() => {
                     setIsPlaying(false);
                     setTimeout(() => {

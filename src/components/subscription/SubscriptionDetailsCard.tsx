@@ -1,15 +1,48 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { CreditCard } from 'lucide-react-native';
-import { Subscription } from '../../api/subscription';
+import { Subscription, isTrialCode } from '../../api/subscription';
 import { formatDate } from '../../utils/formatDate';
 
-// Keyed by string rather than the planCode union so a plan the server adds
-// before the app ships renders a sane label instead of `undefined`.
-const PLAN_COPY: Record<string, string> = {
-  TRIAL: 'Trial ₹1 then ₹499/yr',
-  ANNUAL: 'Annual ₹499/yr',
-  MONTHLY: 'Monthly ₹99/month',
+// Name only — never a price. Keyed by string rather than the planCode union so a
+// plan the server adds before the app ships renders a sane label instead of
+// `undefined`.
+const PLAN_NAME: Record<string, string> = {
+  TRIAL: 'Trial',
+  TRIAL_NEW: 'Trial',
+  ANNUAL: 'Annual',
+  MONTHLY: 'Monthly',
+};
+
+/** Whole rupees from a paise amount. */
+const rupees = (paise?: number | null) => `₹${Math.round((paise || 0) / 100)}`;
+
+/**
+ * What this subscriber is actually on, built from THEIR subscription rather than
+ * a hardcoded table.
+ *
+ * The old table read "Trial ₹1 then ₹499/yr" for every trial. There are now two
+ * trials at different prices, and any subscriber can be on a price the current
+ * plans no longer offer — so the only honest source is `amountSnapshot`, the
+ * price frozen on the row and the one the mandate actually charges.
+ */
+const planCopy = (sub: Subscription): string => {
+  const name = PLAN_NAME[sub.planCode] ?? 'Premium plan';
+  const period = sub.planCode === 'MONTHLY' ? 'month' : 'yr';
+  const recurring = `${rupees(sub.amountSnapshot)}/${period}`;
+  if (isTrialCode(sub.planCode) && sub.isTrial) {
+    const today = sub.upfrontAmount != null ? rupees(sub.upfrontAmount) : null;
+    return today
+      ? `${name} ${today} then ${recurring}`
+      : `${name}, then ${recurring}`;
+  }
+  return `${name} ${recurring}`;
 };
 
 // Days before currentPeriodEnd at which we start warning about expiry.
@@ -19,14 +52,21 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 interface SubscriptionDetailsCardProps {
   subscription: Subscription;
   onCancelPress: () => void;
+  /**
+   * The user has been through Apple's subscription sheet and the server has not
+   * heard from Apple yet. Offering the cancel button again here would invite a
+   * second trip for something that may already be done.
+   */
+  confirmingCancel?: boolean;
 }
 
 /** Plan, access window, expiry warning and the cancel action for one subscription. */
 export default function SubscriptionDetailsCard({
   subscription,
   onCancelPress,
+  confirmingCancel = false,
 }: SubscriptionDetailsCardProps) {
-  const { planCode, currentPeriodEnd, cancelAtPeriodEnd } = subscription;
+  const { currentPeriodEnd, cancelAtPeriodEnd } = subscription;
 
   const isNearExpiry = useMemo(() => {
     if (!currentPeriodEnd) return false;
@@ -47,9 +87,7 @@ export default function SubscriptionDetailsCard({
           <CreditCard size={18} color="#ff6a00" />
         </View>
         <View style={styles.planDetails}>
-          <Text style={styles.planValue}>
-            {PLAN_COPY[planCode] ?? 'Premium plan'}
-          </Text>
+          <Text style={styles.planValue}>{planCopy(subscription)}</Text>
         </View>
       </View>
 
@@ -71,6 +109,16 @@ export default function SubscriptionDetailsCard({
           <Text style={styles.cancelledNotice}>
             Your subscription is cancelled. Access continues until {accessUntil}
             .
+          </Text>
+        </View>
+      ) : confirmingCancel ? (
+        <View style={styles.pendingContainer}>
+          <ActivityIndicator size="small" color="#ff6a00" />
+          <Text style={styles.pendingText}>
+            Checking with the App Store…{'\n'}
+            <Text style={styles.pendingSubText}>
+              This can take a moment. Your access is unchanged either way.
+            </Text>
           </Text>
         </View>
       ) : (
@@ -164,6 +212,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ff4444',
     textAlign: 'center',
+  },
+  pendingContainer: {
+    marginTop: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 106, 0, 0.35)',
+    backgroundColor: 'rgba(255, 106, 0, 0.12)',
+  },
+  pendingText: {
+    flex: 1,
+    marginLeft: 10,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontSize: 14,
+    color: '#ff7f24',
+    lineHeight: 20,
+  },
+  pendingSubText: {
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.55)',
   },
   cancelSubButton: {
     marginTop: 15,

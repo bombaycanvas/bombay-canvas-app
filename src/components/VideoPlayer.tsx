@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
+import { useOpenPaywall } from '../hooks/useOpenPaywall';
 import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
 import { ErrorOverlay } from './videoPlayer/ErrorOverlay';
 import { PlayerControls } from './videoPlayer/PlayerControls';
@@ -119,6 +120,8 @@ export default function VideoPlayer({
     setPurchaseSeries,
     setAuthRedirect,
   } = useVideoStore();
+
+  const openPaywallFor = useOpenPaywall();
 
   const [internalControlsVisible, setInternalControlsVisible] = useState(false);
   const showDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,8 +294,7 @@ export default function VideoPlayer({
           },
         });
       } else if (isPaidEpisode) {
-        setPurchaseSeries(movie);
-        (navigation as any).navigate('SubscriptionScreen', { series: movie });
+        openPaywallFor(movie);
       }
     }, 300);
 
@@ -306,7 +308,7 @@ export default function VideoPlayer({
     setIsLockedVisibleModal,
     setPurchaseSeries,
     setAuthRedirect,
-    navigation,
+    openPaywallFor,
   ]);
 
   const handleBuffer = ({
@@ -408,8 +410,7 @@ export default function VideoPlayer({
     }
 
     if (!locked && isPaidEpisode) {
-      setPurchaseSeries(movie);
-      (navigation as any).navigate('SubscriptionScreen', { series: movie });
+      openPaywallFor(movie);
       return;
     }
 

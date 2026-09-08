@@ -1,7 +1,18 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "jsx": "react-native"
+    "jsx": "react-native",
+    // react-native-iap declares a "react-native" export condition pointing at its
+    // raw src/*.ts, and customConditions (inherited from @react-native/typescript-config)
+    // makes tsc prefer it. skipLibCheck only skips .d.ts, so the library's own source
+    // gets typechecked against our lib/types and reports errors we cannot fix.
+    // Point tsc at the declarations the package itself publishes via its "types" field;
+    // Metro keeps using the source at runtime, so this is typecheck-only.
+    "paths": {
+      "react-native-iap": [
+        "./node_modules/react-native-iap/lib/typescript/src/index.d.ts"
+      ]
+    }
   },
   "include": [
     "src",

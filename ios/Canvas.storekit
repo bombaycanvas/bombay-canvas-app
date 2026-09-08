@@ -1,0 +1,108 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "3C491AB0",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "IND",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "22338316",
+      "localizations" : [
+
+      ],
+      "name" : "Canvas Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "499.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "A1B2C3D4",
+          "introductoryOffer" : {
+            "internalID" : "E5F6A7B8",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P3D"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited access to Bombay Canvas, billed yearly.",
+              "displayName" : "Canvas Premium Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.bombaycanvas.app1.premium.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : null,
+          "subscriptionGroupID" : "22338316",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "99.00",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "C9D0E1F2",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited access to Bombay Canvas, billed monthly.",
+              "displayName" : "Canvas Premium Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.bombaycanvas.app1.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : null,
+          "subscriptionGroupID" : "22338316",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

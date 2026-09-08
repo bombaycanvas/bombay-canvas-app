@@ -1,4 +1,4 @@
-import type { CancelReasonCode } from '../../api/subscription';
+import { isTrialCode, type CancelReasonCode, type PlanCode } from '../../api/subscription';
 
 export interface CancelReasonOption {
   code: CancelReasonCode;
@@ -10,7 +10,7 @@ export const OTHER_TEXT_MIN = 3;
 
 const TRIAL_REASONS: CancelReasonOption[] = [
   { code: 'UNAWARE_OF_CHARGE', label: "I didn't realise I'd be charged after the trial" },
-  { code: 'TOO_EXPENSIVE', label: '₹499 for a year is too much' },
+  { code: 'TOO_EXPENSIVE', label: 'The yearly price is too much' },
   { code: 'NOT_ENOUGH_CONTENT', label: 'Not enough content I want to watch' },
   { code: 'JUST_TRYING', label: 'I only wanted to try it for ₹1' },
   { code: 'TECHNICAL_ISSUES', label: 'Playback or app problems' },
@@ -26,6 +26,8 @@ const PAID_REASONS: CancelReasonOption[] = [
 ];
 
 // Trial users cancel over the post-trial charge, paid users over usage — the two lists are deliberately different.
-export const getCancelReasons = (
-  planCode: 'TRIAL' | 'MONTHLY' | 'ANNUAL',
-): CancelReasonOption[] => (planCode === 'TRIAL' ? TRIAL_REASONS : PAID_REASONS);
+// Keyed on isTrialCode, not on a 'TRIAL' literal: there is more than one trial
+// code, and sending a trial user the PAID list drops the one reason that
+// explains most trial churn ("I didn't realise I'd be charged after the trial").
+export const getCancelReasons = (planCode: PlanCode): CancelReasonOption[] =>
+  isTrialCode(planCode) ? TRIAL_REASONS : PAID_REASONS;
