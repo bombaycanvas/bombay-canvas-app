@@ -68,6 +68,7 @@ export default function SubscriptionScreen() {
         plans: subscriptionPlans?.plans,
         appleCatalogue,
         trialEligible: subscriptionPlans?.trialEligible,
+        trialConversionAmount: subscriptionPlans?.trialConversionAmount,
       }),
     [subscriptionPlans, appleCatalogue],
   );

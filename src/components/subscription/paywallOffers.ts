@@ -71,6 +71,15 @@ export interface PaywallOffersInput {
    * reasons in buildAppleTrialCard.
    */
   trialEligible?: boolean;
+  /**
+   * `trialConversionAmount` off GET /plans, in PAISE: what a trial converts to,
+   * quoted even after the trial plan itself has left the offered set. It is the
+   * only source for the price the trial-ended paywall strikes.
+   *
+   * Absent or null means the server did not state one — an older build of the
+   * API, or trials switched off entirely. Never substitute a figure for it.
+   */
+  trialConversionAmount?: number | null;
 }
 
 const RUPEE = '₹';
@@ -113,18 +122,6 @@ const formatCurrency = (amount: number, currency: string): string | null => {
   }
 };
 
-// What the trial converts at, for an account that has already spent one. GET
-// /plans drops the trial codes the moment trialConsumedAt is set, so the figure
-// the trial-ended paywall wants to strike is not in the payload at all.
-//
-// HARDCODED, and knowingly wrong for one group: a user who spent the ORIGINAL
-// ₹1 TRIAL was converting at ₹499, not ₹899, and is shown a price they were
-// never offered. The honest per-user figure is `amountSnapshot` on their own
-// expired subscription row — already fetched by useMySubscription — and once
-// that is plumbed through, this constant should survive only as the fallback
-// for a row that has been purged.
-const CONSUMED_TRIAL_CONVERSION_RUPEES = 899;
-
 const TRIAL_USED_LEAD =
   "You've already used your free trial on this account, so it's no longer available.";
 
@@ -156,6 +153,7 @@ const buildTrialConsumedNotice = (offered: {
 const buildRazorpayOffers = ({
   plans,
   trialEligible,
+  trialConversionAmount,
 }: PaywallOffersInput): PaywallOffers => {
   // Whichever trial this build is offered — see pickTrialPlan. There are two
   // live trial codes at different post-trial prices (TRIAL converts at ₹499,
@@ -179,7 +177,19 @@ const buildRazorpayOffers = ({
   // set, so a consumed trial is exactly "no trial plan AND the server says
   // ineligible". An anonymous caller is reported eligible, so nobody is told
   // they burned a trial they never started.
+  //
+  // Deliberately NOT gated on the conversion price below: the banner and the
+  // trial-ended prompt are about eligibility, and an API that cannot quote a
+  // price must cost the screen its struck figure, never its explanation.
   const trialConsumed = !trialPlan && trialEligible === false;
+
+  // What the trial converts at, once its plan is gone from the payload. Null
+  // means the server did not state one — an older build of the API — and the
+  // card then strikes nothing rather than inventing a figure.
+  const serverConversionRupees =
+    typeof trialConversionAmount === 'number'
+      ? trialConversionAmount / 100
+      : null;
 
   // The trial converts at MORE than the annual plan costs outright — TRIAL_NEW
   // lands on ₹899 against a ₹499 ANNUAL. That gap, not the monthly plan, is the
@@ -189,8 +199,12 @@ const buildRazorpayOffers = ({
   // comparison to draw.
   //
   // It applies on the trial-ended paywall too — that is where the gap argues
-  // hardest — but there the price has to be supplied, because the plan carrying
-  // it is gone from the payload. See CONSUMED_TRIAL_CONVERSION_RUPEES.
+  // hardest — and there the figure can only come from the server, because the
+  // plan carrying it has left the payload.
+  //
+  // The rendered card wins while there is one: it is the price the footnote
+  // directly above already promises, and a strike disagreeing with the card it
+  // sits under is worse than no strike.
   //
   // Never negative: a trial converting at or below the annual price (today's
   // ₹499 TRIAL) leaves nothing to strike, and the card falls back to the
@@ -198,7 +212,7 @@ const buildRazorpayOffers = ({
   const trialConversionRupees = trialPlan
     ? trialPlan.price / 100
     : trialConsumed
-    ? CONSUMED_TRIAL_CONVERSION_RUPEES
+    ? serverConversionRupees
     : null;
   const annualStrikeRupees =
     trialConversionRupees !== null && trialConversionRupees > annualRupees

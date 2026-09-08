@@ -46,6 +46,11 @@ const PLANS_WITH_BOTH_TRIALS: Plan[] = [
   },
 ];
 
+// GET /plans quotes what a trial converts to even when it is no longer offering
+// one, which is the only way the paywall can price a trial the payload has
+// already dropped. Paise, matching Plan.price.
+const TRIAL_NEW_CONVERSION_PAISE = 89900;
+
 const APPLE_CATALOGUE: AppleCatalogue = {
   introOfferEligible: true,
   products: [
@@ -177,10 +182,11 @@ describe('the annual card against a trial that converts higher', () => {
   // The trial-ended paywall is where the gap argues hardest, and it is also the
   // one place the price is missing: /plans drops the trial codes once the trial
   // is spent, so the figure is supplied rather than read.
-  it('strikes the standing conversion price once the trial is spent', () => {
+  it("strikes the server's conversion price once the trial is spent", () => {
     const offers = buildOffersOn('android', {
       plans: PLANS.filter(plan => plan.code !== 'TRIAL'),
       trialEligible: false,
+      trialConversionAmount: TRIAL_NEW_CONVERSION_PAISE,
     });
 
     expect(offers.trial).toBeNull();
@@ -193,10 +199,34 @@ describe('the annual card against a trial that converts higher', () => {
   it('strikes nothing while eligibility is unknown', () => {
     const offers = buildOffersOn('android', {
       plans: PLANS.filter(plan => plan.code !== 'TRIAL'),
+      trialConversionAmount: TRIAL_NEW_CONVERSION_PAISE,
     });
 
     expect(offers.annualStrikePrice).toBeNull();
     expect(offers.savingsPercent).toBe(58);
+  });
+
+  // A server that predates the field states no conversion price, so there is
+  // nothing to strike and nothing may be invented in its place.
+  it('strikes nothing when the server states no conversion price', () => {
+    const offers = buildOffersOn('android', {
+      plans: PLANS.filter(plan => plan.code !== 'TRIAL'),
+      trialEligible: false,
+    });
+
+    expect(offers.annualStrikePrice).toBeNull();
+    expect(offers.savingsPercent).toBe(58);
+  });
+
+  // The trial card that is actually rendered wins over the server's figure: its
+  // footnote sits directly above the strike, and the two must agree.
+  it('prices the strike off the rendered trial card while there is one', () => {
+    const offers = buildOffersOn('android', {
+      plans: PLANS_WITH_BOTH_TRIALS,
+      trialConversionAmount: 250000,
+    });
+
+    expect(offers.annualStrikePrice).toBe('₹899');
   });
 
   // The struck price is a comparison the user can see on the same card, so it
@@ -223,6 +253,7 @@ describe('the trial-consumed notice on the Razorpay rail', () => {
     const offers = buildOffersOn('android', {
       plans: PAID_PLANS,
       trialEligible: false,
+      trialConversionAmount: TRIAL_NEW_CONVERSION_PAISE,
     });
 
     expect(offers.trial).toBeNull();
@@ -262,10 +293,25 @@ describe('the trial-consumed notice on the Razorpay rail', () => {
     expect(offers.trialConsumedNotice).toBeNull();
   });
 
+  // The banner explains eligibility; the struck price is a bonus on top of it.
+  // An API too old to quote a conversion price must cost the screen the strike
+  // and nothing else — gating the explanation on it is what silently emptied
+  // this paywall once already.
+  it('still explains the trial when the server quotes no conversion price', () => {
+    const offers = buildOffersOn('android', {
+      plans: PAID_PLANS,
+      trialEligible: false,
+    });
+
+    expect(offers.trialConsumedNotice?.label).toBe('TRIAL ALREADY USED');
+    expect(offers.annualStrikePrice).toBeNull();
+  });
+
   it('names the single plan when that is all the rail came back with', () => {
     const offers = buildOffersOn('android', {
       plans: PAID_PLANS.filter(plan => plan.code === 'MONTHLY'),
       trialEligible: false,
+      trialConversionAmount: TRIAL_NEW_CONVERSION_PAISE,
     });
 
     expect(offers.offered).toEqual({ monthly: true, annual: false });

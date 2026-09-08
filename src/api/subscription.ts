@@ -133,6 +133,19 @@ export const isSubscriptionActive = (sub?: Subscription | null): boolean => {
 export interface SubscriptionPlansResponse {
   plans: Plan[];
   trialEligible: boolean;
+  /**
+   * PAISE the trial converts to — the post-trial charge — quoted whether or not
+   * this caller may still start one.
+   *
+   * It is the only copy of that price once the trial is consumed, because the
+   * plan carrying it leaves `plans` at that moment. The paywall strikes it
+   * against the annual price.
+   *
+   * Null on an older server that predates the field, and on the Apple rail,
+   * where the free days convert at the annual price already in `plans`. Both
+   * mean "not stated" — never substitute a figure.
+   */
+  trialConversionAmount?: number | null;
   // Minted lazily by the backend and only for a signed-in iOS caller, so it is
   // null while anonymous. Apple needs a real UUID here to tie a purchase back to
   // this account, so the purchase path must gate on it rather than assume one.
@@ -152,6 +165,7 @@ export const getSubscriptionPlans =
       return {
         plans: response?.data?.plans ?? [],
         trialEligible: response?.data?.trialEligible ?? false,
+        trialConversionAmount: response?.data?.trialConversionAmount ?? null,
         appleAppAccountToken: response?.data?.appleAppAccountToken ?? null,
       };
     } catch (error) {
@@ -247,6 +261,17 @@ export const useSubscriptionPlans = () => {
     queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
     queryFn: getSubscriptionPlans,
     staleTime: 0,
+    // staleTime alone does NOT get this refetched. The client-wide default is
+    // refetchOnMount:false, which suppresses the fetch whenever data is already
+    // in the cache however stale it is — and the cache is persisted to
+    // AsyncStorage for a week, so "already there" is the normal case on launch.
+    //
+    // What that costs is `trialEligible`: a paywall opened after the trial was
+    // consumed would keep rendering the answer from before it, offering a trial
+    // that create would then refuse. Now that a mounted-at-root observer holds
+    // this query from app start, opening the paywall is a SECOND observer and
+    // would never have fetched at all.
+    refetchOnMount: true,
   });
 };
 
@@ -270,6 +295,11 @@ export const useMySubscription = () => {
     queryFn: getMySubscription,
     enabled: !!token,
     staleTime: 0,
+    // Same defeat of staleTime as useSubscriptionPlans above, and the same fix.
+    // This one decides whether the user is entitled right now, so serving it
+    // from a week-old persisted cache is how a lapsed subscriber keeps being
+    // treated as active.
+    refetchOnMount: true,
   });
 };
 

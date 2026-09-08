@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useVideoStore } from '../store/videoStore';
-import { useTrialPromptStore } from '../store/trialPromptStore';
+import { useOpenPaywall } from '../hooks/useOpenPaywall';
 import { BufferingIndicator } from './videoPlayer/BufferingIndicator';
 import { ErrorOverlay } from './videoPlayer/ErrorOverlay';
 import { PlayerControls } from './videoPlayer/PlayerControls';
@@ -121,29 +121,7 @@ export default function VideoPlayer({
     setAuthRedirect,
   } = useVideoStore();
 
-  // Read off the store, not off the subscription queries — a feed mounts one of
-  // these per episode, and each new observer of `subscriptionPlans` would
-  // refetch it. TrialEndedPrompt keeps the flag current for the whole app.
-  const trialConsumed = useTrialPromptStore(state => state.trialConsumed);
-  const showTrialPrompt = useTrialPromptStore(state => state.showTrialPrompt);
-
-  // A returning user whose trial is spent gets asked before being moved. Pushing
-  // the paywall over the feed the moment they touch a locked episode reads as
-  // the app grabbing the wheel; the dialog says why the episode is locked and
-  // lets them stay put. Either way the series is remembered first, so the
-  // paywall opens on the title they were actually watching.
-  const openPaywallFor = useCallback(
-    (series: any) => {
-      setPurchaseSeries(series);
-      if (trialConsumed) {
-        setPaused(true);
-        showTrialPrompt();
-        return;
-      }
-      (navigation as any).navigate('SubscriptionScreen', { series });
-    },
-    [navigation, setPaused, setPurchaseSeries, showTrialPrompt, trialConsumed],
-  );
+  const openPaywallFor = useOpenPaywall();
 
   const [internalControlsVisible, setInternalControlsVisible] = useState(false);
   const showDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

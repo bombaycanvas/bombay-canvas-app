@@ -15,6 +15,7 @@ import { X } from 'lucide-react-native';
 import LockOutlined from '../assets/LockOutlined';
 import SubscriptionOutlined from '../assets/SubscriptionOutlined';
 import { useVideoStore } from '../store/videoStore';
+import { useOpenPaywall } from '../hooks/useOpenPaywall';
 import { SkeletonEpisodeItem } from './videoPlayer/SkeletonEpisodeItem';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
@@ -96,9 +97,9 @@ export const EpisodesBottomSheet = ({
   isCasting,
 }: any) => {
   const navigation = useNavigation<NavigationProp<RootRedirectVideo>>();
+  const openPaywall = useOpenPaywall();
   const {
     setIsLockedVisibleModal,
-    setPurchaseSeries,
     setCurrentEpisodeId,
     setAuthRedirect,
   } = useVideoStore();
@@ -240,8 +241,7 @@ export const EpisodesBottomSheet = ({
                         setTimeout(
                           () => {
                             requestAnimationFrame(() => {
-                              setPurchaseSeries(series);
-                              navigation.navigate('SubscriptionScreen', { series });
+                              openPaywall(series);
                             });
                           },
                           Platform.OS === 'ios' ? 600 : 500,

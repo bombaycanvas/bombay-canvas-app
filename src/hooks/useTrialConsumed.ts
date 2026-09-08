@@ -27,6 +27,7 @@ export const useTrialConsumed = (): boolean => {
         plans: subscriptionPlans?.plans,
         appleCatalogue,
         trialEligible: subscriptionPlans?.trialEligible,
+        trialConversionAmount: subscriptionPlans?.trialConversionAmount,
       }).trialConsumedNotice,
     [subscriptionPlans, appleCatalogue],
   );
