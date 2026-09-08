@@ -30,7 +30,6 @@ import Toast from 'react-native-toast-message';
 import {
   CancelReasonCode,
   isAppleManagedCancelError,
-  isTrialCode,
   Subscription,
   useCancelSubscription,
   useSubscriptionPlans,
@@ -73,9 +72,29 @@ const DISMISS_DRAG_VELOCITY = 1.1;
 const PLAN_LABEL: Record<string, string> = {
   TRIAL: 'Trial',
   TRIAL_NEW: 'Trial',
+  // The plan behind Apple's free-days product. A plain yearly plan by code, so
+  // once the free days end this reads correctly as "Annual"; planLabel below is
+  // what keeps it reading "Trial" until then.
+  ANNUAL_POST_TRIAL: 'Annual',
   MONTHLY: 'Monthly',
   ANNUAL: 'Annual',
 };
+
+/**
+ * What to call the plan this subscriber is on.
+ *
+ * STATUS first, because a plan code alone cannot say whether someone is still in
+ * a trial on both rails: Razorpay keeps a trial CODE for the life of the
+ * subscription, while Apple files its free days under ANNUAL_POST_TRIAL from the
+ * very first day. Without the status check an iOS user three days into a free
+ * trial would be told their current plan is "Annual" — and before this map
+ * gained that entry at all, the screen printed the raw "ANNUAL_POST_TRIAL".
+ */
+const resolvePlanLabel = (
+  code: string,
+  status: Subscription['status'],
+): string =>
+  status === 'TRIAL' ? 'Trial' : (PLAN_LABEL[code] ?? code);
 
 /**
  * The cheaper plans offered instead of losing the user outright, in display
@@ -603,13 +622,13 @@ function DownsellConfirmStep({
 interface ConfirmStepProps {
   chargeDate: string;
   nextChargeAmount: number;
-  planCode: string;
+  planLabel: string;
 }
 
 function ConfirmStep({
   chargeDate,
   nextChargeAmount,
-  planCode,
+  planLabel,
 }: ConfirmStepProps) {
   return (
     <View>
@@ -622,7 +641,7 @@ function ConfirmStep({
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Current plan</Text>
           <Text style={styles.summaryValue}>
-            {PLAN_LABEL[planCode] ?? planCode}
+            {planLabel}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
@@ -658,10 +677,10 @@ function ConfirmStep({
 // and Apple bills each storefront in its own currency.
 function AppleManageStep({
   chargeDate,
-  planCode,
+  planLabel,
 }: {
   chargeDate: string;
-  planCode: string;
+  planLabel: string;
 }) {
   return (
     <View>
@@ -674,7 +693,7 @@ function AppleManageStep({
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Current plan</Text>
           <Text style={styles.summaryValue}>
-            {PLAN_LABEL[planCode] ?? planCode}
+            {planLabel}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
@@ -762,22 +781,37 @@ export default function CancelSubscriptionFlow({
     ((continueWatchingData?.items ?? []) as ContinueWatchingItem[])[0] ?? null;
   const recommended: Movie[] = recommendedData?.series ?? [];
   const displayUpcoming = upcomingData?.upcomingSeries ?? [];
+  // Whether the subscription is inside its trial window right now. STATUS is the
+  // only signal that answers this on both rails — see planLabel above.
+  const isInTrial = subscription.status === 'TRIAL';
+
+  const currentPlanLabel = resolvePlanLabel(
+    subscription.planCode,
+    subscription.status,
+  );
+
   const reasons = useMemo(
-    () => getCancelReasons(subscription.planCode),
-    [subscription.planCode],
+    () => getCancelReasons(subscription.planCode, isInTrial),
+    [subscription.planCode, isInTrial],
   );
   const chargeDate = formatChargeDate(subscription.currentPeriodEnd);
 
   // Cheaper plans this subscriber could move to instead of leaving.
   //
-  // Offered ONLY while the ₹1 trial is still running — status TRIAL, not merely
-  // a trial plan CODE. planCode stays TRIAL/TRIAL_NEW for the life of the
-  // subscription (the one-trial-per-user guard writes it once), so a code check
-  // alone keeps offering the downsell after the trial has converted. By then the
-  // subscriber has paid ₹899 for a year, and "switching" would cancel a year
-  // they already own to sell them a cheaper one — a downgrade that costs them
-  // money and us revenue. Nothing to offer a paid subscriber: they are already
-  // on one of these plans, or on a better one.
+  // Offered ONLY while the trial is still running — STATUS, never the plan code.
+  // planCode stays TRIAL/TRIAL_NEW for the life of a Razorpay subscription (the
+  // one-trial-per-user guard writes it once), so a code check alone keeps
+  // offering the downsell after the trial has converted. By then the subscriber
+  // has paid ₹899 for a year, and "switching" would cancel a year they already
+  // own to sell them a cheaper one — a downgrade that costs them money and us
+  // revenue. Nothing to offer a paid subscriber: they are already on one of
+  // these plans, or on a better one.
+  //
+  // The code check that used to sit beside the status one is gone. It was
+  // redundant on Razorpay, where status TRIAL implies a trial code, and wrong on
+  // Apple, where a free trial is filed under ANNUAL_POST_TRIAL from day one — so
+  // it would have silently blocked the iOS downsell the moment the rail gate
+  // below is lifted.
   //
   // Filtered on price so this can never "downsell" somebody onto something
   // dearer — which is what would happen if the ₹499 TRIAL reached here and were
@@ -793,19 +827,12 @@ export default function CancelSubscriptionFlow({
   // cancel it nor replace it through Razorpay.
   const downsellPlans = useMemo<Plan[]>(() => {
     if (!IS_RAZORPAY_RAIL || isAppleManaged) return [];
-    if (subscription.status !== 'TRIAL') return [];
-    if (!isTrialCode(subscription.planCode)) return [];
+    if (!isInTrial) return [];
     const offered = plansData?.plans ?? [];
     return DOWNSELL_CODES.map(code =>
       offered.find(p => p.code === code),
     ).filter((p): p is Plan => !!p && p.price < subscription.amountSnapshot);
-  }, [
-    plansData,
-    isAppleManaged,
-    subscription.status,
-    subscription.planCode,
-    subscription.amountSnapshot,
-  ]);
+  }, [plansData, isAppleManaged, isInTrial, subscription.amountSnapshot]);
 
   // Annual is the default pick: the higher-value save, and the only option that
   // holds the subscriber for a full year.
@@ -1579,13 +1606,13 @@ export default function CancelSubscriptionFlow({
                 (isAppleManaged ? (
                   <AppleManageStep
                     chargeDate={chargeDate}
-                    planCode={subscription.planCode}
+                    planLabel={currentPlanLabel}
                   />
                 ) : (
                   <ConfirmStep
                     chargeDate={chargeDate}
                     nextChargeAmount={nextChargeAmount}
-                    planCode={subscription.planCode}
+                    planLabel={currentPlanLabel}
                   />
                 ))}
             </ScrollView>

@@ -1,6 +1,10 @@
 import { pickTrialPlan } from '../../api/planCodes';
 import type { Plan, PlanCode } from '../../api/planCodes';
-import { APPLE_SKU_ANNUAL, APPLE_SKU_MONTHLY } from '../../config/iap';
+import {
+  APPLE_SKU_ANNUAL,
+  APPLE_SKU_ANNUAL_TRIAL,
+  APPLE_SKU_MONTHLY,
+} from '../../config/iap';
 import type { AppleCatalogue, AppleProduct } from '../../services/iap/appleIap';
 import { IS_APPLE_RAIL } from '../../utils/paymentRail';
 
@@ -13,6 +17,16 @@ export interface PriceDisplay {
 }
 
 export interface TrialOffer {
+  /**
+   * The plan code tapping this card buys.
+   *
+   * Carried on the offer rather than re-derived at tap time, because the two
+   * rails answer it differently: Razorpay sells whichever trial code came back
+   * in `plans`, Apple sells the ₹899 yearly plan its free-days product bills
+   * against. Re-deriving it from `plans` on iOS found no trial code at all and
+   * left the card unbuyable.
+   */
+  planCode: PlanCode;
   title: string;
   price: PriceDisplay;
   buttonLabel: string;
@@ -262,6 +276,7 @@ const buildRazorpayTrialCard = (trialPlan: Plan): TrialOffer => {
   const days = trialPlan.trial?.days ?? 3;
 
   return {
+    planCode: trialPlan.code,
     title: trialPlan.name || `${days}-Day Trial`,
     price: { currency: RUPEE, amount: `${upfrontRupees}`, period: ' today' },
     buttonLabel: `Start for ${RUPEE}${upfrontRupees} →`,
@@ -299,11 +314,16 @@ const buildFreePrice = (currency: string): PriceDisplay => {
     : { currency: null, amount: 'Free', period: ' today' };
 };
 
-// The local ₹1 TRIAL plan has no Apple analogue: Apple's free days are an
-// introductory offer attached to the annual product, so there is nothing
-// separate to buy. The card is still the right shape for them — it is simply the
-// annual product wearing its offer — and selecting it buys ANNUAL, which is what
-// appleRail's toApplePlanCode already does with a TRIAL code.
+// The local ₹1 TRIAL plan has no Apple analogue — an App Store introductory
+// offer is free or a price tier, never ₹1 — so on this rail the free days ride
+// their OWN product, which then bills ₹899 a year. Selecting the card buys that
+// product, i.e. ANNUAL_POST_TRIAL.
+//
+// Every figure comes off the trial product itself. Quoting the ₹499 ANNUAL card
+// beside it — which is what this did while the free days were an offer ON that
+// product — now understates the conversion by ₹400: the card would read "then
+// ₹499.00/year" while the App Store charges ₹899. That is the same mis-sell the
+// TRIAL / TRIAL_NEW split exists to prevent on Razorpay.
 //
 // The card may only appear when the store itself reports both a free intro offer
 // AND that this Apple ID is still eligible for it. The backend's own eligibility
@@ -311,18 +331,19 @@ const buildFreePrice = (currency: string): PriceDisplay => {
 // is not an input here at all. Anything less would advertise free days the tap
 // then charges for.
 const buildAppleTrialCard = (
-  annualProduct: AppleProduct | undefined,
+  trialProduct: AppleProduct | undefined,
   introOfferEligible: boolean,
-  annualPrice: PriceDisplay,
+  trialProductPrice: PriceDisplay | null,
 ): TrialOffer | null => {
-  if (!annualProduct) return null;
-  const introOffer = annualProduct.introOffer;
+  if (!trialProduct || !trialProductPrice) return null;
+  const introOffer = trialProduct.introOffer;
   if (!introOffer || !introOffer.isFree || !introOfferEligible) return null;
   return {
+    planCode: 'ANNUAL_POST_TRIAL',
     title: `${toTitleCase(introOffer.periodLabel)} Free`,
-    price: buildFreePrice(annualProduct.currency),
+    price: buildFreePrice(trialProduct.currency),
     buttonLabel: 'Start Free Trial →',
-    footnote: `${introOffer.periodLabel} free, then ${annualPrice.amount}${annualPrice.period}. Cancel anytime in Settings.`,
+    footnote: `${introOffer.periodLabel} free, then ${trialProductPrice.amount}${trialProductPrice.period}. Cancel anytime in Settings.`,
   };
 };
 
@@ -337,9 +358,17 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
   const annualProduct = products?.find(
     product => product.sku === APPLE_SKU_ANNUAL,
   );
+  const trialProduct = products?.find(
+    product => product.sku === APPLE_SKU_ANNUAL_TRIAL,
+  );
 
   const monthly = toStorePrice(monthlyProduct, '/month', dbPrices.monthly);
   const annual = toStorePrice(annualProduct, '/year', dbPrices.annual);
+  // No DB fallback: the trial card's whole job is to state what the free days
+  // convert to, and without the store's price there is no figure to state.
+  const trialPrice = trialProduct
+    ? { currency: null, amount: trialProduct.displayPrice, period: '/year' }
+    : null;
 
   const monthlyAmount = monthlyProduct?.price ?? null;
   const annualAmount = annualProduct?.price ?? null;
@@ -357,9 +386,9 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
       ? readSavingsPercent(monthlyAmount, annualAmount)
       : null,
     trial: buildAppleTrialCard(
-      annualProduct,
+      trialProduct,
       !!input.appleCatalogue?.introOfferEligible,
-      annual,
+      trialPrice,
     ),
     // Apple's free days ride on the annual product itself, so what the trial
     // converts at IS the annual price — there is never a gap to strike.

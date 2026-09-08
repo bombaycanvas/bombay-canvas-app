@@ -15,7 +15,6 @@ import {
   isStaleSubscriptionStateError,
   invalidateEntitlementQueries,
   isTrialCode,
-  pickTrialPlan,
   type PlanCode,
 } from '../api/subscription';
 import { getPaymentRail } from '../services/paymentRail';
@@ -126,13 +125,18 @@ export default function SubscriptionScreen() {
       return;
     }
 
-    // Buy the SAME code the card rendered. There are two trial codes at two
-    // different post-trial prices and the paywall shows whichever pickTrialPlan
-    // chose; hardcoding 'TRIAL' here quotes ₹899 on screen and charges ₹499.
-    // On Apple the code is mapped back to the annual product either way.
+    // Buy the SAME code the card rendered — read off the card itself, not
+    // re-derived here. There are two Razorpay trial codes at two different
+    // post-trial prices, and on Apple the trial is a third code again
+    // (ANNUAL_POST_TRIAL, the ₹899 plan its free-days product bills against).
+    //
+    // Re-deriving this with pickTrialPlan used to work on Razorpay and silently
+    // failed on Apple, whose /plans payload carries no trial code at all: the
+    // lookup missed, planCode came back undefined, and the trial card answered a
+    // tap with "Plans are still loading" forever.
     const planCode: PlanCode | undefined =
       plan === 'trial'
-        ? pickTrialPlan(subscriptionPlans?.plans)?.code
+        ? offers.trial?.planCode
         : plan === 'annual'
         ? 'ANNUAL'
         : 'MONTHLY';

@@ -54,6 +54,17 @@ const TRIAL_NEW_CONVERSION_PAISE = 89900;
 const APPLE_CATALOGUE: AppleCatalogue = {
   introOfferEligible: true,
   products: [
+    // The free days ride their OWN product now, and it converts at 899 - not at
+    // the 499 annual sitting beside it.
+    {
+      sku: 'com.bombaycanvas.app1.premium.annual.trial',
+      displayPrice: '₹899.00',
+      title: '3-Day Free Trial',
+      description: '',
+      price: 899,
+      currency: 'INR',
+      introOffer: { periodLabel: '3 days', isFree: true, displayPrice: null },
+    },
     {
       sku: 'com.bombaycanvas.app1.premium.monthly',
       displayPrice: '₹99.00',
@@ -70,10 +81,23 @@ const APPLE_CATALOGUE: AppleCatalogue = {
       description: '',
       price: 499,
       currency: 'INR',
-      introOffer: { periodLabel: '3 days', isFree: true, displayPrice: null },
+      // No offer of its own. Apple scopes intro-offer eligibility to the GROUP,
+      // so a second offered product would mean whichever the user tapped first
+      // silently burned the other's trial.
+      introOffer: null,
     },
   ],
 };
+
+/** The catalogue with a change applied to the free-days product only. */
+const withTrialProduct = (
+  patch: Partial<AppleCatalogue['products'][number]>,
+): AppleCatalogue => ({
+  ...APPLE_CATALOGUE,
+  products: APPLE_CATALOGUE.products.map(product =>
+    product.sku.endsWith('.annual.trial') ? { ...product, ...patch } : product,
+  ),
+});
 
 // PAYMENT_RAIL is a module constant read from Platform.OS at import time, so the
 // rail can only be swapped by re-importing the module under a mocked platform.
@@ -356,27 +380,65 @@ describe('buildPaywallOffers on the Apple rail', () => {
       period: '/year',
     });
     expect(offers.trial).toEqual({
+      planCode: 'ANNUAL_POST_TRIAL',
       title: '3 Days Free',
       price: { currency: null, amount: '₹0', period: ' today' },
       buttonLabel: 'Start Free Trial →',
-      footnote: '3 days free, then ₹499.00/year. Cancel anytime in Settings.',
+      footnote: '3 days free, then ₹899.00/year. Cancel anytime in Settings.',
     });
+  });
+
+  // The mis-selling case, Apple's version of the TRIAL/TRIAL_NEW one. The free
+  // days convert at 899 on their own product while a 499 annual sits beside
+  // them; quoting the neighbour - which is what this did while the offer lived
+  // ON the annual product - shows 499 and charges 899.
+  it('quotes the trial product own conversion price, not the annual card', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: APPLE_CATALOGUE,
+    });
+
+    expect(offers.trial?.footnote).toContain('then ₹899.00/year');
+    expect(offers.trial?.footnote).not.toContain('₹499');
+    // The ANNUAL card beside it is still the real 499 plan.
+    expect(offers.annual.amount).toBe('₹499.00');
+  });
+
+  // The card names the code it buys. Re-deriving it with pickTrialPlan found no
+  // trial code in the Apple payload at all, which left the card unbuyable.
+  it('buys the plan its free-days product actually bills against', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: APPLE_CATALOGUE,
+    });
+
+    expect(offers.trial?.planCode).toBe('ANNUAL_POST_TRIAL');
+  });
+
+  // The store lists the annual product but not the free-days one - an older
+  // build, or a product not yet approved. There is no conversion price to state,
+  // so no card rather than one quoting the neighbour's 499.
+  it('drops the card when the free-days product is not in the catalogue', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: {
+        ...APPLE_CATALOGUE,
+        products: APPLE_CATALOGUE.products.filter(
+          product => !product.sku.endsWith('.annual.trial'),
+        ),
+      },
+    });
+
+    expect(offers.trial).toBeNull();
+    expect(offers.annual.amount).toBe('₹499.00');
   });
 
   it('names the card after the period Apple actually reports', () => {
     const offers = buildOffersOn('ios', {
       plans: PLANS,
-      appleCatalogue: {
-        ...APPLE_CATALOGUE,
-        products: APPLE_CATALOGUE.products.map(product =>
-          product.introOffer
-            ? {
-                ...product,
-                introOffer: { ...product.introOffer, periodLabel: '1 week' },
-              }
-            : product,
-        ),
-      },
+      appleCatalogue: withTrialProduct({
+        introOffer: { periodLabel: '1 week', isFree: true, displayPrice: null },
+      }),
     });
 
     expect(offers.trial?.title).toBe('1 Week Free');
@@ -395,17 +457,9 @@ describe('buildPaywallOffers on the Apple rail', () => {
   it('promises no trial when the offer is a discount rather than free days', () => {
     const offers = buildOffersOn('ios', {
       plans: PLANS,
-      appleCatalogue: {
-        ...APPLE_CATALOGUE,
-        products: APPLE_CATALOGUE.products.map(product =>
-          product.introOffer
-            ? {
-                ...product,
-                introOffer: { ...product.introOffer, isFree: false },
-              }
-            : product,
-        ),
-      },
+      appleCatalogue: withTrialProduct({
+        introOffer: { periodLabel: '3 days', isFree: false, displayPrice: null },
+      }),
     });
 
     expect(offers.trial).toBeNull();
@@ -414,13 +468,7 @@ describe('buildPaywallOffers on the Apple rail', () => {
   it('says "Free" rather than a wrong figure when the currency cannot be formatted', () => {
     const offers = buildOffersOn('ios', {
       plans: PLANS,
-      appleCatalogue: {
-        ...APPLE_CATALOGUE,
-        products: APPLE_CATALOGUE.products.map(product => ({
-          ...product,
-          currency: 'not-a-currency',
-        })),
-      },
+      appleCatalogue: withTrialProduct({ currency: 'not-a-currency' }),
     });
 
     expect(offers.trial?.price).toEqual({

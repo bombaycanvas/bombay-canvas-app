@@ -27,6 +27,12 @@ const PLAN_DESCRIPTIONS: Record<SubscriptionPlanCode, string> = {
   TRIAL_NEW: '3-Day Trial',
   ANNUAL: 'Annual',
   MONTHLY: 'Monthly',
+  // Unreachable on this rail: ANNUAL_POST_TRIAL is the plan iOS sells its free
+  // days against, and Razorpay neither offers it (getOfferedPlanCodes) nor
+  // accepts it at POST /create. Present because the map is exhaustive by design;
+  // "Annual" is the honest label if it ever does arrive, since that is the
+  // cadence being charged.
+  ANNUAL_POST_TRIAL: 'Annual',
 };
 
 // The SDK's option and response shapes are declared ambiently in

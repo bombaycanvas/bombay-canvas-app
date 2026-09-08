@@ -14,14 +14,25 @@ import type {
   SubscriptionPlanCode,
 } from '../paymentRail';
 
-// Apple has no analogue of the local TRIAL plan: the 3 free days are an
-// introductory offer attached to the annual product, so buying "the trial" on
-// iOS is buying ANNUAL and letting the App Store apply the offer. Mapping it to
-// a TRIAL SKU would ask for a product Apple never sold. The paywall only offers
-// the trial card when the store has confirmed both the offer and this Apple ID's
-// eligibility for it, so this mapping cannot quietly charge full price.
-const toApplePlanCode = (planCode: SubscriptionPlanCode): ApplePlanCode =>
-  planCode === 'MONTHLY' ? 'MONTHLY' : 'ANNUAL';
+// Apple still has no analogue of the local TRIAL / TRIAL_NEW codes: they are a
+// ₹1 mandate plus a `start_at`, and an App Store introductory offer is free or a
+// price tier, never ₹1. Asking StoreKit for a "TRIAL" product would ask for
+// something Apple never sold.
+//
+// Buying the free days on iOS means buying the product they ride on, which bills
+// ₹899 a year — ANNUAL_POST_TRIAL. A trial code arriving here is mapped there
+// rather than to the ₹499 ANNUAL: sending it to ANNUAL would quote ₹899 on the
+// card and charge ₹499, and would spend the Apple ID's group-scoped offer
+// eligibility on the wrong product.
+//
+// The paywall only shows the trial card once the store has confirmed both the
+// offer and this Apple ID's eligibility for it, so this mapping cannot quietly
+// charge full price.
+const toApplePlanCode = (planCode: SubscriptionPlanCode): ApplePlanCode => {
+  if (planCode === 'MONTHLY') return 'MONTHLY';
+  if (planCode === 'ANNUAL') return 'ANNUAL';
+  return 'ANNUAL_POST_TRIAL';
+};
 
 const startPurchase = async ({
   planCode,

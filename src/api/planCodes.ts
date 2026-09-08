@@ -11,7 +11,16 @@
 // either; prefer this module from anything that must stay side-effect free.
 // ===========================================================================
 
-export type PlanCode = 'MONTHLY' | 'ANNUAL' | 'TRIAL' | 'TRIAL_NEW';
+// ANNUAL_POST_TRIAL is the ₹899 yearly plan. On Razorpay it is internal — it
+// only owns the Plan row TRIAL_NEW bills against — but on iOS it is the plan
+// behind the App Store's free-days product, and so a code the client both
+// receives from /plans and sends back when buying.
+export type PlanCode =
+  | 'MONTHLY'
+  | 'ANNUAL'
+  | 'ANNUAL_POST_TRIAL'
+  | 'TRIAL'
+  | 'TRIAL_NEW';
 
 /** Trial codes in ascending preference order — later entries win. */
 export const TRIAL_CODES: PlanCode[] = ['TRIAL', 'TRIAL_NEW'];
