@@ -47,7 +47,7 @@ import { Movie } from '../../types/movie';
 import { getRailForSubscription } from '../../services/paymentRail';
 import SubscriptionActivatingOverlay from './SubscriptionActivatingOverlay';
 import type { PurchasePhase } from './SubscriptionActivatingOverlay';
-import { track } from '../../utils/analytics';
+import { capture, ProductEvent, track } from '../../utils/analytics';
 import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
 import {
   CancelReasonOption,
@@ -793,6 +793,39 @@ export default function CancelSubscriptionFlow({
     subscription.status,
   );
 
+  /**
+   * The subscription context carried by EVERY event in this flow.
+   *
+   * One object rather than per-event property lists, because the cancel funnel
+   * is only readable if each step can be broken down the same way: a
+   * `cancel_flow_opened` that knows the rail and an `cancel_flow_completed`
+   * that does not cannot be compared, and the drop-off between them is the
+   * whole point of the funnel.
+   *
+   * `rail` matters most. Razorpay cancels immediately and server-side while
+   * Apple can only open the system sheet, so the two rails have genuinely
+   * different funnels and averaging them together hides both.
+   *
+   * Memoised: it is a dependency of most callbacks below, so a fresh object per
+   * render would defeat their memoisation.
+   */
+  const cancelContext = useMemo(
+    () => ({
+      plan_code: subscription.planCode,
+      rail: getRailForSubscription(subscription.provider).rail,
+      status: subscription.status,
+      is_trial: isInTrial,
+      cancel_at_period_end: subscription.cancelAtPeriodEnd,
+    }),
+    [
+      subscription.planCode,
+      subscription.provider,
+      subscription.status,
+      subscription.cancelAtPeriodEnd,
+      isInTrial,
+    ],
+  );
+
   const reasons = useMemo(
     () => getCancelReasons(subscription.planCode, isInTrial),
     [subscription.planCode, isInTrial],
@@ -915,8 +948,8 @@ export default function CancelSubscriptionFlow({
     setOpeningStoreSettings(false);
     setRefusedAsAppleManaged(false);
     terminalFiredRef.current = false;
-    track('CancelFlow_Opened', { plan_code: subscription.planCode });
-  }, [visible, subscription.planCode]);
+    track('CancelFlow_Opened', { ...cancelContext });
+  }, [visible, cancelContext]);
 
   // Slide the sheet in on open and out on close — `mounted` keeps the Modal alive through the exit.
   // Only visibility flips animate, so a rotation (which changes sheetHeight) doesn't replay the entrance.
@@ -962,7 +995,7 @@ export default function CancelSubscriptionFlow({
   const fireTerminalEvent = useCallback(
     (
       name: string,
-      params: Record<string, string | number | undefined>,
+      params: Record<string, string | number | boolean | undefined>,
       eventId?: string,
     ) => {
       if (terminalFiredRef.current) return;
@@ -987,18 +1020,25 @@ export default function CancelSubscriptionFlow({
   const fireSavedOrAbandoned = useCallback(() => {
     if (reason) {
       fireTerminalEvent('CancelFlow_Saved', {
+        ...cancelContext,
         reason_code: reason,
         saved_at_step: currentStep,
       });
     } else {
-      fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: currentStep });
+      fireTerminalEvent('CancelFlow_Abandoned', {
+        ...cancelContext,
+        saved_at_step: currentStep,
+      });
     }
-  }, [currentStep, fireTerminalEvent, reason]);
+  }, [cancelContext, currentStep, fireTerminalEvent, reason]);
 
   const handleDismiss = useCallback(() => {
-    fireTerminalEvent('CancelFlow_Abandoned', { saved_at_step: currentStep });
+    fireTerminalEvent('CancelFlow_Abandoned', {
+      ...cancelContext,
+      saved_at_step: currentStep,
+    });
     slideOut(onClose);
-  }, [currentStep, fireTerminalEvent, onClose, slideOut]);
+  }, [cancelContext, currentStep, fireTerminalEvent, onClose, slideOut]);
 
   const handleSaved = useCallback(() => {
     fireSavedOrAbandoned();
@@ -1008,11 +1048,11 @@ export default function CancelSubscriptionFlow({
   const handleContinueFromReason = useCallback(() => {
     if (!canContinue || !reason) return;
     track('CancelFlow_ReasonSelected', {
+      ...cancelContext,
       reason_code: reason,
-      plan_code: subscription.planCode,
     });
     goToStep('save');
-  }, [canContinue, goToStep, reason, subscription.planCode]);
+  }, [canContinue, cancelContext, goToStep, reason]);
 
   const handleKeepWatching = useCallback(() => {
     fireSavedOrAbandoned();
@@ -1033,10 +1073,13 @@ export default function CancelSubscriptionFlow({
   const handleAdvance = useCallback(() => {
     const next = Math.min(stepIndex + 1, steps.length - 1);
     if (steps[next] === 'confirm') {
-      track('CancelFlow_ReachedConfirm', { reason_code: reason ?? undefined });
+      track('CancelFlow_ReachedConfirm', {
+        ...cancelContext,
+        reason_code: reason ?? undefined,
+      });
     }
     setStepIndex(next);
-  }, [reason, stepIndex, steps]);
+  }, [cancelContext, reason, stepIndex, steps]);
 
   /**
    * Take the downsell: cancel the trial, then buy the cheaper plan.
@@ -1065,8 +1108,10 @@ export default function CancelSubscriptionFlow({
         });
 
         track('CancelFlow_DownsellAccepted', {
+          ...cancelContext,
           from_plan: subscription.planCode,
           to_plan: plan.code,
+          to_plan_price_inr: plan.price / 100,
         });
 
         // The cancel is done and the sheet has nothing left to say: everything
@@ -1098,12 +1143,22 @@ export default function CancelSubscriptionFlow({
           fireTerminalEvent(
             'CancelFlow_Completed',
             {
+              ...cancelContext,
               reason_code: reason ?? undefined,
-              plan_code: subscription.planCode,
-              downsell_abandoned: 'true',
+              // A real boolean now that track() carries them; Meta still
+              // receives the string 'true' it always did.
+              downsell_abandoned: true,
             },
             subscription.id,
           );
+          // The cancel above already succeeded; only the replacement purchase
+          // was abandoned. Still a real cancellation, flagged so the two stay
+          // separable.
+          capture(ProductEvent.SubscriptionCancelled, {
+            ...cancelContext,
+            reason_code: String(reason ?? 'none'),
+            downsell_abandoned: true,
+          });
 
           Toast.show({
             type: 'info',
@@ -1117,6 +1172,7 @@ export default function CancelSubscriptionFlow({
         fireTerminalEvent(
           'CancelFlow_Saved',
           {
+            ...cancelContext,
             reason_code: reason ?? undefined,
             saved_at_step: 'downsell',
             to_plan: plan.code,
@@ -1156,6 +1212,7 @@ export default function CancelSubscriptionFlow({
       }
     },
     [
+      cancelContext,
       cancelSubscriptionAsync,
       chargeDate,
       fireTerminalEvent,
@@ -1177,10 +1234,10 @@ export default function CancelSubscriptionFlow({
   const fireDeferredToStore = useCallback(() => {
     fireTerminalEvent(
       'CancelFlow_DeferredToStore',
-      { reason_code: reason ?? undefined, plan_code: subscription.planCode },
+      { ...cancelContext, reason_code: reason ?? undefined },
       subscription.id,
     );
-  }, [fireTerminalEvent, reason, subscription.id, subscription.planCode]);
+  }, [cancelContext, fireTerminalEvent, reason, subscription.id]);
 
   const handleManageWithApple = useCallback(async () => {
     setErrorMessage(null);
@@ -1235,11 +1292,20 @@ export default function CancelSubscriptionFlow({
           fireTerminalEvent(
             'CancelFlow_Completed',
             {
+              ...cancelContext,
               reason_code: reason ?? undefined,
-              plan_code: subscription.planCode,
             },
             subscription.id,
           );
+          // The server confirmed it. Unlike CancelFlow_Completed (a funnel step)
+          // this is the churn fact itself, so it is fired ONLY where a
+          // cancellation actually happened — never on the Apple deferred
+          // branch, where only Apple's notification can say if one ever does.
+          capture(ProductEvent.SubscriptionCancelled, {
+            ...cancelContext,
+            reason_code: String(reason ?? 'none'),
+            downsell_abandoned: false,
+          });
           onClose();
         },
         onError: (error: unknown) => {
@@ -1260,6 +1326,7 @@ export default function CancelSubscriptionFlow({
       },
     );
   }, [
+    cancelContext,
     cancelSubscription,
     fireTerminalEvent,
     handleManageWithApple,
@@ -1267,7 +1334,6 @@ export default function CancelSubscriptionFlow({
     otherText,
     reason,
     subscription.id,
-    subscription.planCode,
   ]);
 
   const handleBack = useCallback(

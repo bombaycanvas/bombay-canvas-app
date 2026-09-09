@@ -179,7 +179,15 @@ export default function SubscriptionScreen() {
 
     // They opened checkout. No dedup key — the backend never reports this one,
     // so there's nothing to merge with.
+    // See useSubscriptionCheckout: plan_code + rail on every money event.
+    const money = {
+      plan_code: String(planCode ?? 'unknown'),
+      rail: getPaymentRail().rail,
+      is_trial: isTrialStart,
+    };
+
     track('InitiateCheckout', {
+      ...money,
       value: conversionValue,
       currency: conversion.currency,
     });
@@ -218,14 +226,14 @@ export default function SubscriptionScreen() {
           // leads into; reporting either would make Meta optimise for a
           // conversion worth a small multiple of nothing. The real price goes in
           // predicted_ltv, which the backend sends.
-          track('StartTrial', undefined, outcome.dedupKey);
+          track('StartTrial', money, outcome.dedupKey);
         } else {
           // Dedup key must never be undefined — that would stop this event
           // merging with the backend's and double-count the conversion. The rail
           // picks the id the backend will report the same conversion under.
           track(
             'Subscribe',
-            { value: conversionValue, currency: conversion.currency },
+            { ...money, value: conversionValue, currency: conversion.currency },
             outcome.dedupKey,
           );
         }

@@ -41,6 +41,7 @@ import { useForm, Controller } from 'react-hook-form';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import handleOpenURL from '../services/handleOpenUrl';
+import { usePostHog } from 'posthog-react-native';
 
 const { height } = Dimensions.get('window');
 
@@ -88,6 +89,8 @@ const StartLoginScreen = () => {
   const { mutate: loginMutate } = useLogin(redirect);
   const { mutate: signupMutate } = useRequest(redirect);
 
+  const posthog = usePostHog()
+
   const {
     control,
     handleSubmit,
@@ -103,7 +106,9 @@ const StartLoginScreen = () => {
   };
 
   const onEmailSubmit = (data: any) => {
+
     if (isSignup) {
+        posthog.capture('signup', { method: 'email' });
       signupMutate(data);
     } else {
       loginMutate(data);

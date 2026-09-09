@@ -71,7 +71,23 @@ export const useSubscriptionCheckout = () => {
         ? plan.price / 100
         : undefined;
 
-      track('InitiateCheckout', { value: planValue, currency: 'INR' });
+      // plan_code and rail ride on every money event: "which plan" and "which
+      // store" are the two breakdowns every revenue question starts from, and
+      // neither is recoverable after the fact from the value alone.
+      const money = {
+        plan_code: planCode,
+        rail: getPaymentRail().rail,
+        is_trial: isTrialCode(planCode),
+        // The real price even on a trial, where `value` is deliberately absent
+        // because the mandate authorisation is not what the plan is worth.
+        plan_price_inr: plan ? plan.price / 100 : 0,
+      };
+
+      track('InitiateCheckout', {
+        ...money,
+        value: planValue,
+        currency: 'INR',
+      });
 
       onPhase?.('checkout');
       const outcome = await getPaymentRail().startPurchase({
@@ -96,14 +112,14 @@ export const useSubscriptionCheckout = () => {
       // conversion we cannot stand behind is worse than a missing one.
       if (outcome.status === 'paid') {
         if (isTrialCode(planCode)) {
-          track('StartTrial', undefined, outcome.dedupKey);
+          track('StartTrial', money, outcome.dedupKey);
         } else {
           // The dedup key must never be undefined or this double-counts against
           // the backend's own event; the rail picks the id the backend reports
           // the same conversion under.
           track(
             'Subscribe',
-            { value: planValue, currency: 'INR' },
+            { ...money, value: planValue, currency: 'INR' },
             outcome.dedupKey,
           );
         }

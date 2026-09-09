@@ -3,6 +3,30 @@ import { api } from "../utils/api";
 import { useAuthStore } from "../store/authStore";
 import { useNavigation } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
+import {
+  authFailureReason,
+  capture,
+  identifyUser,
+  ProductEvent,
+  type AuthMethod,
+  type AuthStage,
+} from "../utils/analytics";
+
+/**
+ * One shape for every auth failure, so the four methods stay comparable in a
+ * single funnel instead of each inventing its own property names.
+ */
+const captureAuthFailure = (
+  method: AuthMethod,
+  stage: AuthStage,
+  error: unknown,
+) => {
+  capture(ProductEvent.AuthFailed, {
+    method,
+    stage,
+    reason: authFailureReason(error),
+  });
+};
 
 export const completeProfileRequest = async (data: any) => {
   try {
@@ -138,7 +162,19 @@ export const useVerifyOtpMutation = (redirect?: {
     onSuccess: async (data) => {
       if (data?.token && data?.user) {
         await useAuthStore.getState().saveToken(data.token);
+        // setUser identifies the PostHog person, so it must land BEFORE the
+        // event or `signed_in` is attributed to the anonymous id instead.
         await useAuthStore.getState().setUser(data.user);
+
+        // `needs_profile` mirrors the app's own routing test below rather than
+        // claiming to mean "new account": the phone endpoint upserts, so a fresh
+        // account is genuinely not observable here (see AuthMethod).
+        capture(ProductEvent.SignedIn, {
+          method: "phone_otp",
+          needs_profile: data?.user?.name === "User",
+          role: String(data?.user?.role ?? "USER"),
+        });
+
         if (data?.user?.name === "User") {
           (navigation as any).reset({
             index: 0,
@@ -163,6 +199,7 @@ export const useVerifyOtpMutation = (redirect?: {
       }
     },
     onError: (error: any) => {
+      captureAuthFailure("phone_otp", "otp_verify", error);
       Toast.show({
         type: "error",
         text1: "OTP verification Failed",
@@ -180,6 +217,11 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
     },
     onSuccess: (data) => {
       if (data?.success) {
+        // First half of the phone funnel. The drop-off between this and
+        // `signed_in{method:phone_otp}` is the OTP delivery/entry failure rate,
+        // which is invisible from either event on its own.
+        capture(ProductEvent.OtpRequested, { method: "phone_otp" });
+
         if (onSuccessCallback) {
           onSuccessCallback(data);
         }
@@ -192,6 +234,7 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
       }
     },
     onError: (error: any) => {
+      captureAuthFailure("phone_otp", "otp_request", error);
       Toast.show({
         type: "error",
         text1: "OTP Failed",
@@ -212,6 +255,25 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
     onSuccess: async (data) => {
       if (data.token) {
         await useAuthStore.getState().saveToken(data.token);
+
+        // This handler does NOT call setUser (unlike every other auth path), so
+        // without this nothing would ever identify a brand-new account — the
+        // single most important cohort in the product. Identifying directly
+        // fixes that without changing what the auth store holds.
+        if (data?.user?.id) {
+          identifyUser(String(data.user.id), {
+            email: data.user.email ?? null,
+            name: data.user.name ?? null,
+          });
+        }
+
+        // The ONLY unambiguous registration in the app: /api/auth/signup creates
+        // accounts and nothing else.
+        capture(ProductEvent.SignedUp, {
+          method: "email",
+          role: String(data?.user?.role ?? "USER"),
+        });
+
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
@@ -223,6 +285,7 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
       }
     },
     onError: (error) => {
+      captureAuthFailure("email", "signup", error);
       Toast.show({
         type: "error",
         text1: "Signup Failed",
@@ -262,6 +325,11 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        capture(ProductEvent.SignedIn, {
+          method: "email",
+          role: String(data?.user?.role ?? "USER"),
+        });
+
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
@@ -273,6 +341,7 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
       }
     },
     onError: (error: any) => {
+      captureAuthFailure("email", "login", error);
       Toast.show({
         type: "error",
         text1: "Login Failed",
@@ -302,6 +371,11 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        capture(ProductEvent.SignedIn, {
+          method: "google",
+          role: String(data?.user?.role ?? "USER"),
+        });
+
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
@@ -313,6 +387,7 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
       }
     },
     onError: (error: any) => {
+      captureAuthFailure("google", "login", error);
       console.log("Login Failed", error.message);
       Toast.show({
         type: "error",
@@ -377,6 +452,13 @@ export const useDeleteUserAccount = () => {
   return useMutation({
     mutationFn: deleteAccount,
     onSuccess: async () => {
+      // BEFORE logout, which calls resetAnalytics(): once the person is unbound
+      // this event would land on a fresh anonymous id and never attach to the
+      // account that was actually deleted — making it useless for churn.
+      capture(ProductEvent.AccountDeleted, {
+        role: String(useAuthStore.getState().user?.role ?? "USER"),
+      });
+
       await useAuthStore.getState().logout();
       (navigation as any).reset({
         index: 0,
@@ -414,6 +496,11 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        capture(ProductEvent.SignedIn, {
+          method: "apple",
+          role: String(data?.user?.role ?? "USER"),
+        });
+
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
         } else {
@@ -425,6 +512,7 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
       }
     },
     onError: (error: any) => {
+      captureAuthFailure("apple", "login", error);
       Toast.show({
         type: "error",
         text1: "Apple login failed",

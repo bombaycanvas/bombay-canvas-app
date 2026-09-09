@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -78,9 +78,37 @@ const SeriesDetailScreen: React.FC = () => {
 
   const openPaywall = useOpenPaywall();
 
+  // Last series reported, so one visit reports one view.
+  //
+  // `series` is a NEW OBJECT far more often than it is a new series: the player
+  // rewrites this very query through queryClient.setQueryData every 5-15s while
+  // reporting progress, and this screen stays mounted underneath it. Depending on
+  // the object would therefore re-fire ViewContent throughout playback; depending
+  // only on `series?.id` would be a lie to the linter about what the effect reads.
+  // The id guard is honest about both.
+  const reportedSeriesRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (series?.id) track('ViewContent');
-  }, [series?.id]);
+    if (!series?.id) return;
+
+    const seriesId = String(series.id);
+    if (reportedSeriesRef.current === seriesId) return;
+    reportedSeriesRef.current = seriesId;
+
+    track('ViewContent', {
+      series_id: seriesId,
+      series_title: String(series.title ?? ''),
+      genre: String(series.genres?.[0]?.name ?? 'unknown'),
+      episode_count: Number(series.episodes?.length ?? 0),
+      // Creator attribution: "which creators drive views" is unanswerable after
+      // the fact, and this is the only screen that has the uploader in hand.
+      creator_id: String(series.uploader?.id ?? ''),
+      release_year: Number(
+        new Date(series.releaseDate).getFullYear() || 0,
+      ),
+      is_paid_series: Boolean(series.isPaidSeries),
+    });
+  }, [series]);
 
   const averageRating = (() => {
     if (series?.averageRating !== undefined && series?.averageRating !== null) {
