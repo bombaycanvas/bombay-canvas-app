@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRefetchOnForeground } from './useRefetchOnForeground';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_WINDOW_MS = 30000;
+
+/** What the card should be saying while we wait on the server. */
+export type CancelWatchPhase = 'idle' | 'watching' | 'timedOut';
 
 interface AppleCancelWatchOptions {
   /** True once the server has recorded the cancellation. Ends the watch. */
@@ -15,71 +17,77 @@ interface AppleCancelWatchOptions {
  * Bridges the gap between "the user switched renewal off in Apple's sheet" and
  * "our server knows about it".
  *
- * Apple tells the app nothing about what happened inside that sheet. The only
- * signal is the DID_CHANGE_RENEWAL_STATUS notification Apple posts to the
- * backend, which arrives seconds to minutes later — so a single refetch when
- * the sheet closes is a race the app loses, reading the old row and redrawing
- * "Active" as if nothing happened.
+ * Apple's only report to the backend is the DID_CHANGE_RENEWAL_STATUS
+ * notification, which arrives seconds to minutes after the sheet closes — so a
+ * single refetch on dismissal is a race the app loses, reading the old row and
+ * redrawing "Active" as if nothing happened.
  *
- * Polling starts when the app returns to the FRONT rather than when the sheet
- * opens: iOS suspends JS timers in the background, so a timer armed before the
- * sheet would not have been ticking anyway.
+ * The watch therefore starts on `arm()`, which the caller fires the moment the
+ * sheet resolves. It deliberately does NOT wait for the app to return to the
+ * foreground: showManageSubscriptions presents INSIDE the app, so the
+ * background -> active transition never happens and a foreground-gated watch
+ * would never run at all.
  */
 export const useAppleCancelWatch = ({
   settled,
   refetch,
 }: AppleCancelWatchOptions) => {
-  const [isWatching, setIsWatching] = useState(false);
+  const [phase, setPhase] = useState<CancelWatchPhase>('idle');
+  // What StoreKit itself said when the sheet closed. Drives copy only: it tells
+  // the user whether Apple has already accepted the cancellation, which is a
+  // different statement from "your account is updated".
+  const [confirmedByStore, setConfirmedByStore] = useState(false);
+  const [watchUntil, setWatchUntil] = useState<number | null>(null);
 
-  // Refs, not state: neither value should re-render anything on its own, and
-  // arming must not restart a window that is already running.
-  const pending = useRef(false);
+  // A ref so a fresh inline `refetch` on every render does not restart the
+  // window that is already running.
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
 
-  /** Call once the App Store sheet has actually been opened. */
-  const arm = useCallback(() => {
-    pending.current = true;
+  /**
+   * Call when the App Store sheet has CLOSED.
+   *
+   * Polls regardless of `renewalTurnedOff`: the flag is StoreKit's read of local
+   * renewal info and is only ever used for wording, so treating a `false` as
+   * "nothing to wait for" would put the old silent-failure back if that read is
+   * ever wrong.
+   */
+  const arm = useCallback((renewalTurnedOff: boolean) => {
+    console.log('[iap] Cancel watch armed', { renewalTurnedOff });
+    setConfirmedByStore(renewalTurnedOff);
+    setPhase('watching');
+    setWatchUntil(Date.now() + POLL_WINDOW_MS);
   }, []);
-
-  useRefetchOnForeground(
-    useCallback(() => {
-      if (!pending.current) return;
-      // Consumed on the first return, so a user who never touched anything in
-      // the sheet does not re-poll on every foreground for the rest of the
-      // session.
-      pending.current = false;
-      setIsWatching(true);
-    }, []),
-  );
 
   // The notification landed. Stop early rather than run the window out.
   useEffect(() => {
     if (!settled) return;
-    pending.current = false;
-    setIsWatching(false);
+    setPhase('idle');
+    setWatchUntil(null);
   }, [settled]);
 
   useEffect(() => {
-    if (!isWatching) return;
+    if (watchUntil === null) return;
 
-    const stopAt = Date.now() + POLL_WINDOW_MS;
     refetchRef.current();
 
     const timer = setInterval(() => {
-      if (Date.now() >= stopAt) {
+      if (Date.now() >= watchUntil) {
         // Apple can take longer than this. Giving up on the spinner is not
         // giving up on the answer: the next screen focus or foreground refetch
-        // still picks it up, and the card is correct the moment it does.
+        // still picks it up, and the card is correct the moment it does. The
+        // user is told that rather than left with a control that silently
+        // stopped moving.
         console.log('[iap] Cancel watch timed out without a verdict');
-        setIsWatching(false);
+        setPhase('timedOut');
+        setWatchUntil(null);
         return;
       }
       refetchRef.current();
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [isWatching]);
+  }, [watchUntil]);
 
-  return { isWatching, arm };
+  return { phase, confirmedByStore, arm };
 };

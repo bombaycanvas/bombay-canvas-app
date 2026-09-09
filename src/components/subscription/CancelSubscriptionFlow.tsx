@@ -134,11 +134,14 @@ interface CancelSubscriptionFlowProps {
   onClose: () => void;
   subscription: Subscription;
   /**
-   * Fired only when the App Store subscription sheet was actually opened. Apple
-   * never reports back what the user did in there, so this is the caller's cue
-   * to start watching for the notification that eventually tells the server.
+   * Fired when the App Store subscription sheet CLOSES, which is the only moment
+   * this flow hears anything back — the sheet is presented inside the app, so
+   * there is no foreground event to wait on. `renewalTurnedOff` is StoreKit's
+   * local read of whether the user actually switched renewal off; the server
+   * still has to hear it from Apple, so the caller uses this to start watching
+   * and to word the wait, not to declare the subscription cancelled.
    */
-  onDeferredToStore?: () => void;
+  onDeferredToStore?: (renewalTurnedOff: boolean) => void;
   /**
    * Fired once a downsell has been paid for. The subscription the caller handed
    * us no longer exists in the form it was rendered from — it was cancelled and
@@ -1183,16 +1186,18 @@ export default function CancelSubscriptionFlow({
     setErrorMessage(null);
     setOpeningStoreSettings(true);
     try {
-      await APPLE_MANAGED_RAIL.cancel({
+      const outcome = await APPLE_MANAGED_RAIL.cancel({
         subscriptionId: subscription.id,
         reason: reason ?? undefined,
         reasonText: reason === 'OTHER' ? otherText.trim() : undefined,
       });
       fireDeferredToStore();
-      // Only on the branch where the sheet actually opened. The caller uses this
-      // to start watching for Apple's notification, and arming it anywhere else
-      // would leave the screen waiting on a verdict that is never coming.
-      onDeferredToStore?.();
+      // Only on the branch where the sheet actually opened, and only once it has
+      // closed again — arming it anywhere else would leave the screen waiting on
+      // a verdict that is never coming.
+      onDeferredToStore?.(
+        outcome.status === 'deferredToStore' && outcome.renewalTurnedOff,
+      );
       onClose();
     } catch (error) {
       console.warn(

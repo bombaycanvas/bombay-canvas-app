@@ -38,13 +38,14 @@
           "groupNumber": 1,
           "internalID": "B7C8D9E0",
           "introductoryOffer": {
+            "displayPrice": "29.00",
             "internalID": "F1A2B3C4",
-            "paymentMode": "free",
-            "subscriptionPeriod": "P3D"
+            "paymentMode": "payUpFront",
+            "subscriptionPeriod": "P1M"
           },
           "localizations": [
             {
-              "description": "Free for 3 days, then billed yearly.",
+              "description": "1 month for 29, then billed yearly.",
               "displayName": "Canvas Premium Annual (Trial)",
               "locale": "en_US"
             }
