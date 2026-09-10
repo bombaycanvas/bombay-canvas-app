@@ -71,12 +71,28 @@ export const posthog = new PostHog(apiKey, {
   // 100%) rather than by lowering the throttle below.
   enableSessionReplay: true,
   sessionReplayConfig: {
-    // All three default to true. They are restated explicitly because they are
-    // the privacy contract, and a future edit that flips one should have to do
-    // it deliberately rather than by deleting a line.
-    maskAllTextInputs: false, // email, password, OTP, card fields
-    maskAllImages: false, // includes user avatars, not just catalogue art
-    maskAllSandboxedViews: false, // iOS photo/contact pickers
+    // TARGETED MASKING, not blanket masking.
+    //
+    // These two default to TRUE and are deliberately off. Masking everything
+    // produced a replay of grey rectangles that was impossible to read AND
+    // impossible to verify — you could not tell a working mask from a broken
+    // one, which is worse than either. Off here, the replay is legible and any
+    // mask that IS applied is visibly obvious.
+    //
+    // What protects the sensitive fields instead is <PostHogMaskView>, wrapped
+    // around each one individually. Every credential input in the app is listed
+    // in `docs/posthog-events-explained.md` under "Session replay". ANY NEW
+    // INPUT THAT TAKES A CREDENTIAL, PHONE NUMBER OR PAYMENT DETAIL MUST BE
+    // WRAPPED — with the global masks off, nothing else will catch it.
+    maskAllTextInputs: false,
+    maskAllImages: false,
+
+    // LEFT ON. This is not a text mask and has nothing to do with reading the
+    // replay: it hides iOS system pickers (photo library, contacts). Turning it
+    // off would put the user's own photo library into recordings, which is
+    // never what we want and is not something targeted masking can cover — the
+    // views belong to the OS, not to us.
+    maskAllSandboxedViews: true,
 
     // OFF, unlike the default. Replay would otherwise ship every console line
     // to PostHog, and this app logs raw error payloads — `VideoPlayer`'s

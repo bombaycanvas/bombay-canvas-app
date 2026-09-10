@@ -25,6 +25,7 @@ import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import PhoneInput from 'react-native-international-phone-number';
+import { PostHogMaskView } from 'posthog-react-native';
 import {
   useAppleLogin,
   useGoogleLogin,
@@ -308,7 +309,9 @@ const StartLoginScreen = () => {
         },
       ]}
     >
-      <View style={styles.phoneInputPill}>
+      {/* Session replay: a phone number is the account identifier on this
+          rail, so it is masked like any other credential. */}
+      <PostHogMaskView style={styles.phoneInputPill}>
         <PhoneInput
           value={phoneValue}
           onChangePhoneNumber={handlePhoneInputChange}
@@ -351,7 +354,7 @@ const StartLoginScreen = () => {
             <Ionicons name="chevron-forward" size={24} color="#fff" />
           )}
         </TouchableOpacity>
-      </View>
+      </PostHogMaskView>
 
       <TouchableOpacity
         activeOpacity={0.8}
@@ -462,7 +465,12 @@ const StartLoginScreen = () => {
           pointerEvents="none"
         />
         <View style={styles.otpPillWrapper}>
-          <View style={styles.otpCirclesWrapper}>
+          {/* Session replay: THIS is the OTP, not the <TextInput> above.
+              That input is positioned offscreen at opacity 0 and holds no
+              visible characters; the digits the recorder actually sees are the
+              <Text> nodes below. Masking the input would look correct and
+              protect nothing. */}
+          <PostHogMaskView style={styles.otpCirclesWrapper}>
             {[0, 1, 2, 3].map((_, index) => {
               const isActive = index === activeIndex;
 
@@ -486,7 +494,7 @@ const StartLoginScreen = () => {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </PostHogMaskView>
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -602,15 +610,18 @@ const StartLoginScreen = () => {
               }}
               render={({ field: { onChange, value } }) => (
                 <>
-                  <TextInput
-                    style={styles.emailInput}
-                    placeholder="Email"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    value={value}
-                    onChangeText={onChange}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
+                  {/* Session replay: masked. */}
+                  <PostHogMaskView>
+                    <TextInput
+                      style={styles.emailInput}
+                      placeholder="Email"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={value}
+                      onChangeText={onChange}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </PostHogMaskView>
                   {errors.email?.message && (
                     <Text style={styles.errorText}>
                       {errors.email.message as string}
@@ -631,7 +642,9 @@ const StartLoginScreen = () => {
                 },
               }}
               render={({ field: { onChange, value } }) => (
-                <View style={styles.passwordContainer}>
+                /* Session replay: the existing container becomes the
+                   mask, so the layout is untouched. */
+                <PostHogMaskView style={styles.passwordContainer}>
                   <TextInput
                     style={styles.emailInput}
                     placeholder="Password"
@@ -647,7 +660,7 @@ const StartLoginScreen = () => {
                   >
                     {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
                   </TouchableOpacity>
-                </View>
+                </PostHogMaskView>
               )}
             />
             {errors.password && (

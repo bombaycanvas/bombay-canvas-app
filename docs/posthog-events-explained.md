@@ -255,18 +255,45 @@ npx react-native run-ios
 
 ### What is masked
 
-| Setting | Value | Covers |
+Masking is **targeted, not blanket.** The global text and image masks are OFF; each sensitive field is masked individually with `<PostHogMaskView>`.
+
+| Setting | Value | Why |
 | --- | --- | --- |
-| `maskAllTextInputs` | `true` | email, password, OTP, card fields |
-| `maskAllImages` | `true` | user avatars — and catalogue art too |
-| `maskAllSandboxedViews` | `true` | iOS photo / contact pickers |
+| `maskAllTextInputs` | `false` | see below |
+| `maskAllImages` | `false` | see below |
+| `maskAllSandboxedViews` | **`true`** | iOS photo / contact pickers — OS views we cannot wrap |
 | `captureLog` | **`false`** | see below |
 
-All three masks default to `true` and are restated explicitly in code: they are the privacy contract, and flipping one should take a deliberate edit rather than deleting a line.
+> **Why not just mask everything?** We tried. With text and images both masked the replay was a grid of grey rectangles — unreadable, and worse, *unverifiable*: you could not tell a working mask from a broken one. Targeted masking is legible, and any mask that is applied is visibly obvious, so it can actually be checked.
+>
+> **The trade-off is that nothing is masked by default.** With the global switches off, a new input is recorded in full unless someone remembers to wrap it. That is the cost of a readable replay, and it is why the list below has to be kept current.
 
-> **`captureLog` is off, unlike the SDK default.** Replay would otherwise ship every console line to PostHog, and this app logs raw error payloads — `VideoPlayer`'s `console.log('Video Error:', e)` can carry a **signed playback URL**. That is a content leak, not just noise. Only turn this on after auditing what the app logs.
+> **`maskAllSandboxedViews` stays ON.** It is not a text mask and has nothing to do with reading the replay: it hides iOS system pickers. Off, a user's own photo library would appear in recordings — and targeted masking cannot cover it, because those views belong to the OS, not to us.
 
-> **`maskAllImages: true` masks posters as well as avatars.** With text and images both masked, a replay is closer to a wireframe than a video of the screen — it shows navigation, taps and timing rather than exact content. That is the safe default; loosening it is a privacy decision, not a config tweak.
+> **`captureLog` is off, unlike the SDK default.** Replay would otherwise ship every console line to PostHog, and this app logs raw payloads: `VideoPlayer`'s `console.log('Video Error:', e)` can carry a **signed playback URL**, and `StartLoginScreen` logs the OTP itself (`console.log('OTP:', cleaned)`). That is a content and credential leak, not just noise. Only turn this on after auditing what the app logs — and the OTP log is worth deleting regardless, since it also lands in device logs.
+
+### Fields currently masked
+
+**Any new input taking a credential, phone number, or payment detail must be added here and wrapped.** With the global masks off, nothing else will catch it.
+
+| Screen | Field | How |
+| --- | --- | --- |
+| `LoginScreen` | Email | wrapper added |
+| `LoginScreen` | Password | existing `passwordWrapper` swapped for the mask |
+| `StartLoginScreen` | Phone number | existing `phoneInputPill` swapped |
+| `StartLoginScreen` | OTP digits | existing `otpCirclesWrapper` swapped |
+| `StartLoginScreen` | Email | wrapper added |
+| `StartLoginScreen` | Password | existing `passwordContainer` swapped |
+
+Where a wrapper `View` already existed it was swapped for `PostHogMaskView` rather than nested inside one, so the layout is untouched.
+
+> **The OTP mask is on the digits, not the input.** `StartLoginScreen`'s OTP `<TextInput>` is positioned offscreen at `opacity: 0` and shows no characters; the digits the recorder sees are the `<Text>` nodes in `otpCirclesWrapper`. Masking the input would look correct in a diff and protect nothing.
+
+> **`secureTextEntry` is not masking.** It hides characters on screen, but replay captures the rendered view — and the eye-toggle reveals the password anyway. Password fields need the wrapper regardless.
+
+**Deliberately not masked:** search queries (already captured as an event property), review text and cancellation free-text (user-authored public content, not credentials), and the Full Name field on `CompleteProfileScreen` (already stored as a person property).
+
+**Not coverable from here:** the Razorpay checkout sheet and Apple's IAP sheet are native views owned by their SDKs, outside our React tree. Confirm in a real replay that neither is captured before running a payment flow on a recorded session.
 
 ### The video itself
 
@@ -287,7 +314,8 @@ Replay is billed separately from events and is the most expensive thing in this 
 2. Confirm Session Replay is enabled in PostHog project settings.
 3. Use the app for 30+ seconds, then background it.
 4. PostHog → **Replay**. Allow a few minutes — replays take longer to appear than events.
-5. Open one and confirm: text fields are masked, images are masked, and the video area is not showing content.
+5. Open one and confirm: **the password, email, phone and OTP fields are grey blocks while the rest of the screen is readable.** That contrast is the point of targeted masking - if the whole screen is grey, or nothing is, something is wrong.
+6. Check the video area is not showing content.
 
 ---
 
