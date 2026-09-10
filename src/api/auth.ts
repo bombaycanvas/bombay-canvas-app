@@ -7,6 +7,7 @@ import {
   authFailureReason,
   capture,
   identifyUser,
+  log,
   ProductEvent,
   type AuthMethod,
   type AuthStage,
@@ -174,6 +175,10 @@ export const useVerifyOtpMutation = (redirect?: {
           needs_profile: data?.user?.name === "User",
           role: String(data?.user?.role ?? "USER"),
         });
+        log.info("Signed in", {
+          method: "phone_otp",
+          needs_profile: data?.user?.name === "User",
+        });
 
         if (data?.user?.name === "User") {
           (navigation as any).reset({
@@ -221,6 +226,7 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
         // `signed_in{method:phone_otp}` is the OTP delivery/entry failure rate,
         // which is invisible from either event on its own.
         capture(ProductEvent.OtpRequested, { method: "phone_otp" });
+        log.info("OTP sent");
 
         if (onSuccessCallback) {
           onSuccessCallback(data);
@@ -273,6 +279,7 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
           method: "email",
           role: String(data?.user?.role ?? "USER"),
         });
+        log.info("Account created", { method: "email" });
 
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
@@ -329,6 +336,7 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
           method: "email",
           role: String(data?.user?.role ?? "USER"),
         });
+        log.info("Signed in", { method: "email" });
 
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
@@ -375,6 +383,7 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
           method: "google",
           role: String(data?.user?.role ?? "USER"),
         });
+        log.info("Signed in", { method: "google" });
 
         if (redirect) {
           handleAuthRedirect(navigation, redirect);
@@ -458,6 +467,7 @@ export const useDeleteUserAccount = () => {
       capture(ProductEvent.AccountDeleted, {
         role: String(useAuthStore.getState().user?.role ?? "USER"),
       });
+      log.info("Account deleted");
 
       await useAuthStore.getState().logout();
       (navigation as any).reset({
@@ -500,6 +510,7 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
           method: "apple",
           role: String(data?.user?.role ?? "USER"),
         });
+        log.info("Signed in", { method: "apple" });
 
         if (redirect) {
           handleAuthRedirect(navigation, redirect);

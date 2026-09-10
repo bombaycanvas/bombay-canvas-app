@@ -319,13 +319,83 @@ Replay is billed separately from events and is the most expensive thing in this 
 
 ---
 
-## 8. Booleans
+---
+
+## 8. Logs
+
+Structured, queryable log records, separate from events and from session replay.
+
+| | Events | Logs |
+| --- | --- | --- |
+| Answers | "how many, and in what funnel" | "what happened to THIS user, in order" |
+| Shape | name + properties | severity + message + attributes |
+| Use for | measurement | diagnosis |
+
+### Nothing is captured automatically
+
+The SDK does **not** patch `console`. Records reach PostHog only when code calls `log.*` explicitly.
+
+That is deliberate and load-bearing: this app's console output includes an **OTP** (`StartLoginScreen`) and a **signed playback URL** (`VideoPlayer`). Auto-capturing console would ship both to a third party. They stay on the device.
+
+> **Name collision, called out by the SDK itself.** `posthog.captureLog()` is the *logs product*. `sessionReplayConfig.captureLog` is a boolean controlling whether *session replay* records `console.*`, and it is **off**. Unrelated things.
+
+### Writing a log
+
+```ts
+import { log } from '../utils/analytics';
+
+log.error('Episode playback failed', {
+  episode_id: episode.id,
+  error_code: 'MEDIA_ERR_DECODE',
+});
+```
+
+Levels: `debug` / `info` / `warn` / `error`. Every export is fail-soft and never throws.
+
+Keep `message` a **stable constant** and put the varying parts in `attributes`. A message built by interpolation (`` `Episode ${id} failed` ``) is a unique string per occurrence and cannot be grouped or counted.
+
+The SDK attaches `distinct_id`, `session_id`, `screen_name` and `app_state` to every record automatically, so a log line is already tied to the person and the screen with no work at the call site.
+
+### Redaction
+
+Every record passes through `redactLogRecord` in `beforeSend` before leaving the device — a backstop that runs even for code written by someone who never read this doc.
+
+| Redacted from free text | How |
+| --- | --- |
+| Signed URLs | the whole query string is stripped, path kept |
+| JWTs | `eyJ…` pattern |
+| Email addresses | pattern |
+| Oversized bodies | capped at 2,000 chars |
+
+| Redacted by attribute KEY | |
+| --- | --- |
+| `pass`, `secret`, `token`, `auth`, `otp`, `pin`, `cvv`, `card`, `credential`, `signature`, `apikey` | matched as a case-insensitive substring, so `userPassword` and `X-Api-Key` are both caught |
+
+**What it cannot do.** A 4-digit OTP is indistinguishable from a year or a count, and a bare phone number from a timestamp. A regex aggressive enough to catch them would gut every useful log line and buy false confidence. Those are handled by key on attributes instead — **so the rule for message bodies still stands: never put a credential in one.**
+
+If redaction itself throws, the record is **dropped**, not passed through. The alternative would be shipping the exact thing the function exists to remove.
+
+### Where logs are wired
+
+| Message | Level | Why it earns its place |
+| --- | --- | --- |
+| `Episode playback failed` | error | The event counts failures; the log says which episode, which build, whose session |
+| `Purchase outcome unresolved` | warn | The store never said how it ended — money may or may not have moved, and nothing else records it |
+| `Paid but not activated within poll window` | error | The user was charged and got nothing. Carries `dedup_key`, so the line joins to the payment row |
+
+That last one is the highest-value log in the app: it is the exact case support gets asked about, and without it the only record is the user's complaint.
+
+### Cost
+
+**10 GB/month free, 14-day retention** by default; $0.25/GB after. A much looser budget than replay's 5,000 recordings, but not unlimited — hence the 2,000-char body cap and a rate cap of **200 records / 10s** (below the SDK's 500 default). A retry or render loop then costs a bounded amount instead of a bill, and the dropped records are the least interesting ones: the same line, repeated.
+
+## 9. Booleans
 
 `track()` accepts booleans, but Meta's `AppEventsLogger` takes only strings and numbers, so `meta.ts` stringifies them at the Meta boundary. PostHog receives the real boolean. This is why `downsell_abandoned` is `true` in code and arrives at Meta as `"true"`.
 
 ---
 
-## 9. Where things live
+## 10. Where things live
 
 | File | Role |
 | --- | --- |
@@ -342,7 +412,7 @@ Unknown names passed to `track()` are **forwarded, not dropped** — auto-conver
 
 ---
 
-## 10. Config
+## 11. Config
 
 ```
 POSTHOG_API_KEY=phc_...
@@ -357,7 +427,7 @@ The key must be the **project** API key (`phc_…`), not a personal API key. The
 
 ---
 
-## 11. Verifying
+## 12. Verifying
 
 1. Rebuild with `--reset-cache`, reinstall for lifecycle events.
 2. Add `debug` to `<PostHogProvider>` temporarily — every capture logs to Metro.
@@ -370,7 +440,7 @@ Harmless. Remote config has its own **3000 ms** budget while event capture uses 
 
 ---
 
-## 12. Known gaps
+## 13. Known gaps
 
 - **Cross-method `signed_up`** needs an `isNewUser` flag on the Google / Apple / phone responses in `bombay-canvas-be`. Small backend change; the app side would follow.
 - **`useRequest` (email signup) never calls `setUser`**, unlike every other auth path, even though the response contains `user`. Analytics works around it by identifying directly, but a freshly signed-up user likely has a null `user` in the auth store until something refetches. Worth fixing separately.

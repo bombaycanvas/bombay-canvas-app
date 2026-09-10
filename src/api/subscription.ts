@@ -79,6 +79,7 @@ export const invalidateEntitlementQueries = (queryClient: QueryClient) => {
 // without pulling this file's AsyncStorage-backed client in behind it.
 // Re-exported so existing callers keep importing from here.
 import type { Plan, PlanCode } from './planCodes';
+import { log } from '../utils/analytics/log';
 export type { Plan, PlanCode } from './planCodes';
 export { TRIAL_CODES, isTrialCode, pickTrialPlan } from './planCodes';
 
@@ -197,9 +198,13 @@ export const createSubscription = async (planCode: PlanCode) => {
       headers: { 'Content-Type': 'application/json' },
       body: { planCode },
     });
+    log.info('Subscription created', { plan_code: planCode });
     return response?.data;
   } catch (error) {
     console.error('Create Subscription Error:', error);
+    log.error('Create subscription failed', {
+      message: String((error as Error)?.message ?? 'unknown'),
+    });
     throw error;
   }
 };
@@ -215,9 +220,13 @@ export const verifySubscription = async (payload: {
       headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
+    log.info('Subscription verified');
     return response?.data;
   } catch (error) {
     console.error('Verify Subscription Error:', error);
+    log.error('Verify subscription failed', {
+      message: String((error as Error)?.message ?? 'unknown'),
+    });
     throw error;
   }
 };
@@ -264,9 +273,13 @@ export const cancelSubscription = async (
       headers: { 'Content-Type': 'application/json' },
       body,
     });
+    log.info('Subscription cancelled', { subscription_id: subscriptionId });
     return response?.data;
   } catch (error) {
     console.error('Cancel Subscription Error:', error);
+    log.error('Cancel subscription failed', {
+      message: String((error as Error)?.message ?? 'unknown'),
+    });
     throw error;
   }
 };

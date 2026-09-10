@@ -4,7 +4,7 @@ import { AuthState } from '../types/auth';
 import { logoutApple, logoutGoogle } from '../utils/authService';
 import queryClient from '../config/queryClient';
 import { useVideoStore } from './videoStore';
-import { identifyUser, resetAnalytics } from '../utils/analytics';
+import { identifyUser, log, resetAnalytics } from '../utils/analytics';
 
 /**
  * Bind the PostHog person to our own user id.
@@ -77,6 +77,7 @@ export const useAuthStore = create<AuthState>(set => {
       // Before the store is cleared: unbinds this device from the user so the
       // NEXT person to sign in here does not inherit their distinct_id and get
       // their events attributed to someone else.
+      log.info('Signed out');
       resetAnalytics();
 
       queryClient.clear();

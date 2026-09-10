@@ -14,6 +14,11 @@ import {
   newMilestones,
   PROGRESS_MILESTONES,
 } from './productEvents';
+import {
+  redactAttributes,
+  redactLogRecord,
+  redactText,
+} from './logRedaction';
 
 describe('toSnakeCase', () => {
   it('splits PascalCase', () => {
@@ -139,5 +144,110 @@ describe('authFailureReason', () => {
   // A stack trace or an HTML error page must not become an event property.
   it('caps the length', () => {
     expect(authFailureReason(new Error('x'.repeat(500)))).toHaveLength(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Log redaction. The one place in this directory where a bug does not merely
+// lose data - it ships a credential to a third party. Both cases below are
+// taken from what this codebase actually logs today.
+// ---------------------------------------------------------------------------
+
+describe('redactText', () => {
+  it('strips the query string from a signed playback URL', () => {
+    const signed =
+      'https://storage.googleapis.com/canvas/ep1.m3u8' +
+      '?X-Goog-Signature=deadbeef&X-Goog-Expires=3600';
+
+    const out = redactText(`Video Error: ${signed}`);
+
+    expect(out).not.toContain('deadbeef');
+    expect(out).not.toContain('X-Goog-Signature');
+    // The path survives, so the line still says WHICH asset failed.
+    expect(out).toContain('storage.googleapis.com/canvas/ep1.m3u8');
+  });
+
+  it('strips a JWT', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiIxMjMifQ.abcDEF123';
+    const out = redactText(`auth failed for ${jwt}`);
+
+    expect(out).not.toContain('eyJ');
+    expect(out).toContain('[redacted]');
+  });
+
+  it('strips an email address', () => {
+    expect(redactText('login failed for a.user@example.com')).not.toContain(
+      '@example.com',
+    );
+  });
+
+  it('caps the body so a stack trace cannot blow the quota', () => {
+    expect(redactText('x'.repeat(9000))).toHaveLength(2000);
+  });
+
+  it('survives an empty string', () => {
+    expect(redactText('')).toBe('');
+  });
+});
+
+describe('redactAttributes', () => {
+  it('drops a value by KEY, whatever it looks like', () => {
+    const out = redactAttributes({ otp: '4821', authToken: 'abc', pin: 1234 });
+
+    expect(out?.otp).toBe('[redacted]');
+    expect(out?.authToken).toBe('[redacted]');
+    // Key-based, so a NUMERIC secret is caught too - a regex over text is not.
+    expect(out?.pin).toBe('[redacted]');
+  });
+
+  it('keeps the numeric attributes that make logs queryable', () => {
+    const out = redactAttributes({ poll_attempts: 12, has_video_url: false });
+
+    expect(out?.poll_attempts).toBe(12);
+    expect(out?.has_video_url).toBe(false);
+  });
+
+  it('still redacts by shape inside an innocently named key', () => {
+    const out = redactAttributes({
+      detail: 'failed for a.user@example.com',
+    });
+
+    expect(out?.detail).not.toContain('@example.com');
+  });
+
+  it('passes undefined through', () => {
+    expect(redactAttributes(undefined)).toBeUndefined();
+  });
+});
+
+describe('redactLogRecord', () => {
+  it('redacts body and attributes together', () => {
+    const out = redactLogRecord({
+      body: 'checkout failed for a.user@example.com',
+      attributes: { otp: '1234', plan_code: 'ANNUAL' },
+    });
+
+    expect(out?.body).not.toContain('@example.com');
+    expect(out?.attributes?.otp).toBe('[redacted]');
+    expect(out?.attributes?.plan_code).toBe('ANNUAL');
+  });
+
+  // An empty record carries nothing and still costs quota.
+  it('drops a record with no body', () => {
+    expect(redactLogRecord({ body: '   ' })).toBeNull();
+  });
+
+  // The failure mode that matters: never let an UNREDACTED record through.
+  it('drops the record rather than passing it through on error', () => {
+    const hostile = {
+      body: 'x',
+      attributes: {
+        get boom(): string {
+          throw new Error('nope');
+        },
+      },
+    } as unknown as { body: string };
+
+    expect(redactLogRecord(hostile)).toBeNull();
   });
 });

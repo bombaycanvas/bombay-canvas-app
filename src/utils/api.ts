@@ -4,8 +4,13 @@ import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { getAppDataHeader } from './analytics/appData';
+import { log } from './analytics/log';
 
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
+
+// Fire every 5-15s during playback; logging their successes would drown
+// everything else and burn quota for no diagnostic value.
+const HIGH_FREQUENCY_ENDPOINTS = ['/api/episode-progress', '/api/track-views'];
 
 // CFBundleShortVersionString / versionName — "2.3", not the build number. The
 // backend picks the payment rail from this, not from the platform alone: a
@@ -25,6 +30,7 @@ export const getToken = async (key: string): Promise<string | null> => {
     return await AsyncStorage.getItem(key);
   } catch (error) {
     console.error('Error getting token:', error);
+    log.error('Token read failed', { key });
     return null;
   }
 };
@@ -34,6 +40,7 @@ const removeToken = async (key: string) => {
     await AsyncStorage.removeItem(key);
   } catch (error) {
     console.error('Error removing token:', error);
+    log.error('Token remove failed', { key });
   }
 };
 
@@ -118,6 +125,10 @@ export const api = async (endpoint: string, config: any = {}) => {
       if ([401, 414].includes(response.status)) {
         const token = await getToken('accessToken');
         if (token) {
+          log.warn('Session rejected, forcing logout', {
+            endpoint,
+            status: response.status,
+          });
           await removeToken('accessToken');
           await removeToken('isAuthenticated');
           useAuthStore.getState().logout();
@@ -136,13 +147,43 @@ export const api = async (endpoint: string, config: any = {}) => {
             ? errorData.code
             : undefined;
       apiError.status = response.status;
+
+      log.error('API request failed', {
+        endpoint,
+        method: requestConfig.method,
+        status: response.status,
+        error_code: apiError.code ?? 'none',
+        message,
+      });
+
       throw apiError;
+    }
+
+    const method = String(requestConfig.method ?? 'GET').toUpperCase();
+    if (
+      method !== 'GET' &&
+      !HIGH_FREQUENCY_ENDPOINTS.some(path => endpoint.startsWith(path))
+    ) {
+      log.info('API request succeeded', {
+        endpoint,
+        method,
+        status: response.status,
+      });
     }
 
     return response.headers.get('Content-Type')?.includes('application/json')
       ? response.json()
       : response;
   } catch (error: any) {
+    // Only a transport failure reaches here unlabelled; HTTP errors are already
+    // logged above and rethrown.
+    if (error?.status === undefined) {
+      log.error('API request threw', {
+        endpoint,
+        method: requestConfig.method,
+        message: String(error?.message ?? 'unknown'),
+      });
+    }
     throw error;
   }
 };

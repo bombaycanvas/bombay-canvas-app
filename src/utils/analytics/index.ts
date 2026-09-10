@@ -72,4 +72,10 @@ export const track = (
  * sync. Names live in `productEvents.ts`.
  */
 export { capture } from './posthog';
+export { log, type LogAttributes } from './log';
+export {
+  redactText,
+  redactAttributes,
+  redactLogRecord,
+} from './logRedaction';
 export * from './productEvents';

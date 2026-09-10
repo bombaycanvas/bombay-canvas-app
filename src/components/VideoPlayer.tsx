@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useFlag } from '../api/settings';
 import {
   capture,
+  log,
   newMilestones,
   ProductEvent,
   type EventProperties,
@@ -192,6 +193,7 @@ export default function VideoPlayer({
       if (!playbackStartedRef.current) {
         playbackStartedRef.current = true;
         capture(ProductEvent.VideoPlaybackStarted, playbackProps());
+        log.info('Episode playback started', playbackProps());
       }
 
       const pct = Math.round((time / duration) * 100);
@@ -444,11 +446,26 @@ export default function VideoPlayer({
 
       // Only the error CODE, never the raw payload: it can carry signed playback
       // URLs, and those must not land in an analytics property.
+      const errorCode = String(
+        e?.error?.errorCode ?? e?.error?.code ?? 'unknown',
+      ).slice(0, 64);
+
       capture(ProductEvent.VideoPlaybackFailed, {
         ...playbackProps(),
-        error_code: String(
-          e?.error?.errorCode ?? e?.error?.code ?? 'unknown',
-        ).slice(0, 64),
+        error_code: errorCode,
+      });
+
+      // The event answers "how often"; this answers "which episode, on which
+      // build, for whom" — the SDK attaches distinct_id, session and screen
+      // automatically. A stable message with the varying parts in attributes,
+      // so occurrences group instead of each being a unique string.
+      log.error('Episode playback failed', {
+        episode_id: String(episode?.id ?? ''),
+        series_id: String(movie?.id ?? ''),
+        error_code: errorCode,
+        // Distinguishes "the URL never arrived" from "the player rejected it",
+        // which are different bugs in different systems.
+        has_video_url: Boolean(episode?.videoUrl),
       });
     }
   };

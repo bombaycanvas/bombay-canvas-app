@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message';
 import queryClient from '../../config/queryClient';
 import { invalidateEntitlementQueries } from '../../api/subscription';
 import { verifyAppleTransaction } from '../../api/appleIap';
+import { log } from '../../utils/analytics/log';
 import {
   APPLE_SKUS,
   APPLE_SKU_BY_PLAN_CODE,
@@ -181,6 +182,10 @@ const finishRefusedTransaction = async (
     productId: purchase.productId,
     transactionId,
   });
+  log.warn('IAP verify refused transaction, finishing it', {
+    productId: purchase.productId,
+    transactionId,
+  });
 
   announceRefusal(transactionId, message);
 
@@ -203,6 +208,10 @@ const grantAndFinish = async (
       productId: purchase.productId,
       transactionId: readTransactionId(purchase),
     });
+    log.error('IAP purchase carried no signed transaction', {
+      productId: purchase.productId,
+      transactionId: readTransactionId(purchase),
+    });
     throw new Error('The App Store returned a purchase we cannot verify');
   }
 
@@ -219,6 +228,11 @@ const grantAndFinish = async (
         productId: purchase.productId,
         transactionId: readTransactionId(purchase),
         error,
+      });
+      log.error('IAP verify failed, transaction left queued for replay', {
+        productId: purchase.productId,
+        transactionId: readTransactionId(purchase),
+        message: String((error as Error)?.message ?? 'unknown'),
       });
       throw error;
     }
@@ -261,6 +275,10 @@ const grantAndFinish = async (
     productId: purchase.productId,
     transactionId: readTransactionId(purchase),
   });
+  log.info('IAP entitlement granted', {
+    productId: purchase.productId,
+    transactionId: readTransactionId(purchase),
+  });
   return {
     status: 'purchased',
     productId: purchase.productId,
@@ -290,6 +308,11 @@ const handlePurchaseError = (error: PurchaseError) => {
     return;
   }
   console.error('[iap] Purchase failed', {
+    code: error.code,
+    productId: error.productId,
+    message: error.message,
+  });
+  log.error('IAP purchase failed', {
     code: error.code,
     productId: error.productId,
     message: error.message,
@@ -483,6 +506,7 @@ const requestApplePurchase = async (
   });
 
   console.log('[iap] Requesting purchase', { sku });
+  log.info('IAP purchase requested', { sku });
   try {
     await requestPurchase({
       request: { apple: { sku, appAccountToken } },
@@ -567,6 +591,10 @@ export const openManageSubscriptions =
       purchase => purchase.isAutoRenewing === false,
     );
     console.log('[iap] Manage subscriptions sheet closed', {
+      changed: changed.length,
+      renewalTurnedOff,
+    });
+    log.info('IAP manage-subscriptions sheet closed', {
       changed: changed.length,
       renewalTurnedOff,
     });

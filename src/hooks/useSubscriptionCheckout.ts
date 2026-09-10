@@ -11,7 +11,7 @@ import { getPaymentRail } from '../services/paymentRail';
 import type { PurchaseOutcome } from '../services/paymentRail';
 import type { PurchasePhase } from '../components/subscription/SubscriptionActivatingOverlay';
 import { useAuthStore } from '../store/authStore';
-import { track } from '../utils/analytics';
+import { log, track } from '../utils/analytics';
 
 /**
  * "Buy a plan, then wait until it is really active."
@@ -125,6 +125,17 @@ export const useSubscriptionCheckout = () => {
         }
       }
 
+      // The single worst state in the app: the store never told us how the
+      // attempt ended, so the money may or may not have moved and we
+      // deliberately report no conversion. Nothing else records that this
+      // happened, which makes it invisible until a user writes in.
+      if (outcome.status === 'unresolved') {
+        log.warn('Purchase outcome unresolved', {
+          plan_code: planCode,
+          rail: money.rail,
+        });
+      }
+
       // The store is done with the user either way; everything past here is us
       // catching up with it.
       onPhase?.('activating');
@@ -139,6 +150,31 @@ export const useSubscriptionCheckout = () => {
         await new Promise<void>(resolve =>
           setTimeout(resolve, POLL_INTERVAL_MS),
         );
+      }
+
+      // Paid, but no entitlement inside the poll window — the webhook is
+      // late, or it never landed. The user has been charged and has nothing to
+      // show for it, so this is the highest-value log in the app: it is the
+      // exact case support is asked about, and without it the only record is
+      // the user's complaint.
+      if (activated) {
+        log.info('Subscription activated', {
+          plan_code: planCode,
+          rail: money.rail,
+          is_trial: isTrialCode(planCode),
+        });
+      }
+
+      if (!activated && outcome.status === 'paid') {
+        log.error('Paid but not activated within poll window', {
+          plan_code: planCode,
+          rail: money.rail,
+          // The id the backend reports the same charge under, so a log line can
+          // be joined to the payment row.
+          dedup_key: outcome.dedupKey,
+          poll_attempts: POLL_MAX_ATTEMPTS,
+          poll_window_ms: POLL_MAX_ATTEMPTS * POLL_INTERVAL_MS,
+        });
       }
 
       invalidateEntitlementQueries(queryClient);
