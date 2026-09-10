@@ -55,10 +55,42 @@ export const posthog = new PostHog(apiKey, {
   // depend on these, and they cost a handful of events per session.
   captureAppLifecycleEvents: true,
 
-  // OFF, deliberately. This app's main surface is a full-bleed video player; a
-  // replay of it is a black rectangle that still bills as a replay. Revisit only
-  // for a specific non-player debugging question, and mask every input first.
-  enableSessionReplay: false,
+  // Session replay. Note this flag alone is NOT enough: the SDK reads
+  // `recordingActive` from PostHog's REMOTE CONFIG, so replay also has to be
+  // switched on in the project's own Session Replay settings. If it is off
+  // there, this stays dormant and silent.
+  //
+  // It needs the `posthog-react-native-session-replay` native module, so a JS
+  // reload will not turn it on — the app has to be rebuilt (and `pod install`
+  // run for iOS).
+  //
+  // COST: replay is billed separately from events and is by far the most
+  // expensive thing here. A full-bleed video player changes every frame, which
+  // is the worst case for a screenshot-based recorder. Control this with
+  // SAMPLING in the PostHog project settings (record 10-20% of sessions, not
+  // 100%) rather than by lowering the throttle below.
+  enableSessionReplay: true,
+  sessionReplayConfig: {
+    // All three default to true. They are restated explicitly because they are
+    // the privacy contract, and a future edit that flips one should have to do
+    // it deliberately rather than by deleting a line.
+    maskAllTextInputs: false, // email, password, OTP, card fields
+    maskAllImages: false, // includes user avatars, not just catalogue art
+    maskAllSandboxedViews: false, // iOS photo/contact pickers
+
+    // OFF, unlike the default. Replay would otherwise ship every console line
+    // to PostHog, and this app logs raw error payloads — `VideoPlayer`'s
+    // `console.log('Video Error:', e)` can carry a SIGNED playback URL. Piping
+    // those into a third party is a content-leak, not just noise. Turn this on
+    // only after auditing what the app logs.
+    captureLog: false,
+
+    // 2x the 1000ms default. A playing video changes continuously, so the
+    // recorder would otherwise take a screenshot every second for the whole
+    // watch session — ~1800 for a 30-minute episode. Halving that costs
+    // nothing for understanding navigation and interaction.
+    throttleDelayMs: 2000,
+  },
 
   // A session that survives the app being backgrounded is the same viewing
   // session to a human, so it should be one session in the funnel too.

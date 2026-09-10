@@ -226,17 +226,78 @@ No amounts are sent. `amountSnapshot` is in paise and, per the comment in `api/s
 
 The SDK sends these with no code from us: `Application Installed`, `Application Opened`, `Application Updated`, `Application Backgrounded`, plus `$identify` on sign-in.
 
-Session replay is **off**. The app's main surface is a full-bleed video player; a replay of it is a black rectangle that still bills as a replay.
+---
+
+## 7. Session replay
+
+Replay is **on**. It records a screenshot-based playback of what the user saw and did.
+
+### It takes three things, not one
+
+| Requirement | Where |
+| --- | --- |
+| `enableSessionReplay: true` | `posthog.ts` |
+| `posthog-react-native-session-replay` native module | installed; needs an app **rebuild** |
+| Session Replay switched on in the **PostHog project settings** | posthog.com |
+
+The third one catches people out. The SDK reads `recordingActive` from PostHog's **remote config** — if replay is off in the project settings, the client flag does nothing and fails silently. This is also why the "Remote config could not be loaded" warning matters more now than it did before.
+
+Because a native module is involved, a JS reload will not enable it:
+
+```bash
+# Android
+npx react-native run-android
+
+# iOS - must be run on macOS
+cd ios && pod install && cd ..
+npx react-native run-ios
+```
+
+### What is masked
+
+| Setting | Value | Covers |
+| --- | --- | --- |
+| `maskAllTextInputs` | `true` | email, password, OTP, card fields |
+| `maskAllImages` | `true` | user avatars — and catalogue art too |
+| `maskAllSandboxedViews` | `true` | iOS photo / contact pickers |
+| `captureLog` | **`false`** | see below |
+
+All three masks default to `true` and are restated explicitly in code: they are the privacy contract, and flipping one should take a deliberate edit rather than deleting a line.
+
+> **`captureLog` is off, unlike the SDK default.** Replay would otherwise ship every console line to PostHog, and this app logs raw error payloads — `VideoPlayer`'s `console.log('Video Error:', e)` can carry a **signed playback URL**. That is a content leak, not just noise. Only turn this on after auditing what the app logs.
+
+> **`maskAllImages: true` masks posters as well as avatars.** With text and images both masked, a replay is closer to a wireframe than a video of the screen — it shows navigation, taps and timing rather than exact content. That is the safe default; loosening it is a privacy decision, not a config tweak.
+
+### The video itself
+
+The `<Video>` surface is **not** explicitly masked. On both platforms video renders through a hardware surface (`SurfaceView` on Android, `AVPlayerLayer` on iOS) that generally does not appear in view-hierarchy screenshots — it typically comes out blank already.
+
+"Typically" is not "guaranteed", so **check a real replay of a playback session before assuming licensed content is not being recorded.** If it does show through, wrap the player in `PostHogMaskView`. That was left out deliberately: it inserts a view between the container and a `SurfaceView`, and video rendering is not something to change without testing on a real Android device.
+
+### Cost
+
+Replay is billed separately from events and is the most expensive thing in this integration. A full-bleed video player changes every frame, which is the worst case for a screenshot recorder.
+
+- `throttleDelayMs` is **2000** (2x the default), halving snapshot volume — ~1800 screenshots for a 30-minute episode becomes ~900.
+- The real lever is **sampling in the PostHog project settings**. Record 10-20% of sessions, not 100%. Do this before turning replay loose on production traffic.
+
+### Verifying replay
+
+1. Rebuild the app (JS reload is not enough).
+2. Confirm Session Replay is enabled in PostHog project settings.
+3. Use the app for 30+ seconds, then background it.
+4. PostHog → **Replay**. Allow a few minutes — replays take longer to appear than events.
+5. Open one and confirm: text fields are masked, images are masked, and the video area is not showing content.
 
 ---
 
-## 7. Booleans
+## 8. Booleans
 
 `track()` accepts booleans, but Meta's `AppEventsLogger` takes only strings and numbers, so `meta.ts` stringifies them at the Meta boundary. PostHog receives the real boolean. This is why `downsell_abandoned` is `true` in code and arrives at Meta as `"true"`.
 
 ---
 
-## 8. Where things live
+## 9. Where things live
 
 | File | Role |
 | --- | --- |
@@ -253,7 +314,7 @@ Unknown names passed to `track()` are **forwarded, not dropped** — auto-conver
 
 ---
 
-## 9. Config
+## 10. Config
 
 ```
 POSTHOG_API_KEY=phc_...
@@ -268,7 +329,7 @@ The key must be the **project** API key (`phc_…`), not a personal API key. The
 
 ---
 
-## 10. Verifying
+## 11. Verifying
 
 1. Rebuild with `--reset-cache`, reinstall for lifecycle events.
 2. Add `debug` to `<PostHogProvider>` temporarily — every capture logs to Metro.
@@ -281,9 +342,9 @@ Harmless. Remote config has its own **3000 ms** budget while event capture uses 
 
 ---
 
-## 11. Known gaps
+## 12. Known gaps
 
 - **Cross-method `signed_up`** needs an `isNewUser` flag on the Google / Apple / phone responses in `bombay-canvas-be`. Small backend change; the app side would follow.
 - **`useRequest` (email signup) never calls `setUser`**, unlike every other auth path, even though the response contains `user`. Analytics works around it by identifying directly, but a freshly signed-up user likely has a null `user` in the auth store until something refetches. Worth fixing separately.
-- **Store privacy declarations are not updated.** `ios/bombaycanvas/PrivacyInfo.xcprivacy` and the Play Data Safety form both need to declare what PostHog collects. **This is a release blocker.**
+- **Store privacy declarations are not updated.** `ios/bombaycanvas/PrivacyInfo.xcprivacy` and the Play Data Safety form both need to declare what PostHog collects. **This is a release blocker**, and session replay raises the stakes: it records screen content, not just event names, which is a materially bigger disclosure than analytics events alone. The privacy policy needs to cover it too.
 - **Web and backend are not integrated.** `distinct_id` is already standardised on `User.id`, so they will line up when they are.

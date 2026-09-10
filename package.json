@@ -29,6 +29,7 @@
     "libphonenumber-js": "^1.12.33",
     "lucide-react-native": "^0.544.0",
     "posthog-react-native": "^4.68.2",
+    "posthog-react-native-session-replay": "^1.6.0",
     "react": "19.1.0",
     "react-hook-form": "^7.62.0",
     "react-native": "0.81.4",
