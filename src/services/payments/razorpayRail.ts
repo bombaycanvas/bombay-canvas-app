@@ -16,6 +16,7 @@ import type {
   StartPurchaseParams,
   SubscriptionPlanCode,
 } from '../paymentRail';
+import { log } from '../../utils/analytics/log';
 
 const RAZORPAY_THEME_COLOR = '#ff6600';
 
@@ -73,6 +74,10 @@ const openCheckout = async (
       return null;
     }
     console.error('Razorpay SDK error:', error);
+    log.error('Razorpay checkout failed', {
+      message: String((error as any)?.description ?? (error as any)?.message ?? 'unknown'),
+      code: String((error as any)?.code ?? 'none'),
+    });
     throw error;
   }
 };
@@ -126,6 +131,9 @@ const startPurchase = async ({
     'Razorpay checkout completed. Payload keys:',
     Object.keys(paymentData || {}),
   );
+  log.info('Razorpay checkout completed', {
+    payload_keys: Object.keys(paymentData || {}).join(','),
+  });
 
   // Card checkout finishes inside the Razorpay sheet and always hands back the
   // signed triple. A UPI-intent mandate (GPay/PhonePe) is authorised in the
@@ -161,6 +169,11 @@ const startPurchase = async ({
       paymentId: !!paymentId,
       subscriptionId: !!subscriptionId,
       signature: !!signature,
+    });
+    log.warn('Razorpay payload incomplete, signature verify skipped', {
+      has_payment_id: !!paymentId,
+      has_subscription_id: !!subscriptionId,
+      has_signature: !!signature,
     });
   }
 

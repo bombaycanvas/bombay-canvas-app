@@ -37,7 +37,7 @@ export const track = (
   params?: {
     value?: number;
     currency?: string;
-    [key: string]: string | number | undefined;
+    [key: string]: string | number | boolean | undefined;
   },
   eventId?: string,
 ): void => {
@@ -49,7 +49,10 @@ export const track = (
 
     for (const [key, value] of Object.entries(params ?? {})) {
       if (key === 'value' || key === 'currency' || value === undefined) continue;
-      payload[key] = value;
+      // Meta's logger accepts only strings and numbers, so a boolean is
+      // stringified HERE rather than at every call site. PostHog receives the
+      // real boolean, because it is handed the untouched params.
+      payload[key] = typeof value === 'boolean' ? String(value) : value;
     }
 
     if (params?.value !== undefined) {

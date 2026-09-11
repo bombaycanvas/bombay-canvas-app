@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Receipt } from 'lucide-react-native';
 import { SubscriptionCharge } from '../../api/subscription';
 import { formatDate } from '../../utils/formatDate';
+import { formatMinorUnits } from '../../utils/money';
 
 // Razorpay payment states that mean the money actually settled; anything else
 // (failed, refunded, an unrecognised state) reads as pending rather than paid.
@@ -10,23 +11,6 @@ const SETTLED_STATUSES = ['captured', 'paid'];
 
 const toTitleCase = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-
-// Apple bills in the storefront's own currency, so a charge is no longer always
-// rupees and a hardcoded ₹ would relabel a $4.99 receipt as ₹4.99. Amounts are
-// stored in minor units. Intl is not guaranteed on every engine build, so an
-// unformattable pair falls back to the code beside the number rather than to a
-// symbol that might be the wrong one.
-const formatChargeAmount = (minorUnits: number, currency: string): string => {
-  const major = minorUnits / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-    }).format(major);
-  } catch {
-    return `${currency} ${major}`;
-  }
-};
 
 interface BillingHistoryListProps {
   charges?: SubscriptionCharge[];
@@ -69,8 +53,13 @@ export default function BillingHistoryList({
                 {formatDate(charge.chargedAt || charge.periodStart) || '—'}
               </Text>
               <View style={styles.rowRight}>
+                {/* Amounts are minor units of the charge's OWN currency, which
+                    on the Apple rail is the storefront's, not ours — hence the
+                    shared formatter rather than a /100 and a symbol. A charge
+                    from before the column was populated has no currency, and
+                    the Razorpay rail is the only thing that produced those. */}
                 <Text style={styles.amount}>
-                  {formatChargeAmount(charge.amount, charge.currency || 'INR')}
+                  {formatMinorUnits(charge.amount, charge.currency || 'INR')}
                 </Text>
                 <View
                   style={[
