@@ -7,9 +7,17 @@ import MainApp from './src/navigation/MainApp';
 import './src/config/reactQueryPersist';
 import { IOS_CLIENT_ID, WEB_CLIENT_ID } from '@env';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { initMetaSdk, posthog } from './src/utils/analytics';
+import {
+  initErrorTracking,
+  initMetaSdk,
+  posthog,
+} from './src/utils/analytics';
 import { useAppleIapSync } from './src/hooks/useAppleIapSync';
 import { PostHogProvider } from 'posthog-react-native';
+
+// At module scope, not in an effect: an error thrown during the very first
+// render happens before any effect runs.
+initErrorTracking();
 
 function AppleIapSync() {
   useAppleIapSync();

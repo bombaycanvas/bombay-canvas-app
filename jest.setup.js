@@ -23,6 +23,7 @@ jest.mock('posthog-react-native', () => {
 
   class PostHog {
     capture = noop;
+    captureException = noop;
     screen = noop;
     identify = noop;
     reset = noop;

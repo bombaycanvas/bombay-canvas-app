@@ -74,6 +74,11 @@ export const track = (
 export { capture } from './posthog';
 export { log, type LogAttributes } from './log';
 export {
+  captureError,
+  initErrorTracking,
+  setErrorScreen,
+} from './errors';
+export {
   redactText,
   redactAttributes,
   redactLogRecord,

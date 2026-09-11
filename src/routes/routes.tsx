@@ -1,7 +1,7 @@
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import React, { useEffect, useRef } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import { track } from '../utils/analytics';
+import { setErrorScreen, track } from '../utils/analytics';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -221,6 +221,7 @@ export default function AppNavigator() {
       ref={navigationRef}
       onReady={() => {
         routeNameRef.current = navigationRef.getCurrentRoute()?.name;
+        setErrorScreen(routeNameRef.current);
         if (routeNameRef.current) {
           track('PageView', { screen: routeNameRef.current });
         }
@@ -236,6 +237,7 @@ export default function AppNavigator() {
           }
         }
         routeNameRef.current = currentRouteName;
+        setErrorScreen(currentRouteName);
       }}
       linking={linking}
     >
