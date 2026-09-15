@@ -135,19 +135,7 @@ export default function HomeScreen() {
           <Landing />
         )}
         <ContinueWatching />
-        {!!selectedLabels && (
-          <View style={styles.languageRow}>
-            <Globe size={13} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.languageText}>
-              Showing {selectedLabels} ·{' '}
-            </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('LanguagePreference')}
-            >
-              <Text style={styles.languageEdit}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        
         <Explore
           heading={'Recommended for you'}
           movieData={rankedRecommended}
