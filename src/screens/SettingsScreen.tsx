@@ -51,11 +51,17 @@ const SettingsScreen = () => {
   // event that does happen when the user comes back.
   useRefetchOnForeground(refetchBilling);
 
-  const { isWatching: isConfirmingCancel, arm: armCancelWatch } =
-    useAppleCancelWatch({
-      settled: !!subscription?.cancelAtPeriodEnd,
-      refetch,
-    });
+  // Armed when the App Store sheet closes, not when the app returns to the
+  // front: the sheet is presented inside the app, so there is no foreground
+  // event for this screen to wait on.
+  const {
+    phase: cancelWatchPhase,
+    confirmedByStore,
+    arm: armCancelWatch,
+  } = useAppleCancelWatch({
+    settled: !!subscription?.cancelAtPeriodEnd,
+    refetch,
+  });
   
 
   const handleOpenModal = () => {
@@ -138,6 +144,14 @@ const SettingsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
+          onPress={() => (navigation as any).navigate('LanguagePreference')}
+        >
+          <Text style={styles.rowLabel}>Content Languages</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.row}
           onPress={handleBillingPress}
           accessibilityRole="button"
           accessibilityState={isActive ? { expanded: isBillingExpanded } : {}}
@@ -164,7 +178,7 @@ const SettingsScreen = () => {
             <SubscriptionDetailsCard
               subscription={subscription}
               onCancelPress={() => setIsCancelSubModal(true)}
-              confirmingCancel={isConfirmingCancel}
+              cancelWatch={{ phase: cancelWatchPhase, confirmedByStore }}
             />
             <BillingHistoryList charges={charges} loading={isHistoryLoading} />
           </View>

@@ -17,6 +17,8 @@ import { useAuthStore } from '../store/authStore';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
 import { completeProfileRequest } from '../api/auth';
+import { postAuthRoute } from '../utils/postAuthRoute';
+import { log } from '../utils/analytics';
 
 const CompleteProfileScreen = () => {
   const navigation = useNavigation();
@@ -43,6 +45,7 @@ const CompleteProfileScreen = () => {
 
       if (response && response.success) {
         setUser(response.user);
+        log.info('Profile completed');
         Toast.show({
           type: 'success',
           text1: 'Welcome!',
@@ -50,7 +53,7 @@ const CompleteProfileScreen = () => {
         });
         (navigation as any).reset({
           index: 0,
-          routes: [{ name: 'MainTabs' }],
+          routes: [{ name: postAuthRoute() }],
         });
       }
     } catch (error) {

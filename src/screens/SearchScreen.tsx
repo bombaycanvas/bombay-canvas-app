@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { RootStackParamList } from '../types/navigation';
 import { SearchListDataImage } from '../api/const';
 import Drama from '../images/Drama.jpg';
 import { FlatGrid } from 'react-native-super-grid';
+import { capture, ProductEvent } from '../utils/analytics';
 
 type SearchScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -69,6 +70,12 @@ const SearchScreen = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  // Last query reported to analytics. This effect also re-runs whenever
+  // `movieData` refetches, which is the SAME search from the user's point of
+  // view — without this guard a background refetch would inflate the search
+  // count and make zero-result searches look more common than they are.
+  const reportedQueryRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (debouncedSearchQuery) {
       const filteredMovies =
@@ -78,8 +85,22 @@ const SearchScreen = () => {
             .includes(debouncedSearchQuery.toLowerCase()),
         ) || [];
       setSearchResults(filteredMovies);
+
+      if (reportedQueryRef.current !== debouncedSearchQuery) {
+        reportedQueryRef.current = debouncedSearchQuery;
+
+        // The query text is the point of this event: a search that returns
+        // nothing is the clearest signal we get about catalogue gaps. Normalised
+        // and length-capped so it groups cleanly and cannot carry a paragraph.
+        capture(ProductEvent.SearchPerformed, {
+          query: debouncedSearchQuery.trim().toLowerCase().slice(0, 100),
+          result_count: filteredMovies.length,
+          has_results: filteredMovies.length > 0,
+        });
+      }
     } else {
       setSearchResults([]);
+      reportedQueryRef.current = null;
     }
   }, [debouncedSearchQuery, movieData]);
 

@@ -4,4 +4,6 @@ declare module '@env' {
 
   export const WEB_CLIENT_ID: string;
   export const IOS_CLIENT_ID: string;
+  export const POSTHOG_API_KEY: string;
+  export const POSTHOG_API_HOST: string;
 }

@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message';
 import queryClient from '../../config/queryClient';
 import { invalidateEntitlementQueries } from '../../api/subscription';
 import { verifyAppleTransaction } from '../../api/appleIap';
+import { log } from '../../utils/analytics/log';
 import {
   APPLE_SKUS,
   APPLE_SKU_BY_PLAN_CODE,
@@ -36,10 +37,34 @@ import {
 } from '../../components/subscription/appleOwnershipConflict';
 import { classifyVerifyFailure } from './verifyFailure';
 
+/**
+ * How Apple bills an introductory offer. The mode is set per offer in App Store
+ * Connect and can be switched there without shipping a build, so the paywall
+ * reads it rather than assuming the free days it launched with.
+ *
+ * - `free-trial`: the whole intro period costs nothing.
+ * - `pay-up-front`: one payment buys the whole intro period.
+ * - `pay-as-you-go`: a reduced price per period, for `periods` periods.
+ */
+export type AppleIntroPaymentMode =
+  | 'free-trial'
+  | 'pay-up-front'
+  | 'pay-as-you-go';
+
 /** An introductory offer as Apple defines it — never as the local Plan row does. */
 export interface AppleIntroOffer {
+  paymentMode: AppleIntroPaymentMode;
+  /** How many billing periods the offer runs for — 3, for "3 days" or "$2/mo x 3". */
+  periods: number;
+  /** One period of it, singular: "day", "month". */
+  unitLabel: string;
+  /** The whole offer window: "3 days", "1 month". */
   periodLabel: string;
-  isFree: boolean;
+  /**
+   * The store's own formatted intro price ("$2.99"). Null on a free trial, where
+   * there is no charge to quote. Never null on a paid mode — readIntroOffer
+   * drops an offer it cannot price rather than let the card invent a figure.
+   */
   displayPrice: string | null;
 }
 
@@ -157,6 +182,10 @@ const finishRefusedTransaction = async (
     productId: purchase.productId,
     transactionId,
   });
+  log.warn('IAP verify refused transaction, finishing it', {
+    productId: purchase.productId,
+    transactionId,
+  });
 
   announceRefusal(transactionId, message);
 
@@ -179,6 +208,10 @@ const grantAndFinish = async (
       productId: purchase.productId,
       transactionId: readTransactionId(purchase),
     });
+    log.error('IAP purchase carried no signed transaction', {
+      productId: purchase.productId,
+      transactionId: readTransactionId(purchase),
+    });
     throw new Error('The App Store returned a purchase we cannot verify');
   }
 
@@ -195,6 +228,11 @@ const grantAndFinish = async (
         productId: purchase.productId,
         transactionId: readTransactionId(purchase),
         error,
+      });
+      log.error('IAP verify failed, transaction left queued for replay', {
+        productId: purchase.productId,
+        transactionId: readTransactionId(purchase),
+        message: String((error as Error)?.message ?? 'unknown'),
       });
       throw error;
     }
@@ -237,6 +275,10 @@ const grantAndFinish = async (
     productId: purchase.productId,
     transactionId: readTransactionId(purchase),
   });
+  log.info('IAP entitlement granted', {
+    productId: purchase.productId,
+    transactionId: readTransactionId(purchase),
+  });
   return {
     status: 'purchased',
     productId: purchase.productId,
@@ -266,6 +308,11 @@ const handlePurchaseError = (error: PurchaseError) => {
     return;
   }
   console.error('[iap] Purchase failed', {
+    code: error.code,
+    productId: error.productId,
+    message: error.message,
+  });
+  log.error('IAP purchase failed', {
     code: error.code,
     productId: error.productId,
     message: error.message,
@@ -336,19 +383,45 @@ const isIosSubscription = (
 
 // Apple reports the offer's duration as a count plus a unit, never as a phrase.
 // A mode of "empty" means the product carries no introductory offer at all.
+//
+// The mode is passed through rather than flattened to a boolean: switching the
+// offer in App Store Connect from free days to a paid intro changes what the
+// card must SAY, not just whether a zero is drawn, and the three modes read
+// differently ("3 days free" vs "3 days for $2" vs "$2/month for 3 months").
 const readIntroOffer = (
   product: ProductSubscriptionIOS,
 ): AppleIntroOffer | null => {
   const paymentMode = product.introductoryPricePaymentModeIOS;
   const unit = product.introductoryPriceSubscriptionPeriodIOS;
   const periods = Number(product.introductoryPriceNumberOfPeriodsIOS);
+  const displayPrice = product.introductoryPriceIOS ?? null;
   if (!paymentMode || paymentMode === 'empty') return null;
   if (!unit || unit === 'empty') return null;
   if (!Number.isFinite(periods) || periods <= 0) return null;
+  // A paid offer the store did not price cannot be advertised: the card's whole
+  // job is to state what the intro period costs, and the only other figure on
+  // hand is the full subscription price, which is not it. Dropping the offer
+  // costs the paywall its trial card and leaves the plain plans buyable.
+  if (paymentMode !== 'free-trial' && !displayPrice) {
+    console.warn('[iap] Paid intro offer arrived without a price', {
+      sku: product.id,
+      paymentMode,
+    });
+    return null;
+  }
+  console.log('[iap] Intro offer', {
+    sku: product.id,
+    paymentMode,
+    periods,
+    unit,
+    displayPrice,
+  });
   return {
+    paymentMode,
+    periods,
+    unitLabel: unit,
     periodLabel: `${periods} ${unit}${periods === 1 ? '' : 's'}`,
-    isFree: paymentMode === 'free-trial',
-    displayPrice: product.introductoryPriceIOS ?? null,
+    displayPrice,
   };
 };
 
@@ -376,6 +449,19 @@ export const getAppleProducts = async (): Promise<AppleProduct[]> => {
 /** Prices plus whether this Apple ID may still take the introductory offer. */
 export const getAppleCatalogue = async (): Promise<AppleCatalogue> => {
   const products = await getAppleProducts();
+
+  // Which store actually answered. A local .storekit config reports its own
+  // `_storefront` currency; the live sandbox reports the storefront of the App
+  // Store account on the device, which is NOT necessarily the sandbox tester's
+  // country. Seeing USD here on an India tester is the tell.
+  console.log(
+    '[iap] Catalogue',
+    products.map(product => ({
+      sku: product.sku,
+      currency: product.currency,
+      displayPrice: product.displayPrice,
+    })),
+  );
 
   // Apple is the sole authority here: eligibility is per Apple ID and
   // subscription group, and the backend's own trial flag cannot see it. A failed
@@ -420,6 +506,7 @@ const requestApplePurchase = async (
   });
 
   console.log('[iap] Requesting purchase', { sku });
+  log.info('IAP purchase requested', { sku });
   try {
     await requestPurchase({
       request: { apple: { sku, appAccountToken } },
@@ -471,9 +558,46 @@ export const restoreApplePurchases = async (): Promise<string[]> => {
     );
 };
 
-/** Apple owns cancellation; the app can only open the system sheet. */
-export const openManageSubscriptions = async (): Promise<void> => {
-  requireAppleRail('open manage subscriptions');
-  await initIap();
-  await showManageSubscriptionsIOS();
-};
+/** What the App Store sheet reported when the user dismissed it. */
+export interface ManageSubscriptionsResult {
+  /**
+   * True when a subscription came back from the sheet with auto-renew off, i.e.
+   * the user actually cancelled something while it was open.
+   *
+   * StoreKit derives this from the local renewal info, which updates the moment
+   * the toggle is flipped — long before Apple's DID_CHANGE_RENEWAL_STATUS
+   * notification reaches our server. It is a hint for what to SAY, never a
+   * replacement for the server's row.
+   */
+  renewalTurnedOff: boolean;
+}
+
+/**
+ * Apple owns cancellation; the app can only open the system sheet.
+ *
+ * `showManageSubscriptionsIOS` presents AppStore.showManageSubscriptions IN the
+ * app — the app never backgrounds — and resolves on dismissal with the
+ * transactions whose state changed while the sheet was up. That resolution is
+ * the only in-app event this flow gets, so callers must treat it as "the user is
+ * back" and not wait on an AppState transition that will never arrive.
+ */
+export const openManageSubscriptions =
+  async (): Promise<ManageSubscriptionsResult> => {
+    requireAppleRail('open manage subscriptions');
+    await initIap();
+
+    const changed = (await showManageSubscriptionsIOS()) ?? [];
+    const renewalTurnedOff = changed.some(
+      purchase => purchase.isAutoRenewing === false,
+    );
+    console.log('[iap] Manage subscriptions sheet closed', {
+      changed: changed.length,
+      renewalTurnedOff,
+    });
+    log.info('IAP manage-subscriptions sheet closed', {
+      changed: changed.length,
+      renewalTurnedOff,
+    });
+
+    return { renewalTurnedOff };
+  };

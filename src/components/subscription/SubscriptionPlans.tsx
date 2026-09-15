@@ -49,6 +49,8 @@ interface PurchaseActionProps {
   isActivePlan: boolean;
   hasActiveSubscription: boolean;
   blockedLabel?: string | null;
+  /** This card carries no price. See PaywallOffers.pricesUnavailable. */
+  priceUnknown: boolean;
   onPress: () => void;
 }
 
@@ -66,6 +68,7 @@ function PurchaseAction({
   isActivePlan,
   hasActiveSubscription,
   blockedLabel,
+  priceUnknown,
   onPress,
 }: PurchaseActionProps) {
   // Unlike the subscribed case this shows on EVERY card: no plan is buyable, so
@@ -88,6 +91,24 @@ function PurchaseAction({
         style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
       >
         <Text style={[theme.text, theme.textDisabled]}>Active</Text>
+      </View>
+    );
+  }
+
+  // Per card, unlike the block above: one product can be missing from the store
+  // catalogue while its neighbours price fine. Rendered as a View so there is
+  // no handler to fire at all — a tap here would send the user to the App Store
+  // to be charged an amount this screen never showed them. It ranks below the
+  // subscribed case, which is the more important thing to say about a card the
+  // user already holds. The label is left as it was rather than replaced with
+  // copy about prices; the placeholder standing where the figure should be is
+  // what says the price is missing.
+  if (priceUnknown) {
+    return (
+      <View
+        style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
+      >
+        <Text style={[theme.text, theme.textDisabled]}>{label}</Text>
       </View>
     );
   }
@@ -118,6 +139,13 @@ function PurchaseAction({
   );
 }
 
+// Holds the amount's place while the storefront's price is unknown. A neutral
+// mark, never a figure and never copy implying one: on the Apple rail the only
+// price that is true is the store's, and anything drawn in its absence is a
+// number the App Store will not honour. The period stays, because "/year" is
+// still true and it keeps the card from reflowing when the price lands.
+const PRICE_PLACEHOLDER = '—';
+
 // The card renders the symbol in its own smaller style, but Apple hands back a
 // single localised string ("₹499.00", "$5.99") that must not be taken apart.
 function Price({
@@ -131,10 +159,10 @@ function Price({
 }) {
   return (
     <>
-      {price.currency ? (
+      {price.currency && price.amount !== null ? (
         <Text style={styles.priceCurrency}>{price.currency}</Text>
       ) : null}
-      <Text style={amountStyle}>{price.amount}</Text>
+      <Text style={amountStyle}>{price.amount ?? PRICE_PLACEHOLDER}</Text>
       <Text style={periodStyle}>{price.period}</Text>
     </>
   );
@@ -202,12 +230,14 @@ export default function SubscriptionPlans({
               </View>
 
               <View style={styles.trialPriceContainer}>
-                {trial.price.currency ? (
+                {trial.price.currency && trial.price.amount !== null ? (
                   <Text style={styles.trialPriceCurrency}>
                     {trial.price.currency}
                   </Text>
                 ) : null}
-                <Text style={styles.trialPriceText}>{trial.price.amount}</Text>
+                <Text style={styles.trialPriceText}>
+                  {trial.price.amount ?? PRICE_PLACEHOLDER}
+                </Text>
                 <Text style={styles.trialPricePeriod}>
                   {trial.price.period}
                 </Text>
@@ -223,6 +253,7 @@ export default function SubscriptionPlans({
               spinnerColor="#000"
               isActivePlan={isTrialActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={trial.price.amount === null}
               onPress={() => handlePurchase('trial')}
             />
           </View>
@@ -284,6 +315,7 @@ export default function SubscriptionPlans({
               spinnerColor="#fff"
               isActivePlan={isMonthlyActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={offers.monthly.amount === null}
               onPress={() => handlePurchase('monthly')}
             />
           </TouchableOpacity>
@@ -355,6 +387,7 @@ export default function SubscriptionPlans({
               spinnerColor="#000"
               isActivePlan={isAnnualActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={offers.annual.amount === null}
               onPress={() => handlePurchase('annual')}
             />
           </TouchableOpacity>

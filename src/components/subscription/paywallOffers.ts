@@ -5,14 +5,24 @@ import {
   APPLE_SKU_ANNUAL_TRIAL,
   APPLE_SKU_MONTHLY,
 } from '../../config/iap';
-import type { AppleCatalogue, AppleProduct } from '../../services/iap/appleIap';
+import type {
+  AppleCatalogue,
+  AppleIntroOffer,
+  AppleProduct,
+} from '../../services/iap/appleIap';
 import { IS_APPLE_RAIL } from '../../utils/paymentRail';
 
 /** A price split the way the card renders it: small symbol, large amount, small period. */
 export interface PriceDisplay {
   /** null when `amount` already carries the symbol, as Apple's displayPrice does. */
   currency: string | null;
-  amount: string;
+  /**
+   * null when no figure this rail would actually charge could be obtained. The
+   * card then draws a placeholder in its place; it never falls back to a price
+   * from somewhere else, because on the Apple rail the DB's rupee figure is not
+   * what the storefront bills a US or Japanese buyer. Only ever null on Apple.
+   */
+  amount: string | null;
   period: string;
 }
 
@@ -42,6 +52,14 @@ export interface TrialConsumedNotice {
 export interface PaywallOffers {
   monthly: PriceDisplay;
   annual: PriceDisplay;
+  /**
+   * True when a rail-correct price could not be obtained. The cards must render
+   * a placeholder rather than any figure, and the buy action for an unpriced
+   * card is inert: the App Store would charge an amount the user was never
+   * shown. Only ever true on Apple, where the price lives in the store and not
+   * in our database.
+   */
+  pricesUnavailable: boolean;
   /** null when the per-month equivalent cannot be stated in the storefront's currency. */
   annualPerMonthLabel: string | null;
   /**
@@ -76,6 +94,18 @@ export interface PaywallOffers {
 export interface PaywallOffersInput {
   plans?: Plan[];
   appleCatalogue?: AppleCatalogue | null;
+  /**
+   * The catalogue query's own verdict, from useAppleCatalogue. An absent
+   * catalogue is read as "no price yet" either way, so these do not change
+   * which figure is shown — they exist so the answer is the query's and is not
+   * inferred from the shape of a payload that never arrived.
+   *
+   * Both are consulted ONLY while no catalogue has landed at all. react-query
+   * keeps the last good catalogue through a failed refetch, and a price the
+   * store has already given is still the right price to show.
+   */
+  appleCatalogueLoading?: boolean;
+  appleCatalogueError?: boolean;
   /**
    * `trialEligible` off GET /plans. Razorpay only: the Apple payload reports it
    * false for every caller, because the ₹1 plan is never on offer there.
@@ -234,6 +264,9 @@ const buildRazorpayOffers = ({
       : null;
 
   return {
+    // The DB row IS the charged price on this rail, and readPlanRupees always
+    // resolves to a number, so there is no unpriced state to represent here.
+    pricesUnavailable: false,
     monthly: { currency: RUPEE, amount: `${monthlyRupees}`, period: '/month' },
     annual: { currency: RUPEE, amount: `${annualRupees}`, period: '/year' },
     annualPerMonthLabel: offered.annual
@@ -292,12 +325,17 @@ const readPerMonthLabel = (
   return formatted ? `Only ${formatted}/month` : null;
 };
 
+// No fallback. The DB price is an INR accounting figure; quoting it to a buyer
+// the App Store will charge in dollars is a wrong price, and a wrong price is
+// worse than no price at all.
 const toStorePrice = (
   product: AppleProduct | undefined,
   period: string,
-  fallback: PriceDisplay,
-): PriceDisplay =>
-  product ? { currency: null, amount: product.displayPrice, period } : fallback;
+): PriceDisplay => ({
+  currency: null,
+  amount: product ? product.displayPrice : null,
+  period,
+});
 
 // Apple quotes a duration ("3 days"), never a headline. Title-casing it is the
 // whole transformation a period this short ever needs.
@@ -314,10 +352,72 @@ const buildFreePrice = (currency: string): PriceDisplay => {
     : { currency: null, amount: 'Free', period: ' today' };
 };
 
+// "3 days" pluralised for a headline: "3-Day", "1-Month".
+const toHeadlineDuration = (introOffer: AppleIntroOffer): string =>
+  `${introOffer.periods}-${toTitleCase(introOffer.unitLabel)}`;
+
+// The card's three shapes, one per payment mode Apple offers. Which one is live
+// is App Store Connect's answer, not this build's: switching the offer from free
+// days to a paid intro is a change made in the console, and every figure and
+// every word below is read back from the store so that switch lands on the
+// paywall without a release.
+//
+// The upfront price is the amount the tap actually charges TODAY, and the
+// footnote always names both that and what it converts to, because those are two
+// different numbers in every mode except a plain renewal.
+const buildAppleIntroCard = (
+  introOffer: AppleIntroOffer,
+  currency: string,
+  conversion: string,
+): Pick<TrialOffer, 'title' | 'price' | 'buttonLabel' | 'footnote'> | null => {
+  const introPrice = introOffer.displayPrice;
+
+  // A free-trial card is drawn ONLY for an offer Apple calls free. readIntroOffer
+  // already drops a paid offer it has no price for, and this says the same thing
+  // a second time on purpose: the alternative to a null here is a card reading
+  // "3 days free" over an offer that charges, which is the worst outcome on this
+  // screen and is one dropped field away at all times.
+  if (introOffer.paymentMode !== 'free-trial' && !introPrice) return null;
+
+  if (introOffer.paymentMode === 'pay-as-you-go' && introPrice) {
+    // A reduced price charged every period for the length of the offer. The
+    // period belongs beside the price here — "$2" alone would read as the whole
+    // intro cost when it is charged three times.
+    return {
+      title: `${toHeadlineDuration(introOffer)} Intro`,
+      price: {
+        currency: null,
+        amount: introPrice,
+        period: `/${introOffer.unitLabel}`,
+      },
+      buttonLabel: `Start for ${introPrice} →`,
+      footnote: `${introPrice}/${introOffer.unitLabel} for ${introOffer.periodLabel}, then ${conversion}`,
+    };
+  }
+
+  if (introOffer.paymentMode === 'pay-up-front' && introPrice) {
+    // One payment buys the whole intro window, so it is charged today and the
+    // period reads " today" exactly as the ₹1 Razorpay trial's does.
+    return {
+      title: `${toHeadlineDuration(introOffer)} Trial`,
+      price: { currency: null, amount: introPrice, period: ' today' },
+      buttonLabel: `Start for ${introPrice} →`,
+      footnote: `${introOffer.periodLabel} for ${introPrice}, then ${conversion}`,
+    };
+  }
+
+  return {
+    title: `${toTitleCase(introOffer.periodLabel)} Free`,
+    price: buildFreePrice(currency),
+    buttonLabel: 'Start Free Trial →',
+    footnote: `${introOffer.periodLabel} free, then ${conversion}`,
+  };
+};
+
 // The local ₹1 TRIAL plan has no Apple analogue — an App Store introductory
-// offer is free or a price tier, never ₹1 — so on this rail the free days ride
-// their OWN product, which then bills ₹899 a year. Selecting the card buys that
-// product, i.e. ANNUAL_POST_TRIAL.
+// offer is free or a price tier, never ₹1 — so on this rail the intro period
+// rides its OWN product, which then bills ₹899 a year. Selecting the card buys
+// that product, i.e. ANNUAL_POST_TRIAL.
 //
 // Every figure comes off the trial product itself. Quoting the ₹499 ANNUAL card
 // beside it — which is what this did while the free days were an offer ON that
@@ -325,32 +425,35 @@ const buildFreePrice = (currency: string): PriceDisplay => {
 // ₹499.00/year" while the App Store charges ₹899. That is the same mis-sell the
 // TRIAL / TRIAL_NEW split exists to prevent on Razorpay.
 //
-// The card may only appear when the store itself reports both a free intro offer
-// AND that this Apple ID is still eligible for it. The backend's own eligibility
+// The card may only appear when the store itself reports both an intro offer AND
+// that this Apple ID is still eligible for it. The backend's own eligibility
 // flag cannot see Apple's answer and must not stand in for it — which is why it
-// is not an input here at all. Anything less would advertise free days the tap
-// then charges for.
+// is not an input here at all. Anything less would advertise an offer the tap
+// does not honour.
+//
+// Deliberately NOT gated on the offer being free. Eligibility is per Apple ID
+// and subscription group whatever the offer charges, so a paid intro is subject
+// to the same check — and a build that only rendered free days would silently
+// drop the card the day the offer changed in App Store Connect, taking the
+// paywall's whole hook with it.
 const buildAppleTrialCard = (
   trialProduct: AppleProduct | undefined,
   introOfferEligible: boolean,
   trialProductPrice: PriceDisplay | null,
 ): TrialOffer | null => {
-  if (!trialProduct || !trialProductPrice) return null;
+  if (!trialProduct || !trialProductPrice?.amount) return null;
   const introOffer = trialProduct.introOffer;
-  if (!introOffer || !introOffer.isFree || !introOfferEligible) return null;
-  return {
-    planCode: 'ANNUAL_POST_TRIAL',
-    title: `${toTitleCase(introOffer.periodLabel)} Free`,
-    price: buildFreePrice(trialProduct.currency),
-    buttonLabel: 'Start Free Trial →',
-    footnote: `${introOffer.periodLabel} free, then ${trialProductPrice.amount}${trialProductPrice.period}. Cancel anytime in Settings.`,
-  };
+  if (!introOffer || !introOfferEligible) return null;
+  const card = buildAppleIntroCard(
+    introOffer,
+    trialProduct.currency,
+    `${trialProductPrice.amount}${trialProductPrice.period}. Cancel anytime in Settings.`,
+  );
+  if (!card) return null;
+  return { planCode: 'ANNUAL_POST_TRIAL', ...card };
 };
 
 const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
-  // The DB row is the accounting record, not the price the storefront charges,
-  // so it only stands in while the store call is still in flight or has failed.
-  const dbPrices = buildRazorpayOffers(input);
   const products = input.appleCatalogue?.products;
   const monthlyProduct = products?.find(
     product => product.sku === APPLE_SKU_MONTHLY,
@@ -362,8 +465,8 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
     product => product.sku === APPLE_SKU_ANNUAL_TRIAL,
   );
 
-  const monthly = toStorePrice(monthlyProduct, '/month', dbPrices.monthly);
-  const annual = toStorePrice(annualProduct, '/year', dbPrices.annual);
+  const monthly = toStorePrice(monthlyProduct, '/month');
+  const annual = toStorePrice(annualProduct, '/year');
   // No DB fallback: the trial card's whole job is to state what the free days
   // convert to, and without the store's price there is no figure to state.
   const trialPrice = trialProduct
@@ -375,13 +478,23 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
   const hasStoreAmounts = monthlyAmount !== null && annualAmount !== null;
 
   return {
+    // A card the store did not price cannot be sold, whether its product is
+    // missing from an otherwise good catalogue or the catalogue itself never
+    // arrived. See PaywallOffersInput on why the query's own state is taken
+    // rather than inferred, and why it is ignored once a catalogue has landed.
+    pricesUnavailable:
+      monthly.amount === null ||
+      annual.amount === null ||
+      (!input.appleCatalogue &&
+        (!!input.appleCatalogueLoading || !!input.appleCatalogueError)),
     monthly,
     annual,
+    // Both lines are percentages OF a price. With no store figure to divide
+    // there is nothing to state, and stating one anyway would be arithmetic
+    // against a number this rail never charges.
     annualPerMonthLabel: annualProduct?.price
       ? readPerMonthLabel(annualProduct.price, annualProduct.currency)
       : null,
-    // Comparing a store price against a DB price would invent a discount, so the
-    // badge is dropped unless both figures come from the same storefront.
     savingsPercent: hasStoreAmounts
       ? readSavingsPercent(monthlyAmount, annualAmount)
       : null,
@@ -401,6 +514,37 @@ const buildAppleOffers = (input: PaywallOffersInput): PaywallOffers => {
     offered: { monthly: true, annual: true },
     trialConsumedNotice: null,
   };
+};
+
+/** The three cards a paywall selection can land on. */
+export type PaywallPlanKey = 'trial' | 'monthly' | 'annual';
+
+/**
+ * The card the screen should select on the user's behalf, or null to leave the
+ * selection where it is.
+ *
+ * A card's buy button is inert until its card is the selected one, so a
+ * selection sitting on a card that cannot be bought is a paywall with no live
+ * action anywhere — the user's only way out is to discover that tapping a card
+ * body moves the selection. That happens whenever exactly one of the two plans
+ * is buyable, and on the Apple rail "buyable" is not the same question as
+ * "offered": a product missing from the store catalogue (rejected, still in
+ * review, a storefront that never got it) renders its card as an unpriced
+ * placeholder with no action at all, while `offered` stays true for both.
+ *
+ * Null when both are buyable — the default selection is already a real choice —
+ * and when neither is, where there is nothing to move the selection to.
+ */
+export const preselectedPlan = (
+  offers: PaywallOffers,
+): PaywallPlanKey | null => {
+  if (offers.trial) return 'trial';
+
+  const monthly = offers.offered.monthly && offers.monthly.amount !== null;
+  const annual = offers.offered.annual && offers.annual.amount !== null;
+
+  if (monthly === annual) return null;
+  return annual ? 'annual' : 'monthly';
 };
 
 /** The prices and trial copy the active rail is actually able to honour. */

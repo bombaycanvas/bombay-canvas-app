@@ -3,6 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { useVideoStore } from '../store/videoStore';
 import { useTrialPromptStore } from '../store/trialPromptStore';
+import { capture, ProductEvent } from '../utils/analytics';
+import { getPaymentRail } from '../services/paymentRail';
 
 /**
  * Open the paywall for a series — the one way locked content asks to be paid for.
@@ -33,6 +35,22 @@ export const useOpenPaywall = () => {
       // Remembered either way, so the paywall opens on the title the user was
       // actually watching — the dialog navigates without route params.
       setPurchaseSeries(series);
+
+      // Every paywall entry point routes through this hook, so one call here
+      // covers the player, the series screen and the episode list. `outcome`
+      // records WHICH paywall was shown: a spent trial gets a dialog, everyone
+      // else gets the subscription screen, and the two convert very differently.
+      capture(ProductEvent.PaywallOpened, {
+        series_id: String(series?.id ?? ''),
+        series_title: String(series?.title ?? ''),
+        genre: String(series?.genres?.[0]?.name ?? 'unknown'),
+        creator_id: String(series?.uploader?.id ?? ''),
+        outcome: trialConsumed ? 'trial_prompt' : 'subscription_screen',
+        trial_consumed: trialConsumed,
+        // Which store the user would actually pay through. No plan yet — that
+        // is chosen on the next screen and rides on the checkout events.
+        rail: getPaymentRail().rail,
+      });
 
       if (trialConsumed) {
         // Whatever is playing behind the dialog stops, so dismissing it leaves

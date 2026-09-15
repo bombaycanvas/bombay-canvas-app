@@ -10,6 +10,7 @@ import {
   setAppleOwnershipConflict,
   type AppleOwnershipConflict,
 } from '../components/subscription/appleOwnershipConflict';
+import { log } from '../utils/analytics/log';
 
 /** Keeps the Apple rail connected and silently claims what this Apple ID already owns. */
 export const useAppleIapSync = () => {
@@ -23,9 +24,12 @@ export const useAppleIapSync = () => {
     // Connecting also installs the purchase listeners, which is how StoreKit's
     // launch replay of a transaction we failed to verify last session gets its
     // second chance at being granted and finished.
-    initIap().catch(error =>
-      console.warn('[iap] Store connection failed at launch', error),
-    );
+    initIap().catch(error => {
+      console.warn('[iap] Store connection failed at launch', error);
+      log.warn('IAP store connection failed at launch', {
+        message: String((error as Error)?.message ?? 'unknown'),
+      });
+    });
 
     // teardownIap swallows its own failures — cleanup must be total.
     return () => {
@@ -49,6 +53,7 @@ export const useAppleIapSync = () => {
     // again on every login — and stays silent, because it is housekeeping the
     // user never asked for and must not block or interrupt anything.
     console.log('[iap] Claiming App Store purchases', { userId });
+    log.info('Claiming App Store purchases', { userId });
     getPaymentRail()
       .restore()
       .then(restored => {
@@ -61,10 +66,19 @@ export const useAppleIapSync = () => {
             '[iap] This Apple ID is linked to another Canvas account',
             { userId, transactionId: conflict.transactionId },
           );
+          log.warn('Apple ID already linked to another Canvas account', {
+            userId,
+            transactionId: conflict.transactionId,
+          });
         }
         setAppleOwnershipConflict(queryClient, conflict);
       })
-      .catch(error => console.warn('[iap] Silent restore failed', error));
+      .catch(error => {
+        console.warn('[iap] Silent restore failed', error);
+        log.warn('IAP silent restore failed', {
+          message: String((error as Error)?.message ?? 'unknown'),
+        });
+      });
   }, [isAuthenticated, userId, queryClient]);
 };
 

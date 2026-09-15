@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
+import { log } from '../utils/analytics/log';
 
 export const imgUrl = (
   path: string | undefined,
@@ -223,6 +224,10 @@ export const getPlayVideoWithID = async (id: string) => {
     } else {
       console.log('Failed to fetch episode', error);
     }
+    log.error('Episode URL fetch failed', {
+      episode_id: String(id ?? ''),
+      message: String((error as Error)?.message ?? 'unknown'),
+    });
     return null;
   }
 };

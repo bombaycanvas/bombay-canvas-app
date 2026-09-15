@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { invalidateEntitlementQueries } from '../../api/subscription';
 import { getPaymentRail } from '../../services/paymentRail';
+import { log } from '../../utils/analytics/log';
 import { IS_APPLE_RAIL } from '../../utils/paymentRail';
 import {
   readAppleOwnershipConflict,
@@ -44,6 +45,10 @@ export default function RestorePurchasesButton() {
       invalidateEntitlementQueries(queryClient);
 
       console.log('[iap] Restore purchases completed', {
+        restored: restored.length,
+        granted,
+      });
+      log.info('Restore purchases completed', {
         submitted: restored.length,
         granted,
         conflict: conflict?.transactionId ?? null,
@@ -82,6 +87,9 @@ export default function RestorePurchasesButton() {
       });
     } catch (error) {
       console.warn('[iap] Restore purchases failed', error);
+      log.warn('Restore purchases failed', {
+        message: String((error as Error)?.message ?? 'unknown'),
+      });
       Toast.show({
         type: 'error',
         text1: 'Restore Failed',

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { log } from '../utils/analytics/log';
 
 const CACHED_VIDEO_KEY = 'COVER_VIDEO_CACHE_METADATA';
 
@@ -33,6 +34,7 @@ export const useVideoCache = (remoteUrl?: string) => {
                     const exists = await RNFS.exists(localPath);
                     if (exists) {
                         console.log('Using cached video:', localPath);
+                        log.info('Video served from cache');
                         setVideoUrl(localPath);
                         return;
                     }
@@ -63,6 +65,7 @@ export const useVideoCache = (remoteUrl?: string) => {
                     .then(async res => {
                         if (res.statusCode === 200) {
                             console.log('Video downloaded successfully to:', downloadDest);
+                            log.info('Video cached for offline playback');
                             const newMetadata: CacheMetadata = {
                                 remoteUrl,
                                 localPath: downloadDest,
@@ -73,6 +76,7 @@ export const useVideoCache = (remoteUrl?: string) => {
                             );
                         } else {
                             console.log('Video download failed status:', res.statusCode);
+                            log.warn('Video download failed', { status: res.statusCode });
                         }
                     })
                     .catch(err => {
@@ -80,6 +84,9 @@ export const useVideoCache = (remoteUrl?: string) => {
                     });
             } catch (error) {
                 console.error('Error in useVideoCache:', error);
+                log.error('Video cache failed, falling back to stream', {
+                    message: String((error as Error)?.message ?? 'unknown'),
+                });
                 setVideoUrl(remoteUrl); // Fallback to remote
             }
         };

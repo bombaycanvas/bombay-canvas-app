@@ -50,9 +50,14 @@ export interface CancelParams {
 // Apple never lets an app cancel a subscription — the most it can do is open the
 // system sheet — so the caller has to know whether anything was actually
 // cancelled before it tells the user it was.
+//
+// `renewalTurnedOff` rides along on the deferred branch: the store sheet closes
+// knowing whether the user switched renewal off, while our server does not find
+// out until Apple's notification lands seconds to minutes later. It says what to
+// TELL the user while that gap is open; the row is still the source of truth.
 export type CancelOutcome =
   | { status: 'cancelled' }
-  | { status: 'deferredToStore' };
+  | { status: 'deferredToStore'; renewalTurnedOff: boolean };
 
 // A restore is not just a count of what was recovered. A rail can hold a receipt
 // this account is not allowed to own — on Apple, because the subscription behind

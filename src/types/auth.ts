@@ -72,6 +72,8 @@ export type AuthState = {
   removeToken: () => void;
   setUser: (user: any) => void;
   setHasSkipped: (val: boolean) => Promise<void>;
+  preferredLanguages: string[] | null;
+  setPreferredLanguages: (codes: string[]) => Promise<void>;
 };
 
 export interface UserType {
