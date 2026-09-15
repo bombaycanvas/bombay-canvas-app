@@ -37,6 +37,11 @@ export const useAuthStore = create<AuthState>(set => {
       set({ isAuthenticated: storedAuth === 'true' });
       set({ hasSkipped: (await AsyncStorage.getItem('hasSkipped')) === 'true' });
       set({ token: token });
+
+      const storedLanguages = await AsyncStorage.getItem('preferredLanguages');
+      set({
+        preferredLanguages: storedLanguages ? JSON.parse(storedLanguages) : null,
+      });
       const parsedUser = user ? JSON.parse(user) : null;
       set({ user: parsedUser });
       // Self-healing identity: PostHog persists distinct_id across restarts by
@@ -59,6 +64,9 @@ export const useAuthStore = create<AuthState>(set => {
     isLoading: true,
     token: null,
     user: null,
+    // null = never asked. [] = asked, wants everything. Kept device-local so
+    // guests who skipped auth are personalized too.
+    preferredLanguages: null,
     logout: async () => {
       logoutGoogle().catch(err => console.log('Google signOut error during logout:', err));
       logoutApple().catch(err => console.log('Apple signOut error during logout:', err));
@@ -69,6 +77,7 @@ export const useAuthStore = create<AuthState>(set => {
           'accessToken',
           'user',
           'hasSkipped',
+          'preferredLanguages',
         ]);
       } catch (error) {
         console.error('Error clearing AsyncStorage during logout:', error);
@@ -83,7 +92,13 @@ export const useAuthStore = create<AuthState>(set => {
       queryClient.clear();
       useVideoStore.getState().resetPlayer();
       useVideoStore.getState().resetPurchaseState();
-      set({ isAuthenticated: false, token: null, user: null, hasSkipped: false });
+      set({
+        isAuthenticated: false,
+        token: null,
+        user: null,
+        hasSkipped: false,
+        preferredLanguages: null,
+      });
     },
 
     saveToken: async (token: string) => {
@@ -115,6 +130,10 @@ export const useAuthStore = create<AuthState>(set => {
     setHasSkipped: async (val: boolean) => {
       await AsyncStorage.setItem('hasSkipped', val ? 'true' : 'false');
       set({ hasSkipped: val });
+    },
+    setPreferredLanguages: async (codes: string[]) => {
+      await AsyncStorage.setItem('preferredLanguages', JSON.stringify(codes));
+      set({ preferredLanguages: codes });
     },
   };
 });

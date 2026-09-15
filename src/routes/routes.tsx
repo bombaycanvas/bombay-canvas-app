@@ -20,6 +20,7 @@ import SeriesDetailScreen from '../screens/SeriesDetailScreen';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { TrialEndedPrompt } from '../components/subscription/TrialEndedPrompt';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   StartLogin: undefined;
   CompleteProfile: undefined;
+  LanguagePreference: undefined;
   Signup: { fromSignup?: boolean };
   SeriesDetail: {
     id: string | number;
@@ -113,7 +115,12 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token, isLoading } = useAuthStore();
+  const { token, isLoading, hasSkipped, preferredLanguages } = useAuthStore();
+
+  // null means never asked — existing users and guests get the step once too,
+  // not just fresh signups. An empty array is a real answer and passes through.
+  const needsLanguageStep =
+    (token || hasSkipped) && preferredLanguages === null;
 
   if (isLoading) {
     return (
@@ -132,7 +139,13 @@ const AppStack = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName={token ? 'MainTabs' : 'StartLogin'}
+      initialRouteName={
+        needsLanguageStep
+          ? 'LanguagePreference'
+          : token
+            ? 'MainTabs'
+            : 'StartLogin'
+      }
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -144,6 +157,7 @@ const AppStack = () => {
       <Stack.Screen name="StartLogin" component={StartLoginScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+      <Stack.Screen name="LanguagePreference" component={OnboardingScreen} />
 
       <Stack.Screen
         name="Signup"

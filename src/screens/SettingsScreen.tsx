@@ -144,6 +144,14 @@ const SettingsScreen = () => {
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}
+          onPress={() => (navigation as any).navigate('LanguagePreference')}
+        >
+          <Text style={styles.rowLabel}>Content Languages</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.row}
           onPress={handleBillingPress}
           accessibilityRole="button"
           accessibilityState={isActive ? { expanded: isBillingExpanded } : {}}

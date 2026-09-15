@@ -8,6 +8,12 @@ export interface Movie {
   title: string;
   posterUrl: string;
   genres?: Genre[];
+  language?: {
+    id: string;
+    code: string;
+    label: string;
+    nativeLabel: string | null;
+  } | null;
   uploader?: {
     id: string;
     name: string;

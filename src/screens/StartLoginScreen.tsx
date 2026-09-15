@@ -24,6 +24,7 @@ import GoogleLogin from '../assets/GoogleLogin';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import { postAuthRoute } from '../utils/postAuthRoute';
 import PhoneInput from 'react-native-international-phone-number';
 import { PostHogMaskView } from 'posthog-react-native';
 import {
@@ -102,7 +103,7 @@ const StartLoginScreen = () => {
     await setHasSkipped(true);
     (navigation as any).reset({
       index: 0,
-      routes: [{ name: 'MainTabs' }],
+      routes: [{ name: postAuthRoute() }],
     });
   };
 

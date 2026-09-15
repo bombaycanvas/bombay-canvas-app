@@ -18,7 +18,7 @@ persistQueryClient({
     // Bump whenever what may be persisted changes. Without it the blob already
     // on a device is still restored on the next launch, so the very prices this
     // stopped saving come back once more before they age out.
-    buster: 'v2-no-apple-catalogue',
+    buster: 'v3-series-language',
     dehydrateOptions: {
         // The App Store catalogue carries the charged price and the intro-offer
         // eligibility, both owned by the Apple ID signed into the device and both

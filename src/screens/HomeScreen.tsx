@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import Explore from '../components/Explore';
 import HeroSlider from '../components/HeroSlider';
@@ -13,10 +13,12 @@ import {
 } from '../api/video';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
-import { Crown } from 'lucide-react-native';
+import { Crown, Globe } from 'lucide-react-native';
 import { useMySubscription } from '../api/subscription';
 import { useAuthStore } from '../store/authStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { useLanguages } from '../api/language';
+import { rankByLanguage, formatLanguageList } from '../utils/languageRank';
 
 export default function HomeScreen() {
   const { data, isLoading } = useMoviesData();
@@ -27,7 +29,8 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [isSliderVisible, setIsSliderVisible] = useState(true);
   const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
-  const { token } = useAuthStore();
+  const { token, preferredLanguages } = useAuthStore();
+  const { data: languages = [] } = useLanguages();
 
   const { data: subscription, refetch } = useMySubscription();
   useFocusEffect(
@@ -97,6 +100,23 @@ export default function HomeScreen() {
   };
 
   const genreMap = getMoviesByGenre();
+
+  const rankedLatest = useMemo(
+    () => rankByLanguage(data?.series ?? [], preferredLanguages),
+    [data?.series, preferredLanguages],
+  );
+  const rankedRecommended = useMemo(
+    () => rankByLanguage(recommendedSeriesData?.series ?? [], preferredLanguages),
+    [recommendedSeriesData?.series, preferredLanguages],
+  );
+  const selectedLabels = useMemo(() => {
+    if (!preferredLanguages?.length) return '';
+    const byCode = new Map(languages.map(l => [l.code, l.nativeLabel || l.label]));
+    return formatLanguageList(
+      preferredLanguages.map(c => byCode.get(c)).filter(Boolean) as string[],
+    );
+  }, [preferredLanguages, languages]);
+
   const onCardPress = (movie: any) => {
     navigation.navigate('SeriesDetail', {
       id: movie.id,
@@ -115,15 +135,28 @@ export default function HomeScreen() {
           <Landing />
         )}
         <ContinueWatching />
+        {!!selectedLabels && (
+          <View style={styles.languageRow}>
+            <Globe size={13} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.languageText}>
+              Showing {selectedLabels} ·{' '}
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('LanguagePreference')}
+            >
+              <Text style={styles.languageEdit}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Explore
           heading={'Recommended for you'}
-          movieData={recommendedSeriesData?.series ?? []}
+          movieData={rankedRecommended}
           isLoading={isRecommendedLoading}
           onCardPress={onCardPress}
         />
         <Explore
           heading={'New on canvas'}
-          movieData={data?.series ?? []}
+          movieData={rankedLatest}
           isLoading={isLoading}
           onCardPress={onCardPress}
         />
@@ -179,6 +212,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     position: 'relative',
   },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  languageText: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
+  languageEdit: { color: '#ff6a00', fontSize: 11 },
   stickyButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 55 : 40,

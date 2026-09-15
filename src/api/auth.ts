@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../utils/api";
 import { useAuthStore } from "../store/authStore";
+import { postAuthRoute } from "../utils/postAuthRoute";
 import { useNavigation } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import {
@@ -191,7 +192,7 @@ export const useVerifyOtpMutation = (redirect?: {
           } else {
             (navigation as any).reset({
               index: 0,
-              routes: [{ name: "MainTabs" }],
+              routes: [{ name: postAuthRoute() }],
             });
           }
         }
@@ -286,7 +287,7 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
         } else {
           (navigation as any).reset({
             index: 0,
-            routes: [{ name: "MainTabs" }],
+            routes: [{ name: postAuthRoute() }],
           });
         }
       }
@@ -343,7 +344,7 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
         } else {
           (navigation as any).reset({
             index: 0,
-            routes: [{ name: "MainTabs" }],
+            routes: [{ name: postAuthRoute() }],
           });
         }
       }
@@ -390,7 +391,7 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
         } else {
           (navigation as any).reset({
             index: 0,
-            routes: [{ name: "MainTabs" }],
+            routes: [{ name: postAuthRoute() }],
           });
         }
       }
@@ -517,7 +518,7 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
         } else {
           (navigation as any).reset({
             index: 0,
-            routes: [{ name: "MainTabs" }],
+            routes: [{ name: postAuthRoute() }],
           });
         }
       }
