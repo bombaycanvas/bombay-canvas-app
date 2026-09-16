@@ -41,9 +41,11 @@ export const updateLanguagePreferences = async (codes: string[]) => {
 export const syncLocalLanguagePreferences = async () => {
   const { token, preferredLanguages } = useAuthStore.getState();
 
-  if (!token || preferredLanguages === null) return;
+  if (!token) return;
 
-  await updateLanguagePreferences(preferredLanguages);
+  if (preferredLanguages !== null) {
+    await updateLanguagePreferences(preferredLanguages);
+  }
 
   const response = await api('/api/user/userInfo-v2', {
     method: 'GET',
@@ -54,6 +56,12 @@ export const syncLocalLanguagePreferences = async () => {
 
   if (user) {
     await useAuthStore.getState().setUser(user);
+
+    if (Array.isArray(user.preferredLanguages)) {
+      await useAuthStore.getState().setPreferredLanguages(
+        user.preferredLanguages.map((language: { code: string }) => language.code),
+      );
+    }
   }
 };
 
