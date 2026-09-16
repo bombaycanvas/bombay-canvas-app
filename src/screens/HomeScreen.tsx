@@ -18,7 +18,8 @@ import { useMySubscription } from '../api/subscription';
 import { useAuthStore } from '../store/authStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { useLanguages } from '../api/language';
-import { rankByLanguage, formatLanguageList } from '../utils/languageRank';
+import { applyLanguagePreference, formatLanguageList } from '../utils/languageRank';
+import { useSetting } from '../api/settings';
 
 export default function HomeScreen() {
   const { data, isLoading } = useMoviesData();
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
   const { token, preferredLanguages } = useAuthStore();
   const { data: languages = [] } = useLanguages();
+  const languageDisplayMode = useSetting('language.displayMode', 'RANK') as 'RANK' | 'FILTER';
 
   const { data: subscription, refetch } = useMySubscription();
   useFocusEffect(
@@ -88,10 +90,10 @@ export default function HomeScreen() {
     }
   }, [data, recommendedSeriesData, coverVideoData]);
 
-  const getMoviesByGenre = () => {
+  const getMoviesByGenre = (series: any[]) => {
     const genreMap: Record<string, any[]> = {};
-    data?.series?.forEach(movie => {
-      movie.genres?.forEach(genre => {
+    series?.forEach(movie => {
+      movie.genres?.forEach((genre: { name: string }) => {
         if (!genreMap[genre.name]) genreMap[genre.name] = [];
         genreMap[genre.name].push(movie);
       });
@@ -99,16 +101,26 @@ export default function HomeScreen() {
     return genreMap;
   };
 
-  const genreMap = getMoviesByGenre();
+  // Apply once; genre buckets are then derived from the same processed list so
+  // FILTER mode actually removes non-preferred-language series from every
+  // genre row too, not just "New on canvas".
+  const languageProcessedSeries = useMemo(
+    () => applyLanguagePreference(data?.series ?? [], preferredLanguages, languageDisplayMode),
+    [data?.series, preferredLanguages, languageDisplayMode],
+  );
 
-  const rankedLatest = useMemo(
-    () => rankByLanguage(data?.series ?? [], preferredLanguages),
-    [data?.series, preferredLanguages],
+  const genreMap = useMemo(
+    () => getMoviesByGenre(languageProcessedSeries),
+    [languageProcessedSeries],
   );
+
+  const rankedLatest = languageProcessedSeries;
+
   const rankedRecommended = useMemo(
-    () => rankByLanguage(recommendedSeriesData?.series ?? [], preferredLanguages),
-    [recommendedSeriesData?.series, preferredLanguages],
+    () => applyLanguagePreference(recommendedSeriesData?.series ?? [], preferredLanguages, languageDisplayMode),
+    [recommendedSeriesData?.series, preferredLanguages, languageDisplayMode],
   );
+
   const selectedLabels = useMemo(() => {
     if (!preferredLanguages?.length) return '';
     const byCode = new Map(languages.map(l => [l.code, l.nativeLabel || l.label]));
@@ -135,18 +147,28 @@ export default function HomeScreen() {
           <Landing />
         )}
         <ContinueWatching />
-        
+
         <Explore
           heading={'Recommended for you'}
           movieData={rankedRecommended}
           isLoading={isRecommendedLoading}
           onCardPress={onCardPress}
+          emptyMessage={
+            languageDisplayMode === 'FILTER' && preferredLanguages?.length
+              ? 'No recommended titles in your preferred language yet.'
+              : 'No recommendations yet.'
+          }
         />
         <Explore
           heading={'New on canvas'}
           movieData={rankedLatest}
           isLoading={isLoading}
           onCardPress={onCardPress}
+          emptyMessage={
+            languageDisplayMode === 'FILTER' && preferredLanguages?.length
+              ? 'No new titles in your preferred language yet.'
+              : 'No new titles yet.'
+          }
         />
         {Object.entries(genreMap)?.map(([genreName, movies]) => (
           <Explore
@@ -155,6 +177,7 @@ export default function HomeScreen() {
             movieData={movies}
             isLoading={isLoading}
             onCardPress={onCardPress}
+            emptyMessage="No titles in your preferred language for this genre yet."
           />
         ))}
       </ScrollView>

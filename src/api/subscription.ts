@@ -286,20 +286,12 @@ export const cancelSubscription = async (
 
 export const useSubscriptionPlans = () => {
   const user = useAuthStore(state => state.user);
+  const token = useAuthStore(state => state.token);
   return useQuery({
     queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
     queryFn: getSubscriptionPlans,
+    enabled: !token || !!user?.id, // don't run on the ambiguous token-but-no-user window
     staleTime: 0,
-    // staleTime alone does NOT get this refetched. The client-wide default is
-    // refetchOnMount:false, which suppresses the fetch whenever data is already
-    // in the cache however stale it is — and the cache is persisted to
-    // AsyncStorage for a week, so "already there" is the normal case on launch.
-    //
-    // What that costs is `trialEligible`: a paywall opened after the trial was
-    // consumed would keep rendering the answer from before it, offering a trial
-    // that create would then refuse. Now that a mounted-at-root observer holds
-    // this query from app start, opening the paywall is a SECOND observer and
-    // would never have fetched at all.
     refetchOnMount: true,
   });
 };

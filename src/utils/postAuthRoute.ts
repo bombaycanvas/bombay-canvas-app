@@ -5,6 +5,6 @@ import { useAuthStore } from '../store/authStore';
  * the five reset sites in api/auth.ts and CompleteProfileScreen stay one-liners.
  */
 export const postAuthRoute = (): 'MainTabs' | 'LanguagePreference' =>
-  useAuthStore.getState().preferredLanguages === null
+  useAuthStore.getState().user?.languageOnboardedAt == null
     ? 'LanguagePreference'
     : 'MainTabs';

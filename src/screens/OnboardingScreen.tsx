@@ -122,12 +122,17 @@ const OnboardingScreen = () => {
             ? `${selected.length} language${
                 selected.length > 1 ? 's' : ''
               } selected`
-            : 'Skip to see everything'}
+            : isEditing
+              ? '0 languages selected'
+              : 'Skip to see everything'}
         </Text>
         <TouchableOpacity
-          style={[styles.cta, !selected.length && styles.ctaDisabled]}
+          style={[
+            styles.cta,
+            !isEditing && !selected.length && styles.ctaDisabled,
+          ]}
           onPress={() => finish(selected)}
-          disabled={submitting || !selected.length}
+          disabled={submitting || (!isEditing && !selected.length)}
           activeOpacity={0.85}
         >
           {submitting ? (

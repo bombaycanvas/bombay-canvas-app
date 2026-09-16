@@ -19,7 +19,7 @@ import { buildPaywallOffers } from '../components/subscription/paywallOffers';
 export const useTrialConsumed = (): boolean => {
   const { data: subscriptionPlans } = useSubscriptionPlans();
   const { data: appleCatalogue } = useAppleCatalogue();
-  const { data: mySubscription } = useMySubscription();
+  const { data: mySubscription, isLoading: subscriptionLoading } = useMySubscription();
 
   const trialConsumed = useMemo(
     () =>
@@ -32,7 +32,7 @@ export const useTrialConsumed = (): boolean => {
     [subscriptionPlans, appleCatalogue],
   );
 
-  // A subscriber's trial is spent too, and they must never be told to activate a
-  // plan they are already paying for.
+  if (subscriptionLoading) return false;
+
   return trialConsumed && !isSubscriptionActive(mySubscription);
 };
