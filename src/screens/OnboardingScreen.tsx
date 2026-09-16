@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,22 @@ const OnboardingScreen = () => {
     leave();
   };
 
+  useEffect(() => {
+  if (isLoading || languages.length > 0) return;
+
+  Toast.show({
+    type: 'error',
+    text1: "Couldn't load languages",
+    text2: 'You can set them later in Settings.',
+  });
+
+  if (isEditing) {
+    leave(); // just goBack() — don't clobber existing preferences
+  } else {
+    finish([]); // first run: [] is a real, valid answer
+  }
+}, [isLoading, languages.length, isEditing]);
+
   return (
     <LinearGradient colors={['#1a1a1a', '#000']} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 13 }]}>
@@ -119,9 +135,8 @@ const OnboardingScreen = () => {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 24 }]}>
         <Text style={styles.count}>
           {selected.length
-            ? `${selected.length} language${
-                selected.length > 1 ? 's' : ''
-              } selected`
+            ? `${selected.length} language${selected.length > 1 ? 's' : ''
+            } selected`
             : isEditing
               ? '0 languages selected'
               : 'Skip to see everything'}

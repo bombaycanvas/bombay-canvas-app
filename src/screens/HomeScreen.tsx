@@ -13,7 +13,7 @@ import {
 } from '../api/video';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
-import { Crown, Globe } from 'lucide-react-native';
+import { Crown } from 'lucide-react-native';
 import { useMySubscription } from '../api/subscription';
 import { useAuthStore } from '../store/authStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
@@ -121,14 +121,6 @@ export default function HomeScreen() {
     [recommendedSeriesData?.series, preferredLanguages, languageDisplayMode],
   );
 
-  const selectedLabels = useMemo(() => {
-    if (!preferredLanguages?.length) return '';
-    const byCode = new Map(languages.map(l => [l.code, l.nativeLabel || l.label]));
-    return formatLanguageList(
-      preferredLanguages.map(c => byCode.get(c)).filter(Boolean) as string[],
-    );
-  }, [preferredLanguages, languages]);
-
   const onCardPress = (movie: any) => {
     navigation.navigate('SeriesDetail', {
       id: movie.id,
@@ -223,16 +215,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     position: 'relative',
   },
-  languageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-    gap: 6,
-  },
-  languageText: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
-  languageEdit: { color: '#ff6a00', fontSize: 11 },
   stickyButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 55 : 40,

@@ -64,7 +64,7 @@ export default function App() {
       autocapture={{ captureScreens: false }}
 
       //temporary logging
-      debug={true}
+      debug={__DEV__}
     >
       <QueryClientProvider client={queryClient}>
         <AppleIapSync />

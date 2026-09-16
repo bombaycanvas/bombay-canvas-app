@@ -4,6 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { postAuthRoute } from "../utils/postAuthRoute";
 import { useNavigation } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
+import { syncLocalLanguagePreferences } from "./language";
 import {
   authFailureReason,
   capture,
@@ -28,6 +29,16 @@ const captureAuthFailure = (
     stage,
     reason: authFailureReason(error),
   });
+};
+
+const syncLanguagesAfterAuth = async () => {
+  try {
+    await syncLocalLanguagePreferences();
+  } catch (error) {
+    log.warn("Failed to sync local language preferences", {
+      message: String(error),
+    });
+  }
 };
 
 export const completeProfileRequest = async (data: any) => {
@@ -167,6 +178,7 @@ export const useVerifyOtpMutation = (redirect?: {
         // setUser identifies the PostHog person, so it must land BEFORE the
         // event or `signed_in` is attributed to the anonymous id instead.
         await useAuthStore.getState().setUser(data.user);
+        await syncLanguagesAfterAuth();
 
         // `needs_profile` mirrors the app's own routing test below rather than
         // claiming to mean "new account": the phone endpoint upserts, so a fresh
@@ -262,11 +274,12 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
     onSuccess: async (data) => {
       if (data.token) {
         await useAuthStore.getState().saveToken(data.token);
+        await syncLanguagesAfterAuth();
+        await syncLanguagesAfterAuth();
 
-        // This handler does NOT call setUser (unlike every other auth path), so
-        // without this nothing would ever identify a brand-new account — the
-        // single most important cohort in the product. Identifying directly
-        // fixes that without changing what the auth store holds.
+        // Signup does not receive its user through setUser here. The language
+        // sync refreshes userData after the token is available, which also
+        // supplies the authoritative onboarding timestamp for routing.
         if (data?.user?.id) {
           identifyUser(String(data.user.id), {
             email: data.user.email ?? null,
@@ -333,6 +346,7 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        await syncLanguagesAfterAuth();
         capture(ProductEvent.SignedIn, {
           method: "email",
           role: String(data?.user?.role ?? "USER"),
@@ -380,6 +394,7 @@ export const useGoogleLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        await syncLanguagesAfterAuth();
         capture(ProductEvent.SignedIn, {
           method: "google",
           role: String(data?.user?.role ?? "USER"),
@@ -507,6 +522,7 @@ export const useAppleLogin = (redirect?: { screen: string; params?: any }) => {
       if (data?.token) {
         await useAuthStore.getState().saveToken(data.token);
         await useAuthStore.getState().setUser(data.user);
+        await syncLanguagesAfterAuth();
         capture(ProductEvent.SignedIn, {
           method: "apple",
           role: String(data?.user?.role ?? "USER"),

@@ -16,7 +16,7 @@ export const posthog = new PostHog(apiKey, {
 
   enableSessionReplay: true,
   sessionReplayConfig: {
-    maskAllTextInputs: false,
+    maskAllTextInputs: true,
     maskAllImages: false,
     maskAllSandboxedViews: true,
     captureLog: false,

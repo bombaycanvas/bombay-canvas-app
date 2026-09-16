@@ -8,7 +8,6 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { PostHogMaskView } from 'posthog-react-native';
 import ButtonIcon from '../assets/ButtonIcon';
 import GoogleLogin from '../assets/GoogleLogin';
 import EyeIcon from '../assets/EyeIcon';
@@ -145,10 +144,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           }}
           render={({ field: { onChange, value } }) => (
             <>
-              {/* Session replay: the global text mask is OFF, so this
-                  wrapper is the only thing keeping the address out of
-                  recordings. */}
-              <PostHogMaskView>
                 <TextInput
                   style={styles.input}
                   placeholder="Email"
@@ -158,7 +153,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
-              </PostHogMaskView>
               {errors.email?.message && (
                 <Text style={styles.error}>
                   {errors.email.message as string}
@@ -179,11 +173,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
             },
           }}
           render={({ field: { onChange, value } }) => (
-            /* Session replay: masked. The existing wrapper simply becomes the
-               mask, so the layout is untouched. `secureTextEntry` hides the
-               characters on screen but the recorder captures the RENDERED
-               view, so it is not a substitute for this. */
-            <PostHogMaskView style={styles.passwordWrapper}>
+            <View style={styles.passwordWrapper}>
               <TextInput
                 style={styles.input}
                 placeholder="Your Password"
@@ -204,7 +194,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
                   {errors.password?.message as string}
                 </Text>
               )}
-            </PostHogMaskView>
+            </View>
           )}
         />
 

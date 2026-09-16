@@ -214,8 +214,8 @@ const SeriesDetailScreen: React.FC = () => {
                 <Text style={styles.metaText}>
                   {new Date(series.releaseDate).getFullYear()} •{' '}
                   {capitalizeWords(series.genres?.[0]?.name || '')} •{' '}
-                  {series.episodes?.length || 0} Episodes •{' '}
-                  {series.language.label &&series.language.label}
+                  {series.episodes?.length || 0} Episodes
+                  {series.language?.label ? ` • ${series.language.label}` : null}
                 </Text>
 
                 {isCasting ? (

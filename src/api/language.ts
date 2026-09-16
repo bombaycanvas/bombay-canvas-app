@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api';
+import { useAuthStore } from '../store/authStore';
 
 export interface Language {
   id: string;
@@ -35,6 +36,25 @@ export const updateLanguagePreferences = async (codes: string[]) => {
     body: JSON.stringify({ languages: codes }),
   });
   return res;
+};
+
+export const syncLocalLanguagePreferences = async () => {
+  const { token, preferredLanguages } = useAuthStore.getState();
+
+  if (!token || preferredLanguages === null) return;
+
+  await updateLanguagePreferences(preferredLanguages);
+
+  const response = await api('/api/user/userInfo-v2', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+  });
+  const user = response?.userData;
+
+  if (user) {
+    await useAuthStore.getState().setUser(user);
+  }
 };
 
 export const useUpdateLanguagePreferences = () => {
