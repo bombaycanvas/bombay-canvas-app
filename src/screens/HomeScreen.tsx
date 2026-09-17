@@ -17,10 +17,11 @@ import { Crown } from 'lucide-react-native';
 import { useMySubscription } from '../api/subscription';
 import { useAuthStore } from '../store/authStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
-import { useLanguages } from '../api/language';
+import { useLanguages, syncLocalLanguagePreferences } from '../api/language';
 import { applyLanguagePreference, formatLanguageList } from '../utils/languageRank';
 import { useSetting } from '../api/settings';
 import { useTrialPromptStore } from '../store/trialPromptStore';
+import { log } from '../utils/analytics/log';
 
 export default function HomeScreen() {
   const { data, isLoading } = useMoviesData();
@@ -35,11 +36,24 @@ export default function HomeScreen() {
   const { data: languages = [] } = useLanguages();
   const languageDisplayMode = useSetting('language.displayMode', 'RANK') as 'RANK' | 'FILTER';
 
+  // The device copy of the languages is otherwise only refreshed at login, so a
+  // change made on the web (or another device) would never reach the carousel.
+  useEffect(() => {
+    if (!token) return;
+    syncLocalLanguagePreferences().catch(error => {
+      log.warn('Language preference sync failed', {
+        message: String((error as Error)?.message ?? 'unknown'),
+      });
+    });
+  }, [token]);
+
   const { data: subscription, refetch } = useMySubscription();
+  // refetch() runs even while the query is disabled, so guests must be skipped
+  // here or every Home focus fires an unauthenticated /subscription/me (401).
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (token) refetch();
+    }, [token, refetch])
   );
 
   // Home is the only place the session prompt fires.

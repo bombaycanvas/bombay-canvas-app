@@ -5,8 +5,10 @@ import { useCarouselSeriesData } from '../api/video';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Matches the web hero's rotation for slides that have no trailer to end on.
+const POSTER_SLIDE_MS = 7000;
 
-export function useHeroSlider() {
+export function useHeroSlider({ isVisible = true }: { isVisible?: boolean } = {}) {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const { data, isLoading } = useCarouselSeriesData();
@@ -15,14 +17,8 @@ export function useHeroSlider() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const sliderData = useMemo(() => {
-    const seriesList = data?.series || [];
-    const withTrailer = seriesList.filter((item: any) => item.trailerUrl);
-    if (withTrailer.length > 0) {
-      return withTrailer;
-    }
-    return seriesList;
-  }, [data]);
+  // Every admin-picked slide is shown; poster-only slides rotate on a timer.
+  const sliderData = useMemo(() => data?.series || [], [data]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
@@ -47,6 +43,15 @@ export function useHeroSlider() {
       console.warn('Scroll to index failed:', e);
     }
   }, [activeIndex, sliderData.length]);
+
+  const activeHasTrailer = Boolean(sliderData[activeIndex]?.trailerUrl);
+  useEffect(() => {
+    if (activeHasTrailer || sliderData.length < 2 || !isFocused || !isVisible) {
+      return;
+    }
+    const timer = setTimeout(handleVideoEnd, POSTER_SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [activeHasTrailer, sliderData.length, isFocused, isVisible, handleVideoEnd]);
 
   const getItemLayout = useCallback((_: any, index: number) => ({
     length: SCREEN_WIDTH,

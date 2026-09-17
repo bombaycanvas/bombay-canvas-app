@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { api, getApiUrl, CLIENT_PLATFORM } from '../utils/api';
 import { getAppDataHeader } from '../utils/analytics/appData';
 import { Movie, Category, CoverVideo } from '../types/movie';
@@ -49,9 +50,14 @@ export const useMoviesData = () => {
   });
 };
 
-export const getCarouselSeries = async (): Promise<{ series: Movie[] }> => {
+export const getCarouselSeries = async (
+  languageCodes: string[] = [],
+): Promise<{ series: Movie[]; scope?: 'language' | 'default' }> => {
+  const query = languageCodes.length
+    ? `?languages=${encodeURIComponent(languageCodes.join(','))}`
+    : '';
   try {
-    const response = await api(`/api/carousel-series`, {
+    const response = await api(`/api/carousel-series${query}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -60,18 +66,30 @@ export const getCarouselSeries = async (): Promise<{ series: Movie[] }> => {
       throw new Error('No carousel series found');
     }
 
-    const data = await response;
-    return data ?? [];
+    log.info('Carousel fetched', {
+      languages: languageCodes,
+      scope: response?.scope ?? null,
+      count: response?.series?.length ?? 0,
+    });
+    return response ?? { series: [] };
   } catch (error) {
-    console.error('Carousel Series Error', error);
+    log.error('Carousel fetch failed', {
+      languages: languageCodes,
+      message: String((error as Error)?.message ?? 'unknown'),
+    });
     throw error;
   }
 };
 
 export const useCarouselSeriesData = () => {
+  const preferredLanguages = useAuthStore(s => s.preferredLanguages);
+  const languageCodes = useMemo(
+    () => [...(preferredLanguages ?? [])].sort(),
+    [preferredLanguages],
+  );
   return useQuery({
-    queryKey: ['carouselSeriesData'],
-    queryFn: getCarouselSeries,
+    queryKey: ['carouselSeriesData', languageCodes],
+    queryFn: () => getCarouselSeries(languageCodes),
     staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,

@@ -26,7 +26,7 @@ export default function HeroSlider({ isVisible = true }: { isVisible?: boolean }
     viewabilityConfig,
     handleVideoEnd,
     getItemLayout,
-  } = useHeroSlider();
+  } = useHeroSlider({ isVisible });
 
   if (isLoading) {
     return (

@@ -7,6 +7,7 @@ export interface Movie {
   id: string;
   title: string;
   posterUrl: string;
+  trailerUrl?: string | null;
   genres?: Genre[];
   language?: {
     id: string;
