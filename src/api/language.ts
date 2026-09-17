@@ -43,10 +43,6 @@ export const syncLocalLanguagePreferences = async () => {
 
   if (!token) return;
 
-  if (preferredLanguages !== null) {
-    await updateLanguagePreferences(preferredLanguages);
-  }
-
   const response = await api('/api/user/userInfo-v2', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -54,14 +50,26 @@ export const syncLocalLanguagePreferences = async () => {
   });
   const user = response?.userData;
 
-  if (user) {
-    await useAuthStore.getState().setUser(user);
+  if (!user) return;
 
-    if (Array.isArray(user.preferredLanguages)) {
-      await useAuthStore.getState().setPreferredLanguages(
-        user.preferredLanguages.map((language: { code: string }) => language.code),
-      );
-    }
+  // The device list only wins for an account that was never asked. Otherwise the
+  // server is authoritative, so a guest's "Skip" cannot wipe saved languages.
+  if (user.languageOnboardedAt == null && preferredLanguages !== null) {
+    const saved = await updateLanguagePreferences(preferredLanguages);
+    await useAuthStore.getState().setUser({
+      ...user,
+      languageOnboardedAt:
+        saved?.userData?.languageOnboardedAt ?? new Date().toISOString(),
+    });
+    return;
+  }
+
+  await useAuthStore.getState().setUser(user);
+
+  if (Array.isArray(user.preferredLanguages)) {
+    await useAuthStore.getState().setPreferredLanguages(
+      user.preferredLanguages.map((language: { code: string }) => language.code),
+    );
   }
 };
 

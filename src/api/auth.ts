@@ -275,7 +275,6 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
       if (data.token) {
         await useAuthStore.getState().saveToken(data.token);
         await syncLanguagesAfterAuth();
-        await syncLanguagesAfterAuth();
 
         // Signup does not receive its user through setUser here. The language
         // sync refreshes userData after the token is available, which also

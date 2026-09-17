@@ -115,12 +115,14 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token, isLoading, hasSkipped, preferredLanguages } = useAuthStore();
+  const { token, isLoading, hasSkipped, preferredLanguages, user } =
+    useAuthStore();
 
-  // null means never asked — existing users and guests get the step once too,
-  // not just fresh signups. An empty array is a real answer and passes through.
-  const needsLanguageStep =
-    (token || hasSkipped) && preferredLanguages === null;
+  // Signed in: the server timestamp decides, matching postAuthRoute. Guests have
+  // no server record, so their device list is the only signal.
+  const needsLanguageStep = token
+    ? user?.languageOnboardedAt == null
+    : hasSkipped && preferredLanguages === null;
 
   if (isLoading) {
     return (

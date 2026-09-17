@@ -24,7 +24,8 @@ import { log } from '../utils/analytics';
 const OnboardingScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { token, preferredLanguages, setPreferredLanguages } = useAuthStore();
+  const { token, user, preferredLanguages, setPreferredLanguages, setUser } =
+    useAuthStore();
   const { data: languages = [], isLoading } = useLanguages();
   const { mutateAsync: savePreferences } = useUpdateLanguagePreferences();
 
@@ -55,7 +56,16 @@ const OnboardingScreen = () => {
 
     if (token) {
       try {
-        await savePreferences(codes);
+        const saved = await savePreferences(codes);
+        // Routing reads languageOnboardedAt off the stored user, so the stamp
+        // has to land here too or the picker reappears on every cold start.
+        if (user) {
+          setUser({
+            ...user,
+            languageOnboardedAt:
+              saved?.userData?.languageOnboardedAt ?? new Date().toISOString(),
+          });
+        }
         log.info('Language preferences saved', { count: codes.length });
       } catch (error) {
         Toast.show({
