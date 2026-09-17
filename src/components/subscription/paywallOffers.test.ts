@@ -440,7 +440,7 @@ describe('buildPaywallOffers on the Apple rail', () => {
     });
     expect(offers.trial).toEqual({
       planCode: 'ANNUAL_POST_TRIAL',
-      title: '3 Days Free',
+      title: '3-Day Trial',
       price: { currency: null, amount: '₹0', period: ' today' },
       buttonLabel: 'Start Free Trial →',
       footnote: '3 days free, then ₹899.00/year. Cancel anytime in Settings.',
@@ -506,7 +506,7 @@ describe('buildPaywallOffers on the Apple rail', () => {
       }),
     });
 
-    expect(offers.trial?.title).toBe('1 Week Free');
+    expect(offers.trial?.title).toBe('1-Week Trial');
     expect(offers.trial?.footnote).toContain('1 week free');
   });
 
@@ -757,7 +757,101 @@ describe('buildPaywallOffers on the Apple rail', () => {
       },
     });
 
-    expect(offers.annualPerMonthLabel).toBe('Only $0.42/month');
+    expect(offers.annualPerMonthLabel).toBe("That's just $0.42/month");
+  });
+});
+
+// The iOS layout leads with the annual card and argues against taking the free
+// days first. Every figure in that argument is the store's own, so each of these
+// asserts both the sentence and where its number came from.
+describe('the annual hero copy on the Apple rail', () => {
+  it('measures the saving against what the trial actually converts at', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: APPLE_CATALOGUE,
+    });
+
+    // 899 on the free-days product against the 499 annual beside it.
+    expect(offers.heroCopy?.savings).toEqual({
+      headline: 'Save ₹400',
+      body: 'compared with starting with the trial',
+    });
+    expect(offers.heroCopy?.trialNote).toBe(
+      "Great if you want to try first, but you'll pay ₹400 more in the first year.",
+    );
+    expect(offers.heroCopy?.trialConversionLabel).toBe('Then ₹899.00/year');
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas for ₹499.00/year →');
+    expect(offers.heroCopy?.renewalNote).toEqual({
+      monthly: 'Renews at ₹99.00/month. Cancel anytime in Settings.',
+      annual: 'Renews at ₹499.00/year. Cancel anytime in Settings.',
+    });
+  });
+
+  // With no trial card on screen there is no trial price to compare against —
+  // the monthly card is the only other price the user can check the claim
+  // against, so that is what the saving is measured from.
+  it('falls back to twelve monthly payments when no trial is on offer', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: { ...APPLE_CATALOGUE, introOfferEligible: false },
+    });
+
+    expect(offers.heroCopy?.savings).toEqual({
+      headline: 'Save ₹689',
+      body: 'compared with paying monthly',
+    });
+    expect(offers.heroCopy?.trialNote).toBeNull();
+    expect(offers.heroCopy?.trialConversionLabel).toBeNull();
+    // "No trial" would be a promise about an offer that is not on the screen.
+    expect(offers.heroCopy?.footnote).toBe('Full access today. Cancel anytime.');
+  });
+
+  // The trial product is in the catalogue but this Apple ID cannot have it, so
+  // there is no card to compare against and its price must not leak into the
+  // hero's argument either.
+  it('ignores a trial price no card on the screen is offering', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: { ...APPLE_CATALOGUE, introOfferEligible: false },
+    });
+
+    expect(offers.heroCopy?.savings?.headline).not.toBe('Save ₹400');
+  });
+
+  it('claims no saving when the store priced nothing to compare against', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: {
+        introOfferEligible: false,
+        products: APPLE_CATALOGUE.products.filter(
+          product => product.sku === 'com.bombaycanvas.app1.premium.annual',
+        ),
+      },
+    });
+
+    expect(offers.heroCopy?.savings).toBeNull();
+    expect(offers.heroCopy?.renewalNote.monthly).toBeNull();
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas for ₹499.00/year →');
+  });
+
+  // Nothing the store priced, so the action promises no figure at all. It is
+  // inert in this state anyway - see PurchaseAction.
+  it('promises no price in the hero action while the catalogue is missing', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogueLoading: true,
+    });
+
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas');
+    expect(offers.heroCopy?.savings).toBeNull();
+    expect(offers.heroCopy?.renewalNote).toEqual({
+      monthly: null,
+      annual: null,
+    });
+  });
+
+  it('builds no hero copy on the rail that keeps the trial-first layout', () => {
+    expect(buildOffersOn('android', { plans: PLANS }).heroCopy).toBeNull();
   });
 });
 
@@ -779,22 +873,28 @@ describe('preselectedPlan', () => {
     return key;
   };
 
-  it('takes the trial card whenever the rail is offering one', () => {
-    expect(
-      preselectOn('ios', {
-        plans: PLANS_WITH_BOTH_TRIALS,
-        appleCatalogue: APPLE_CATALOGUE,
-      }),
-    ).toBe('trial');
+  it('takes the trial card whenever the trial-first rail is offering one', () => {
     expect(preselectOn('android', { plans: PLANS_WITH_BOTH_TRIALS })).toBe(
       'trial',
     );
   });
 
-  it('leaves a working two-card paywall on its default selection', () => {
+  // The iOS layout argues FOR the annual plan and against taking the trial
+  // first, and every other card's button is inert while unselected — landing on
+  // the trial there would leave the hero's own action dead.
+  it('takes the annual hero on the layout built around it, trial or not', () => {
+    expect(
+      preselectOn('ios', {
+        plans: PLANS_WITH_BOTH_TRIALS,
+        appleCatalogue: APPLE_CATALOGUE,
+      }),
+    ).toBe('annual');
     expect(
       preselectOn('ios', { plans: PLANS, appleCatalogue: US_CATALOGUE }),
-    ).toBeNull();
+    ).toBe('annual');
+  });
+
+  it('leaves a working two-card paywall on its default selection', () => {
     expect(preselectOn('android', { plans: PAID_PLANS })).toBeNull();
   });
 

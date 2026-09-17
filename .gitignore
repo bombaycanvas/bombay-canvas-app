@@ -76,3 +76,14 @@ yarn-error.log
 config.bat
 .env
 .vscode/
+# App Store Connect API keys — never commit these
+*.p8
+AuthKey_*.p8
+
+# fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots
+ios/fastlane/test_output
+ios/build/
+ios/fastlane/build/
