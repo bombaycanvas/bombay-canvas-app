@@ -10,10 +10,10 @@ import { useTrialPromptStore } from '../../store/trialPromptStore';
 /**
  * The "your free trial has ended" dialog, mounted app-wide beside LockedOverlay.
  *
- * It opens once per session for an account whose trial is spent, and on demand
- * whenever a locked episode is tapped (see VideoPlayer's openPaywallFor).
- * Confirming lands on the paywall, which is where the plans actually are;
- * dismissing leaves the user where they were, with the video paused behind it.
+ * HomeScreen fires the once-per-session prompt; tapping a locked episode opens
+ * it on demand (see VideoPlayer's openPaywallFor). Confirming lands on the
+ * paywall, which is where the plans actually are; dismissing leaves the user
+ * where they were, with the video paused behind it.
  *
  * This is also the app's single observer of the subscription queries behind
  * `useTrialConsumed` — see the note on trialPromptStore.trialConsumed.
@@ -28,23 +28,11 @@ export function TrialEndedPrompt() {
   const token = useAuthStore(state => state.token);
   const trialConsumed = useTrialConsumed() && !!token;
 
-  const {
-    visible,
-    promptedThisSession,
-    setTrialConsumed,
-    showTrialPrompt,
-    hideTrialPrompt,
-  } = useTrialPromptStore();
+  const { visible, setTrialConsumed, hideTrialPrompt } = useTrialPromptStore();
 
   useEffect(() => {
     setTrialConsumed(trialConsumed);
   }, [trialConsumed, setTrialConsumed]);
-
-  useEffect(() => {
-    if (trialConsumed && !promptedThisSession) {
-      showTrialPrompt();
-    }
-  }, [trialConsumed, promptedThisSession, showTrialPrompt]);
 
   return (
     <ConfirmationModal

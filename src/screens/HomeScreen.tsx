@@ -20,6 +20,7 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { useLanguages } from '../api/language';
 import { applyLanguagePreference, formatLanguageList } from '../utils/languageRank';
 import { useSetting } from '../api/settings';
+import { useTrialPromptStore } from '../store/trialPromptStore';
 
 export default function HomeScreen() {
   const { data, isLoading } = useMoviesData();
@@ -39,6 +40,17 @@ export default function HomeScreen() {
     useCallback(() => {
       refetch();
     }, [refetch])
+  );
+
+  // Home is the only place the session prompt fires.
+  const trialConsumed = useTrialPromptStore(s => s.trialConsumed);
+  const promptedThisSession = useTrialPromptStore(s => s.promptedThisSession);
+  const showTrialPrompt = useTrialPromptStore(s => s.showTrialPrompt);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (trialConsumed && !promptedThisSession) showTrialPrompt();
+    }, [trialConsumed, promptedThisSession, showTrialPrompt])
   );
   const isActive = subscription &&
     (subscription.status === 'ACTIVE' ||

@@ -34,5 +34,14 @@ export const useTrialConsumed = (): boolean => {
 
   if (subscriptionLoading) return false;
 
+  // No billing cycle started yet, so isSubscriptionActive has no period to
+  // read: mid-flight, not absent.
+  if (
+    mySubscription?.status === 'CREATED' ||
+    mySubscription?.status === 'AUTHENTICATED'
+  ) {
+    return false;
+  }
+
   return trialConsumed && !isSubscriptionActive(mySubscription);
 };
