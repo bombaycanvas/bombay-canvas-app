@@ -25,6 +25,9 @@ export interface SliderItemProps {
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
   onVideoEnd: () => void;
+  onVideoReady: (id: string) => void;
+  onVideoLoad: (id: string, durationSec: number) => void;
+  onVideoError: (id: string) => void;
   navigation: any;
 }
 
@@ -35,6 +38,9 @@ export const SliderItem = React.memo(({
   isMuted,
   setIsMuted,
   onVideoEnd,
+  onVideoReady,
+  onVideoLoad,
+  onVideoError,
   navigation,
 }: SliderItemProps) => {
   const {
@@ -70,7 +76,12 @@ export const SliderItem = React.memo(({
             paused={!shouldPlay}
             muted={isMuted}
             repeat={false}
-            onReadyForDisplay={() => setIsVideoReady(true)}
+            onReadyForDisplay={() => {
+              setIsVideoReady(true);
+              onVideoReady(String(item.id));
+            }}
+            onLoad={({ duration }: any) => onVideoLoad(String(item.id), duration)}
+            onError={() => onVideoError(String(item.id))}
             onEnd={onVideoEnd}
             playWhenInactive={false}
             useTextureView={false}

@@ -25,6 +25,9 @@ export default function HeroSlider({ isVisible = true }: { isVisible?: boolean }
     onViewableItemsChanged,
     viewabilityConfig,
     handleVideoEnd,
+    handleVideoReady,
+    handleVideoLoad,
+    handleVideoError,
     getItemLayout,
   } = useHeroSlider({ isVisible });
 
@@ -64,6 +67,9 @@ export default function HeroSlider({ isVisible = true }: { isVisible?: boolean }
             isMuted={isMuted}
             setIsMuted={setIsMuted}
             onVideoEnd={handleVideoEnd}
+            onVideoReady={handleVideoReady}
+            onVideoLoad={handleVideoLoad}
+            onVideoError={handleVideoError}
             navigation={navigation}
           />
         )}
