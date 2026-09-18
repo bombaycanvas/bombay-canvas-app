@@ -20,8 +20,8 @@ import {
   useLogin,
   useRequest,
 } from '../api/auth';
-import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
-import { signInWithGoogle } from '../utils/authService';
+import { AppleButton } from '@invertase/react-native-apple-authentication';
+import { signInWithApple, signInWithGoogle } from '../utils/authService';
 import Toast from 'react-native-toast-message';
 import { Smartphone } from 'lucide-react-native';
 
@@ -69,20 +69,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
 
   const handleAppleLogin = async () => {
     try {
-      const appleAuthRequestResponse = await appleAuth.performRequest({
-        requestedOperation: appleAuth.Operation.LOGIN,
-        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
-      });
-
-      const { identityToken } = appleAuthRequestResponse;
-
-      if (!identityToken) {
-        console.error('❌ Apple Sign-In failed: No identity token returned');
-        return;
+      const identityToken = await signInWithApple();
+      if (identityToken) {
+        appleLoginMutate(identityToken);
       }
-      appleLoginMutate(identityToken);
-    } catch (error) {
-      console.error('❌ Apple login error:', error);
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Apple login failed',
+        text2: error?.message || 'Something went wrong, Please try again!',
+      });
     }
   };
 
@@ -144,15 +140,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           }}
           render={({ field: { onChange, value } }) => (
             <>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={value}
-                onChangeText={onChange}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={value}
+                  onChangeText={onChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
               {errors.email?.message && (
                 <Text style={styles.error}>
                   {errors.email.message as string}
@@ -228,7 +224,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
         {Platform.OS === 'ios' && (
           <AppleButton
             buttonStyle={AppleButton.Style.BLACK}
-            buttonType={finalFromSignup ? AppleButton.Type.SIGN_UP : AppleButton.Type.SIGN_IN}
+            buttonType={
+              finalFromSignup
+                ? AppleButton.Type.SIGN_UP
+                : AppleButton.Type.SIGN_IN
+            }
             style={styles.appleBtnNative}
             cornerRadius={12}
             onPress={handleAppleLogin}

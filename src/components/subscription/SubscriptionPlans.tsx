@@ -1,16 +1,13 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
-import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import LockOutlined from '../../assets/LockOutlined';
 import { isTrialCode } from '../../api/planCodes';
 import type { PlanCode } from '../../api/planCodes';
-import type { PaywallOffers, PriceDisplay } from './paywallOffers';
+import { IS_APPLE_RAIL } from '../../utils/paymentRail';
+import ApplePaywallPlans from './ApplePaywallPlans';
+import type { PaywallOffers } from './paywallOffers';
+import { Price, PurchaseAction, PRICE_PLACEHOLDER } from './planPurchaseAction';
+import type { ActionTheme } from './planPurchaseAction';
 
 interface SubscriptionPlansProps {
   selectedPlan: 'trial' | 'monthly' | 'annual';
@@ -25,119 +22,6 @@ interface SubscriptionPlansProps {
   // become inert, because the App Store would take the money and the server
   // would then refuse to grant it.
   purchaseBlockedLabel?: string | null;
-}
-
-// The two pill shapes the paywall draws a purchase action in. Only the styling
-// differs, so the behaviour below is written once.
-interface ActionTheme {
-  button: StyleProp<ViewStyle>;
-  buttonSelected: StyleProp<ViewStyle>;
-  buttonUnselected: StyleProp<ViewStyle>;
-  buttonDisabled: StyleProp<ViewStyle>;
-  text: StyleProp<TextStyle>;
-  textSelected: StyleProp<TextStyle>;
-  textUnselected: StyleProp<TextStyle>;
-  textDisabled: StyleProp<TextStyle>;
-}
-
-interface PurchaseActionProps {
-  theme: ActionTheme;
-  label: string;
-  selected: boolean;
-  loading: boolean;
-  spinnerColor: string;
-  isActivePlan: boolean;
-  hasActiveSubscription: boolean;
-  blockedLabel?: string | null;
-  onPress: () => void;
-}
-
-// A subscribed user must not be able to start a second purchase: both rails
-// would take the money, and on Apple that is a charge no in-app flow can
-// reverse. So the action is removed rather than merely disabled, leaving an
-// inert status pill on the plan they already hold and nothing at all on the
-// others.
-function PurchaseAction({
-  theme,
-  label,
-  selected,
-  loading,
-  spinnerColor,
-  isActivePlan,
-  hasActiveSubscription,
-  blockedLabel,
-  onPress,
-}: PurchaseActionProps) {
-  // Unlike the subscribed case this shows on EVERY card: no plan is buyable, so
-  // leaving some cards actionless and others not would read as a broken button
-  // rather than as a deliberate block.
-  if (blockedLabel) {
-    return (
-      <View
-        style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
-      >
-        <Text style={[theme.text, theme.textDisabled]}>{blockedLabel}</Text>
-      </View>
-    );
-  }
-
-  if (hasActiveSubscription) {
-    if (!isActivePlan) return null;
-    return (
-      <View
-        style={[theme.button, theme.buttonUnselected, theme.buttonDisabled]}
-      >
-        <Text style={[theme.text, theme.textDisabled]}>Active</Text>
-      </View>
-    );
-  }
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      style={[
-        theme.button,
-        selected ? theme.buttonSelected : theme.buttonUnselected,
-      ]}
-      onPress={onPress}
-      disabled={loading || !selected}
-    >
-      {loading && selected ? (
-        <ActivityIndicator size="small" color={spinnerColor} />
-      ) : (
-        <Text
-          style={[
-            theme.text,
-            selected ? theme.textSelected : theme.textUnselected,
-          ]}
-        >
-          {label}
-        </Text>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-// The card renders the symbol in its own smaller style, but Apple hands back a
-// single localised string ("₹499.00", "$5.99") that must not be taken apart.
-function Price({
-  price,
-  amountStyle,
-  periodStyle,
-}: {
-  price: PriceDisplay;
-  amountStyle: StyleProp<TextStyle>;
-  periodStyle: StyleProp<TextStyle>;
-}) {
-  return (
-    <>
-      {price.currency ? (
-        <Text style={styles.priceCurrency}>{price.currency}</Text>
-      ) : null}
-      <Text style={amountStyle}>{price.amount}</Text>
-      <Text style={periodStyle}>{price.period}</Text>
-    </>
-  );
 }
 
 export default function SubscriptionPlans({
@@ -156,6 +40,25 @@ export default function SubscriptionPlans({
   // already approved, so this is that same entitlement answer.
   const hasActiveSubscription =
     isTrialActive || isMonthlyActive || isAnnualActive;
+
+  // The iOS sheet leads with the annual plan instead of the trial — a different
+  // shape of argument, not a restyle of this one, so it is its own component.
+  // heroCopy is only ever built on that rail; falling through without it keeps
+  // a paywall on screen rather than an empty view.
+  if (IS_APPLE_RAIL && offers.heroCopy) {
+    return (
+      <ApplePaywallPlans
+        selectedPlan={selectedPlan}
+        setSelectedPlan={setSelectedPlan}
+        handlePurchase={handlePurchase}
+        loading={loading}
+        activePlan={activePlan}
+        offers={offers}
+        heroCopy={offers.heroCopy}
+        purchaseBlockedLabel={purchaseBlockedLabel}
+      />
+    );
+  }
 
   const { trial, offered, trialConsumedNotice } = offers;
   return (
@@ -202,12 +105,14 @@ export default function SubscriptionPlans({
               </View>
 
               <View style={styles.trialPriceContainer}>
-                {trial.price.currency ? (
+                {trial.price.currency && trial.price.amount !== null ? (
                   <Text style={styles.trialPriceCurrency}>
                     {trial.price.currency}
                   </Text>
                 ) : null}
-                <Text style={styles.trialPriceText}>{trial.price.amount}</Text>
+                <Text style={styles.trialPriceText}>
+                  {trial.price.amount ?? PRICE_PLACEHOLDER}
+                </Text>
                 <Text style={styles.trialPricePeriod}>
                   {trial.price.period}
                 </Text>
@@ -223,6 +128,7 @@ export default function SubscriptionPlans({
               spinnerColor="#000"
               isActivePlan={isTrialActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={trial.price.amount === null}
               onPress={() => handlePurchase('trial')}
             />
           </View>
@@ -266,6 +172,7 @@ export default function SubscriptionPlans({
               <View style={styles.priceMainRow}>
                 <Price
                   price={offers.monthly}
+                  currencyStyle={styles.priceCurrency}
                   amountStyle={styles.priceText}
                   periodStyle={styles.pricePeriod}
                 />
@@ -284,6 +191,7 @@ export default function SubscriptionPlans({
               spinnerColor="#fff"
               isActivePlan={isMonthlyActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={offers.monthly.amount === null}
               onPress={() => handlePurchase('monthly')}
             />
           </TouchableOpacity>
@@ -328,6 +236,7 @@ export default function SubscriptionPlans({
               <View style={styles.priceMainRow}>
                 <Price
                   price={offers.annual}
+                  currencyStyle={styles.priceCurrency}
                   amountStyle={styles.priceText}
                   periodStyle={styles.pricePeriod}
                 />
@@ -355,6 +264,7 @@ export default function SubscriptionPlans({
               spinnerColor="#000"
               isActivePlan={isAnnualActive}
               hasActiveSubscription={hasActiveSubscription}
+              priceUnknown={offers.annual.amount === null}
               onPress={() => handlePurchase('annual')}
             />
           </TouchableOpacity>

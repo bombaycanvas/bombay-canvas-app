@@ -1,6 +1,34 @@
 import type { Plan } from '../../api/planCodes';
 import type { AppleCatalogue } from '../../services/iap/appleIap';
-import type { PaywallOffers, PaywallOffersInput } from './paywallOffers';
+import type {
+  PaywallOffers,
+  PaywallOffersInput,
+  PaywallPlanKey,
+} from './paywallOffers';
+
+// The Apple cards' per-month line and their free-days "₹0" are built through
+// Intl against the DEVICE locale, which is the right argument in production and
+// ambient state here: the same call renders "Only $0.42/month" on this machine
+// and "Only 0,42 $/month" on a German CI container. The locale is pinned so
+// these assertions are about what the builder composes rather than about who
+// ran the suite. (That the formatter defers to the device locale at all is
+// asserted in money.test.ts.)
+const RealNumberFormat = Intl.NumberFormat;
+
+beforeAll(() => {
+  // A plain function rather than an arrow: this is called with `new`, and `new`
+  // yields the object a constructor returns.
+  Intl.NumberFormat = function PinnedNumberFormat(
+    locales?: Intl.LocalesArgument,
+    options?: Intl.NumberFormatOptions,
+  ) {
+    return new RealNumberFormat(locales ?? 'en-US', options);
+  } as unknown as typeof Intl.NumberFormat;
+});
+
+afterAll(() => {
+  Intl.NumberFormat = RealNumberFormat;
+});
 
 const PLANS: Plan[] = [
   {
@@ -63,7 +91,13 @@ const APPLE_CATALOGUE: AppleCatalogue = {
       description: '',
       price: 899,
       currency: 'INR',
-      introOffer: { periodLabel: '3 days', isFree: true, displayPrice: null },
+      introOffer: {
+        paymentMode: 'free-trial',
+        periods: 3,
+        unitLabel: 'day',
+        periodLabel: '3 days',
+        displayPrice: null,
+      },
     },
     {
       sku: 'com.bombaycanvas.app1.premium.monthly',
@@ -87,6 +121,20 @@ const APPLE_CATALOGUE: AppleCatalogue = {
       introOffer: null,
     },
   ],
+};
+
+// The storefront the DB fallback got wrong: every figure here is dollars, and
+// nothing in our own tables knows what Apple charges in this territory.
+const US_CATALOGUE: AppleCatalogue = {
+  introOfferEligible: false,
+  products: APPLE_CATALOGUE.products
+    .filter(product => !product.sku.endsWith('.annual.trial'))
+    .map(product => ({
+      ...product,
+      displayPrice: product.sku.endsWith('.monthly') ? '$5.99' : '$59.99',
+      price: product.sku.endsWith('.monthly') ? 5.99 : 59.99,
+      currency: 'USD',
+    })),
 };
 
 /** The catalogue with a change applied to the free-days product only. */
@@ -133,6 +181,10 @@ describe('buildPaywallOffers on the Razorpay rail', () => {
     });
     expect(offers.trial?.price.amount).toBe('1');
     expect(offers.trial?.title).toBe('3-Day Trial');
+    // The DB row IS the charged price here, so there is never an unpriced card
+    // on this rail — not even with the plans call still in flight.
+    expect(offers.pricesUnavailable).toBe(false);
+    expect(buildOffersOn('android', {}).pricesUnavailable).toBe(false);
   });
 
   it('drops the trial card when no trial plan is offered', () => {
@@ -170,7 +222,14 @@ describe('buildPaywallOffers on the Razorpay rail', () => {
     const offers = buildOffersOn('android', {
       plans: PLANS.map(plan =>
         plan.code === 'TRIAL'
-          ? { ...plan, trial: { days: 7, durationMinutes: 7 * 24 * 60, upfrontAmount: 500 } }
+          ? {
+              ...plan,
+              trial: {
+                days: 7,
+                durationMinutes: 7 * 24 * 60,
+                upfrontAmount: 500,
+              },
+            }
           : plan,
       ),
     });
@@ -381,7 +440,7 @@ describe('buildPaywallOffers on the Apple rail', () => {
     });
     expect(offers.trial).toEqual({
       planCode: 'ANNUAL_POST_TRIAL',
-      title: '3 Days Free',
+      title: '3-Day Trial',
       price: { currency: null, amount: '₹0', period: ' today' },
       buttonLabel: 'Start Free Trial →',
       footnote: '3 days free, then ₹899.00/year. Cancel anytime in Settings.',
@@ -437,11 +496,17 @@ describe('buildPaywallOffers on the Apple rail', () => {
     const offers = buildOffersOn('ios', {
       plans: PLANS,
       appleCatalogue: withTrialProduct({
-        introOffer: { periodLabel: '1 week', isFree: true, displayPrice: null },
+        introOffer: {
+          paymentMode: 'free-trial',
+          periods: 1,
+          unitLabel: 'week',
+          periodLabel: '1 week',
+          displayPrice: null,
+        },
       }),
     });
 
-    expect(offers.trial?.title).toBe('1 Week Free');
+    expect(offers.trial?.title).toBe('1-Week Trial');
     expect(offers.trial?.footnote).toContain('1 week free');
   });
 
@@ -454,12 +519,100 @@ describe('buildPaywallOffers on the Apple rail', () => {
     expect(offers.trial).toBeNull();
   });
 
-  it('promises no trial when the offer is a discount rather than free days', () => {
+  // Switching the offer in App Store Connect from free days to a paid intro is a
+  // console change with no release behind it, so the card has to follow it. The
+  // charge is stated where the "₹0" was and again in the footnote, because it is
+  // taken today and is not the price the subscription renews at.
+  it('sells a pay-up-front intro at the price the store charges for it', () => {
     const offers = buildOffersOn('ios', {
       plans: PLANS,
       appleCatalogue: withTrialProduct({
-        introOffer: { periodLabel: '3 days', isFree: false, displayPrice: null },
+        introOffer: {
+          paymentMode: 'pay-up-front',
+          periods: 3,
+          unitLabel: 'day',
+          periodLabel: '3 days',
+          displayPrice: '₹49.00',
+        },
       }),
+    });
+
+    expect(offers.trial).toEqual({
+      planCode: 'ANNUAL_POST_TRIAL',
+      title: '3-Day Trial',
+      price: { currency: null, amount: '₹49.00', period: ' today' },
+      buttonLabel: 'Start for ₹49.00 →',
+      footnote:
+        '3 days for ₹49.00, then ₹899.00/year. Cancel anytime in Settings.',
+    });
+    expect(offers.trial?.footnote).not.toContain('free');
+  });
+
+  // Pay-as-you-go charges the intro price EVERY period, so the period has to
+  // ride beside the figure: "₹49" alone reads as the whole intro cost when it is
+  // actually taken three times.
+  it('states the period on a pay-as-you-go intro, which is billed repeatedly', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: withTrialProduct({
+        introOffer: {
+          paymentMode: 'pay-as-you-go',
+          periods: 3,
+          unitLabel: 'month',
+          periodLabel: '3 months',
+          displayPrice: '₹49.00',
+        },
+      }),
+    });
+
+    expect(offers.trial).toEqual({
+      planCode: 'ANNUAL_POST_TRIAL',
+      title: '3-Month Intro',
+      price: { currency: null, amount: '₹49.00', period: '/month' },
+      buttonLabel: 'Start for ₹49.00 →',
+      footnote:
+        '₹49.00/month for 3 months, then ₹899.00/year. Cancel anytime in Settings.',
+    });
+  });
+
+  // readIntroOffer drops a paid offer the store did not price, so the card never
+  // has to invent one. Guarded here too: the only other figure in reach is the
+  // full ₹899, and quoting it as the intro charge would overstate what the tap
+  // takes by an order of magnitude.
+  it('drops the card when a paid intro arrives without a price', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: withTrialProduct({
+        introOffer: {
+          paymentMode: 'pay-up-front',
+          periods: 3,
+          unitLabel: 'day',
+          periodLabel: '3 days',
+          displayPrice: null,
+        },
+      }),
+    });
+
+    expect(offers.trial).toBeNull();
+  });
+
+  // Eligibility is per Apple ID and subscription group whatever the offer
+  // charges, so a paid intro is subject to exactly the same check.
+  it('promises no paid intro either once this Apple ID has spent the offer', () => {
+    const offers = buildOffersOn('ios', {
+      ...{ plans: PLANS },
+      appleCatalogue: {
+        ...withTrialProduct({
+          introOffer: {
+            paymentMode: 'pay-up-front',
+            periods: 3,
+            unitLabel: 'day',
+            periodLabel: '3 days',
+            displayPrice: '₹49.00',
+          },
+        }),
+        introOfferEligible: false,
+      },
     });
 
     expect(offers.trial).toBeNull();
@@ -478,16 +631,91 @@ describe('buildPaywallOffers on the Apple rail', () => {
     });
   });
 
-  it('falls back to the DB price while the store call is still in flight', () => {
-    const offers = buildOffersOn('ios', { plans: PLANS });
+  // This used to fall back to the DB's ₹499. That row is an INR accounting
+  // figure; a US buyer reading it saw a price the App Store was never going to
+  // charge them, and the card swapped under them once StoreKit answered. There
+  // is no honest stand-in for a storefront price, so the cards say nothing.
+  it('quotes no price at all while the store call is still in flight', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogueLoading: true,
+    });
 
+    expect(offers.pricesUnavailable).toBe(true);
+    expect(offers.monthly).toEqual({
+      currency: null,
+      amount: null,
+      period: '/month',
+    });
     expect(offers.annual).toEqual({
-      currency: '₹',
-      amount: '499',
+      currency: null,
+      amount: null,
       period: '/year',
     });
     expect(offers.savingsPercent).toBeNull();
+    expect(offers.annualPerMonthLabel).toBeNull();
     expect(offers.trial).toBeNull();
+    // The DB rupee figures must not survive anywhere on the sheet — not in a
+    // price, not in a footnote, not in a struck comparison.
+    expect(JSON.stringify(offers)).not.toContain('₹');
+    // Same answer with no query state supplied at all: an absent catalogue is
+    // the whole reason there is no price, and the flags only say why.
+    const withoutQueryState = buildOffersOn('ios', { plans: PLANS });
+    expect(withoutQueryState.pricesUnavailable).toBe(true);
+    expect(JSON.stringify(withoutQueryState)).not.toContain('₹');
+  });
+
+  // A store that answered and refused is the same answer as one still trying,
+  // as far as what may be shown: neither produced a price.
+  it('quotes no price when the store call failed outright', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogueError: true,
+    });
+
+    expect(offers.pricesUnavailable).toBe(true);
+    expect(JSON.stringify(offers)).not.toContain('₹');
+  });
+
+  it('prices a US storefront from the store and nothing else', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: US_CATALOGUE,
+    });
+
+    expect(offers.pricesUnavailable).toBe(false);
+    expect(offers.monthly).toEqual({
+      currency: null,
+      amount: '$5.99',
+      period: '/month',
+    });
+    expect(offers.annual).toEqual({
+      currency: null,
+      amount: '$59.99',
+      period: '/year',
+    });
+    expect(JSON.stringify(offers)).not.toContain('₹');
+  });
+
+  // The half-catalogue case: one product approved, the other not. The annual
+  // card must not borrow the ₹499 the DB happens to hold for it, and a saving
+  // measured from a price we do not have would be arithmetic on a guess.
+  it('leaves the annual card unpriced when only the monthly product exists', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: {
+        introOfferEligible: false,
+        products: APPLE_CATALOGUE.products.filter(
+          product => product.sku === 'com.bombaycanvas.app1.premium.monthly',
+        ),
+      },
+    });
+
+    expect(offers.monthly.amount).toBe('₹99.00');
+    expect(offers.annual.amount).toBeNull();
+    expect(offers.pricesUnavailable).toBe(true);
+    expect(offers.savingsPercent).toBeNull();
+    expect(offers.annualPerMonthLabel).toBeNull();
   });
 
   // The backend sends trialEligible:false to EVERY iOS caller, because the ₹1
@@ -529,6 +757,192 @@ describe('buildPaywallOffers on the Apple rail', () => {
       },
     });
 
-    expect(offers.annualPerMonthLabel).toBe('Only $0.42/month');
+    expect(offers.annualPerMonthLabel).toBe("That's just $0.42/month");
+  });
+});
+
+// The iOS layout leads with the annual card and argues against taking the free
+// days first. Every figure in that argument is the store's own, so each of these
+// asserts both the sentence and where its number came from.
+describe('the annual hero copy on the Apple rail', () => {
+  it('measures the saving against what the trial actually converts at', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: APPLE_CATALOGUE,
+    });
+
+    // 899 on the free-days product against the 499 annual beside it.
+    expect(offers.heroCopy?.savings).toEqual({
+      headline: 'Save ₹400',
+      body: 'compared with starting with the trial',
+    });
+    expect(offers.heroCopy?.trialNote).toBe(
+      "Great if you want to try first, but you'll pay ₹400 more in the first year.",
+    );
+    expect(offers.heroCopy?.trialConversionLabel).toBe('Then ₹899.00/year');
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas for ₹499.00/year →');
+    expect(offers.heroCopy?.renewalNote).toEqual({
+      monthly: 'Renews at ₹99.00/month. Cancel anytime in Settings.',
+      annual: 'Renews at ₹499.00/year. Cancel anytime in Settings.',
+    });
+  });
+
+  // With no trial card on screen there is no trial price to compare against —
+  // the monthly card is the only other price the user can check the claim
+  // against, so that is what the saving is measured from.
+  it('falls back to twelve monthly payments when no trial is on offer', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: { ...APPLE_CATALOGUE, introOfferEligible: false },
+    });
+
+    expect(offers.heroCopy?.savings).toEqual({
+      headline: 'Save ₹689',
+      body: 'compared with paying monthly',
+    });
+    expect(offers.heroCopy?.trialNote).toBeNull();
+    expect(offers.heroCopy?.trialConversionLabel).toBeNull();
+    // "No trial" would be a promise about an offer that is not on the screen.
+    expect(offers.heroCopy?.footnote).toBe('Full access today. Cancel anytime.');
+  });
+
+  // The trial product is in the catalogue but this Apple ID cannot have it, so
+  // there is no card to compare against and its price must not leak into the
+  // hero's argument either.
+  it('ignores a trial price no card on the screen is offering', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: { ...APPLE_CATALOGUE, introOfferEligible: false },
+    });
+
+    expect(offers.heroCopy?.savings?.headline).not.toBe('Save ₹400');
+  });
+
+  it('claims no saving when the store priced nothing to compare against', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogue: {
+        introOfferEligible: false,
+        products: APPLE_CATALOGUE.products.filter(
+          product => product.sku === 'com.bombaycanvas.app1.premium.annual',
+        ),
+      },
+    });
+
+    expect(offers.heroCopy?.savings).toBeNull();
+    expect(offers.heroCopy?.renewalNote.monthly).toBeNull();
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas for ₹499.00/year →');
+  });
+
+  // Nothing the store priced, so the action promises no figure at all. It is
+  // inert in this state anyway - see PurchaseAction.
+  it('promises no price in the hero action while the catalogue is missing', () => {
+    const offers = buildOffersOn('ios', {
+      plans: PLANS,
+      appleCatalogueLoading: true,
+    });
+
+    expect(offers.heroCopy?.ctaLabel).toBe('Join Canvas');
+    expect(offers.heroCopy?.savings).toBeNull();
+    expect(offers.heroCopy?.renewalNote).toEqual({
+      monthly: null,
+      annual: null,
+    });
+  });
+
+  it('builds no hero copy on the rail that keeps the trial-first layout', () => {
+    expect(buildOffersOn('android', { plans: PLANS }).heroCopy).toBeNull();
+  });
+});
+
+// A card's buy button is inert until its card is the selected one, so the
+// preselection decides whether the paywall has a live action on it at all.
+describe('preselectedPlan', () => {
+  const PAID_PLANS = PLANS.filter(plan => plan.code !== 'TRIAL');
+
+  const preselectOn = (
+    os: 'ios' | 'android',
+    input: PaywallOffersInput,
+  ): PaywallPlanKey | null => {
+    let key: PaywallPlanKey | null = null;
+    jest.isolateModules(() => {
+      jest.doMock('react-native', () => ({ Platform: { OS: os } }));
+      const paywall = require('./paywallOffers');
+      key = paywall.preselectedPlan(paywall.buildPaywallOffers(input));
+    });
+    return key;
+  };
+
+  it('takes the trial card whenever the trial-first rail is offering one', () => {
+    expect(preselectOn('android', { plans: PLANS_WITH_BOTH_TRIALS })).toBe(
+      'trial',
+    );
+  });
+
+  // The iOS layout argues FOR the annual plan and against taking the trial
+  // first, and every other card's button is inert while unselected — landing on
+  // the trial there would leave the hero's own action dead.
+  it('takes the annual hero on the layout built around it, trial or not', () => {
+    expect(
+      preselectOn('ios', {
+        plans: PLANS_WITH_BOTH_TRIALS,
+        appleCatalogue: APPLE_CATALOGUE,
+      }),
+    ).toBe('annual');
+    expect(
+      preselectOn('ios', { plans: PLANS, appleCatalogue: US_CATALOGUE }),
+    ).toBe('annual');
+  });
+
+  it('leaves a working two-card paywall on its default selection', () => {
+    expect(preselectOn('android', { plans: PAID_PLANS })).toBeNull();
+  });
+
+  it('moves to the only plan the rail offers', () => {
+    expect(
+      preselectOn('android', {
+        plans: PAID_PLANS.filter(plan => plan.code === 'MONTHLY'),
+      }),
+    ).toBe('monthly');
+    expect(
+      preselectOn('android', {
+        plans: PAID_PLANS.filter(plan => plan.code === 'ANNUAL'),
+      }),
+    ).toBe('annual');
+  });
+
+  // The regression this function was extracted for. On Apple both cards stay
+  // "offered" while one of them is unpriced, so a preselection that read only
+  // `offered` left the default selection on a card whose action is an inert
+  // View — with the one buyable card's button disabled for being unselected,
+  // and no live purchase button anywhere on the screen.
+  it('moves off a card the store could not price', () => {
+    const monthlyOnly = {
+      introOfferEligible: false,
+      products: APPLE_CATALOGUE.products.filter(
+        product => product.sku === 'com.bombaycanvas.app1.premium.monthly',
+      ),
+    };
+
+    expect(
+      preselectOn('ios', { plans: PLANS, appleCatalogue: monthlyOnly }),
+    ).toBe('monthly');
+    expect(
+      preselectOn('ios', {
+        plans: PLANS,
+        appleCatalogue: {
+          introOfferEligible: false,
+          products: APPLE_CATALOGUE.products.filter(
+            product => product.sku === 'com.bombaycanvas.app1.premium.annual',
+          ),
+        },
+      }),
+    ).toBe('annual');
+  });
+
+  // Nothing to move to. The screen keeps whatever it had rather than shuffling
+  // the highlight around two cards that are equally unbuyable.
+  it('stays put when the catalogue never arrived', () => {
+    expect(preselectOn('ios', { plans: PLANS })).toBeNull();
   });
 });

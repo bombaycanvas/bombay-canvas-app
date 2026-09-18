@@ -24,6 +24,7 @@ import GoogleLogin from '../assets/GoogleLogin';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import { postAuthRoute } from '../utils/postAuthRoute';
 import PhoneInput from 'react-native-international-phone-number';
 import {
   useAppleLogin,
@@ -35,12 +36,13 @@ import {
 } from '../api/auth';
 import { type CountryCode } from 'libphonenumber-js';
 import metadata from 'libphonenumber-js/metadata.min.json';
-import { signInWithGoogle } from '../utils/authService';
-import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
+import { signInWithApple, signInWithGoogle } from '../utils/authService';
+import { AppleButton } from '@invertase/react-native-apple-authentication';
 import { useForm, Controller } from 'react-hook-form';
 import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import handleOpenURL from '../services/handleOpenUrl';
+import { usePostHog } from 'posthog-react-native';
 
 const { height } = Dimensions.get('window');
 
@@ -88,6 +90,8 @@ const StartLoginScreen = () => {
   const { mutate: loginMutate } = useLogin(redirect);
   const { mutate: signupMutate } = useRequest(redirect);
 
+  const posthog = usePostHog()
+
   const {
     control,
     handleSubmit,
@@ -98,12 +102,14 @@ const StartLoginScreen = () => {
     await setHasSkipped(true);
     (navigation as any).reset({
       index: 0,
-      routes: [{ name: 'MainTabs' }],
+      routes: [{ name: postAuthRoute() }],
     });
   };
 
   const onEmailSubmit = (data: any) => {
+
     if (isSignup) {
+        posthog.capture('signup', { method: 'email' });
       signupMutate(data);
     } else {
       loginMutate(data);
@@ -195,7 +201,7 @@ const StartLoginScreen = () => {
     const callingCode = Array.isArray(selectedCountry?.callingCode)
       ? selectedCountry.callingCode[0]
       : selectedCountry?.callingCode ||
-      getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
+        getCountryCallingCode((selectedCountry?.cca2 || 'IN') as CountryCode);
 
     return `+${callingCode}${cleanedPhone}`;
   };
@@ -277,20 +283,16 @@ const StartLoginScreen = () => {
 
   const handleAppleLogin = async () => {
     try {
-      const appleAuthRequestResponse = await appleAuth.performRequest({
-        requestedOperation: appleAuth.Operation.LOGIN,
-        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
-      });
-
-      const { identityToken } = appleAuthRequestResponse;
-
-      if (!identityToken) {
-        console.error('❌ Apple Sign-In failed: No identity token returned');
-        return;
+      const identityToken = await signInWithApple();
+      if (identityToken) {
+        appleLoginMutate(identityToken);
       }
-      appleLoginMutate(identityToken);
-    } catch (error) {
-      console.error('❌ Apple login error:', error);
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Apple login failed',
+        text2: error?.message || 'Something went wrong, Please try again!',
+      });
     }
   };
 
@@ -347,6 +349,16 @@ const StartLoginScreen = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      {Platform.OS === 'ios' && (
+        <AppleButton
+          buttonStyle={AppleButton.Style.WHITE}
+          buttonType={AppleButton.Type.CONTINUE}
+          style={styles.appleButton}
+          cornerRadius={25}
+          onPress={handleAppleLogin}
+        />
+      )}
 
       <TouchableOpacity
         activeOpacity={0.8}
@@ -597,15 +609,16 @@ const StartLoginScreen = () => {
               }}
               render={({ field: { onChange, value } }) => (
                 <>
-                  <TextInput
-                    style={styles.emailInput}
-                    placeholder="Email"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    value={value}
-                    onChangeText={onChange}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
+                  
+                    <TextInput
+                      style={styles.emailInput}
+                      placeholder="Email"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      value={value}
+                      onChangeText={onChange}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
                   {errors.email?.message && (
                     <Text style={styles.errorText}>
                       {errors.email.message as string}
@@ -691,24 +704,6 @@ const StartLoginScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          {Platform.OS === 'ios' && (
-            <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              <AppleButton
-                buttonStyle={AppleButton.Style.BLACK}
-                buttonType={isSignup ? AppleButton.Type.SIGN_UP : AppleButton.Type.SIGN_IN}
-                style={styles.socialButtonNative}
-                cornerRadius={10}
-                onPress={handleAppleLogin}
-              />
-            </>
-          )}
-
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.cancelLink}
@@ -753,7 +748,9 @@ const StartLoginScreen = () => {
 
             <Text style={styles.mainTitle}>
               World’s First{'\n'}
-              <Text style={styles.mainTitleBold}>Creator Led Short Form Shows</Text>
+              <Text style={styles.mainTitleBold}>
+                Creator Led Short Form Shows
+              </Text>
             </Text>
 
             <Text style={styles.para}>
@@ -1051,10 +1048,10 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 15,
   },
-  socialButtonNative: {
+  appleButton: {
     width: '100%',
-    height: 48,
-    marginBottom: 15,
+    height: 50,
+    marginTop: 10,
   },
   socialButtonText: {
     fontFamily: 'HelveticaNowDisplay-Bold',
@@ -1121,23 +1118,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'HelveticaNowDisplay-Bold',
     fontWeight: '700',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 5,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  dividerText: {
-    color: 'rgba(255,255,255,0.4)',
-    paddingHorizontal: 10,
-    fontSize: 12,
-    fontFamily: 'HelveticaNowDisplay-Regular',
   },
   termsWrapper: {
     marginBottom: 15,

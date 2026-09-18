@@ -14,21 +14,24 @@ import {
   isSubscriptionActive,
   isStaleSubscriptionStateError,
   invalidateEntitlementQueries,
-  isTrialCode,
   type PlanCode,
 } from '../api/subscription';
 import { getPaymentRail } from '../services/paymentRail';
 import { classifyVerifyFailure } from '../services/iap/verifyFailure';
 import { useAppleCatalogue } from '../hooks/useAppleCatalogue';
 import { useAppleOwnershipConflict } from '../hooks/useAppleIapSync';
-import { IS_RAZORPAY_RAIL } from '../utils/paymentRail';
+import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../utils/paymentRail';
 import { track } from '../utils/analytics';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
 import RestorePurchasesButton from '../components/subscription/RestorePurchasesButton';
 import AppleOwnershipConflictNotice from '../components/subscription/AppleOwnershipConflictNotice';
-import { buildPaywallOffers } from '../components/subscription/paywallOffers';
+import {
+  buildPaywallOffers,
+  preselectedPlan,
+} from '../components/subscription/paywallOffers';
+import { resolveConversionValue } from '../components/subscription/checkoutConversion';
 import SubscriptionComingSoon from '../components/subscription/SubscriptionComingSoon';
 import SubscriptionTrustBadges from '../components/subscription/SubscriptionTrustBadges';
 import SubscriptionPaymentFooter from '../components/subscription/SubscriptionPaymentFooter';
@@ -50,7 +53,11 @@ export default function SubscriptionScreen() {
   const loading = phase !== 'idle';
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
-  const { data: appleCatalogue } = useAppleCatalogue();
+  const {
+    data: appleCatalogue,
+    isLoading: appleCatalogueLoading,
+    isError: appleCatalogueError,
+  } = useAppleCatalogue();
 
   // Written by the silent restore on launch and on every login, so the paywall
   // knows before the user taps anything that the App Store would charge for a
@@ -66,33 +73,31 @@ export default function SubscriptionScreen() {
       buildPaywallOffers({
         plans: subscriptionPlans?.plans,
         appleCatalogue,
+        appleCatalogueLoading,
+        appleCatalogueError,
         trialEligible: subscriptionPlans?.trialEligible,
         trialConversionAmount: subscriptionPlans?.trialConversionAmount,
       }),
-    [subscriptionPlans, appleCatalogue],
+    [
+      subscriptionPlans,
+      appleCatalogue,
+      appleCatalogueLoading,
+      appleCatalogueError,
+    ],
   );
 
-  const hasTrial = !!offers.trial;
-  const { monthly: offersMonthly, annual: offersAnnual } = offers.offered;
-
-  // Preselect the trial only when there is a trial card to select; on Apple that
-  // arrives with the store catalogue, not with the plans call. Failing that,
-  // preselect a plan the rail actually offers: the default is 'annual', so a
-  // rail selling only MONTHLY would otherwise render its single card unselected
-  // — and a card's buy button stays inert until it is.
+  // Which card the user would be left on if the screen said nothing — see
+  // preselectedPlan for why an unbuyable one is a dead paywall.
   //
-  // Depends on booleans rather than on the offer objects. `offers` is rebuilt
-  // whenever its inputs change, so `offers.trial` is a fresh object each time
-  // and would re-run this over a selection the user had since changed.
+  // Depends on the resolved key rather than on the offer objects. `offers` is
+  // rebuilt whenever any of its inputs change, so an effect watching it would
+  // re-run over a selection the user had since changed; the key is a string
+  // that only differs when the answer itself does.
+  const preselect = useMemo(() => preselectedPlan(offers), [offers]);
+
   useEffect(() => {
-    if (hasTrial) {
-      setSelectedPlan('trial');
-    } else if (!offersAnnual && offersMonthly) {
-      setSelectedPlan('monthly');
-    } else if (!offersMonthly && offersAnnual) {
-      setSelectedPlan('annual');
-    }
-  }, [hasTrial, offersMonthly, offersAnnual]);
+    if (preselect) setSelectedPlan(preselect);
+  }, [preselect]);
   const { data: mySubscription } = useMySubscription();
   const activePlan = isSubscriptionActive(mySubscription)
     ? mySubscription!.planCode
@@ -153,29 +158,39 @@ export default function SubscriptionScreen() {
       return;
     }
 
-    // Plan.price is in paise; Meta expects the major currency unit. Same
-    // fallbacks SubscriptionPlans.tsx uses when the plans call hasn't landed.
-    const planDetails = subscriptionPlans?.plans?.find(
-      p => p.code === planCode,
-    );
-    const planValue = isTrialCode(planCode)
-      ? undefined
-      : planDetails
-      ? planDetails.price / 100
-      : planCode === 'ANNUAL'
-      ? 499
-      : 99;
+    // What this rail's storefront actually charges, in its own currency. The
+    // catalogue is passed in rather than read inside, because it is the App
+    // Store — not our plans table — that prices an iOS buyer.
+    const conversion = resolveConversionValue({
+      planCode,
+      plans: subscriptionPlans?.plans,
+      appleProducts: appleCatalogue?.products,
+      isAppleRail: IS_APPLE_RAIL,
+    });
 
     // The trial card is the trial on both rails now: Razorpay sells it as the ₹1
-    // TRIAL plan, and on Apple it is the annual product wearing its free-days
-    // offer, which appleRail maps back to ANNUAL. Either way nothing is charged,
-    // so the conversion carries no value.
+    // TRIAL plan, and on Apple it is the intro-offer product, which the card maps
+    // to ANNUAL_POST_TRIAL — a code no trial-code check catches. What it charges
+    // today is a token amount or nothing at all, never the plan's price, so the
+    // conversion carries no value and the decision stays with the card that was
+    // tapped rather than with the code it buys.
     const isTrialStart = plan === 'trial';
-    const conversionValue = isTrialStart ? undefined : planValue;
+    const conversionValue = isTrialStart ? undefined : conversion.value;
 
     // They opened checkout. No dedup key — the backend never reports this one,
     // so there's nothing to merge with.
-    track('InitiateCheckout', { value: conversionValue, currency: 'INR' });
+    // See useSubscriptionCheckout: plan_code + rail on every money event.
+    const money = {
+      plan_code: String(planCode ?? 'unknown'),
+      rail: getPaymentRail().rail,
+      is_trial: isTrialStart,
+    };
+
+    track('InitiateCheckout', {
+      ...money,
+      value: conversionValue,
+      currency: conversion.currency,
+    });
 
     setPhase('checkout');
     try {
@@ -207,17 +222,18 @@ export default function SubscriptionScreen() {
       if (outcome.status === 'paid') {
         if (isTrialStart) {
           // No value. The Razorpay trial charges ₹1 to authorise the mandate and
-          // Apple's charges nothing at all; reporting either would make Meta
-          // optimise for a conversion worth about 500x less than the plan. The
-          // real price goes in predicted_ltv, which the backend sends.
-          track('StartTrial', undefined, outcome.dedupKey);
+          // Apple's charges nothing, or an intro price a fraction of the year it
+          // leads into; reporting either would make Meta optimise for a
+          // conversion worth a small multiple of nothing. The real price goes in
+          // predicted_ltv, which the backend sends.
+          track('StartTrial', money, outcome.dedupKey);
         } else {
           // Dedup key must never be undefined — that would stop this event
           // merging with the backend's and double-count the conversion. The rail
           // picks the id the backend will report the same conversion under.
           track(
             'Subscribe',
-            { value: conversionValue, currency: 'INR' },
+            { ...money, value: conversionValue, currency: conversion.currency },
             outcome.dedupKey,
           );
         }

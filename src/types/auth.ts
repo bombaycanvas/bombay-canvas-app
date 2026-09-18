@@ -65,13 +65,15 @@ export type AuthState = {
   hasSkipped: boolean;
   isLoading: boolean;
   token: string | null;
-  user: { role: string;[key: string]: any } | null;
+  user: { role: string; languageOnboardedAt?: string | null; [key: string]: any } | null;
   logout: () => Promise<void>;
   saveToken: (token: string) => Promise<void>;
   initializeAuth: () => Promise<void>;
   removeToken: () => void;
   setUser: (user: any) => void;
   setHasSkipped: (val: boolean) => Promise<void>;
+  preferredLanguages: string[] | null;
+  setPreferredLanguages: (codes: string[]) => Promise<void>;
 };
 
 export interface UserType {

@@ -1,7 +1,7 @@
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import React, { useEffect, useRef } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import { track } from '../utils/analytics';
+import { setErrorScreen, track } from '../utils/analytics';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -20,6 +20,7 @@ import SeriesDetailScreen from '../screens/SeriesDetailScreen';
 import CategoryMoviesScreen from '../screens/CategoryMoviesScreen';
 import StartLoginScreen from '../screens/StartLoginScreen';
 import CompleteProfileScreen from '../screens/CompleteProfileScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import { LockedOverlay } from '../components/videoPlayer/LockedOverlay';
 import { TrialEndedPrompt } from '../components/subscription/TrialEndedPrompt';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
@@ -39,6 +40,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   StartLogin: undefined;
   CompleteProfile: undefined;
+  LanguagePreference: undefined;
   Signup: { fromSignup?: boolean };
   SeriesDetail: {
     id: string | number;
@@ -113,7 +115,14 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token, isLoading } = useAuthStore();
+  const { token, isLoading, hasSkipped, preferredLanguages, user } =
+    useAuthStore();
+
+  // Signed in: the server timestamp decides, matching postAuthRoute. Guests have
+  // no server record, so their device list is the only signal.
+  const needsLanguageStep = token
+    ? user?.languageOnboardedAt == null
+    : hasSkipped && preferredLanguages === null;
 
   if (isLoading) {
     return (
@@ -132,7 +141,13 @@ const AppStack = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName={token ? 'MainTabs' : 'StartLogin'}
+      initialRouteName={
+        needsLanguageStep
+          ? 'LanguagePreference'
+          : token
+            ? 'MainTabs'
+            : 'StartLogin'
+      }
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -144,6 +159,7 @@ const AppStack = () => {
       <Stack.Screen name="StartLogin" component={StartLoginScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+      <Stack.Screen name="LanguagePreference" component={OnboardingScreen} />
 
       <Stack.Screen
         name="Signup"
@@ -221,6 +237,7 @@ export default function AppNavigator() {
       ref={navigationRef}
       onReady={() => {
         routeNameRef.current = navigationRef.getCurrentRoute()?.name;
+        setErrorScreen(routeNameRef.current);
         if (routeNameRef.current) {
           track('PageView', { screen: routeNameRef.current });
         }
@@ -236,6 +253,7 @@ export default function AppNavigator() {
           }
         }
         routeNameRef.current = currentRouteName;
+        setErrorScreen(currentRouteName);
       }}
       linking={linking}
     >

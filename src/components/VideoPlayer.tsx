@@ -21,6 +21,13 @@ import { Pressable } from 'react-native-gesture-handler';
 import { imgUrl, useSaveEpisodeProgress } from '../api/video';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFlag } from '../api/settings';
+import {
+  capture,
+  log,
+  newMilestones,
+  ProductEvent,
+  type EventProperties,
+} from '../utils/analytics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -145,9 +152,62 @@ export default function VideoPlayer({
   const { mutate: saveProgress } = useSaveEpisodeProgress();
   const queryClient = useQueryClient();
 
+  // PostHog playback state, reset per episode alongside lastReportedTimeRef.
+  // A feed swaps `episode` on the SAME mounted player, so without this reset the
+  // second episode would inherit the first's fired milestones and report none.
+  const playbackStartedRef = useRef(false);
+  const firedMilestonesRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
     lastReportedTimeRef.current = 0;
+    playbackStartedRef.current = false;
+    firedMilestonesRef.current = new Set();
   }, [episode?.id]);
+
+  // Shared identity for every playback event. `locked` and `isPaidEpisode` are
+  // deliberately absent: both render an overlay INSTEAD of the <Video>, so
+  // neither can ever be true here and both would ship as constant `false`.
+  const playbackProps = useCallback(
+    (): EventProperties => ({
+      episode_id: String(episode?.id ?? ''),
+      episode_title: String(episode?.title ?? ''),
+      series_id: String(movie?.id ?? ''),
+      duration_seconds: Math.round(duration),
+    }),
+    [episode?.id, episode?.title, movie?.id, duration],
+  );
+
+  /**
+   * PostHog's view of playback. Separate from `reportProgress`, which persists
+   * resume position to our own backend every 5-15s — mirroring that cadence into
+   * PostHog would bill ~180 events for one 30-minute episode. Milestones only.
+   */
+  const reportPlaybackAnalytics = useCallback(
+    (time: number) => {
+      if (duration <= 0 || time <= 0) return;
+
+      // Fired on the first real progress tick rather than in `handleLoad`:
+      // loading only means this episode became the active one, while a progress
+      // tick means the media is genuinely advancing. The difference is every
+      // user who lands on an episode and scrolls straight past it.
+      if (!playbackStartedRef.current) {
+        playbackStartedRef.current = true;
+        capture(ProductEvent.VideoPlaybackStarted, playbackProps());
+        log.info('Episode playback started', playbackProps());
+      }
+
+      const pct = Math.round((time / duration) * 100);
+
+      for (const milestone of newMilestones(pct, firedMilestonesRef.current)) {
+        firedMilestonesRef.current.add(milestone);
+        capture(ProductEvent.VideoProgress, {
+          ...playbackProps(),
+          milestone_pct: milestone,
+        });
+      }
+    },
+    [duration, playbackProps],
+  );
 
   const reportProgress = useCallback((time: number, force: boolean = false) => {
     if (locked || isPaidEpisode || !episode?.id || duration <= 0) return;
@@ -332,6 +392,7 @@ export default function VideoPlayer({
     if (duration > 0) {
       setProgress(current / duration);
       reportProgress(current);
+      reportPlaybackAnalytics(current);
     }
   };
 
@@ -382,11 +443,38 @@ export default function VideoPlayer({
       setError('Failed to load video.');
       setIsBuffering(false);
       console.log('Video Error:', e);
+
+      // Only the error CODE, never the raw payload: it can carry signed playback
+      // URLs, and those must not land in an analytics property.
+      const errorCode = String(
+        e?.error?.errorCode ?? e?.error?.code ?? 'unknown',
+      ).slice(0, 64);
+
+      capture(ProductEvent.VideoPlaybackFailed, {
+        ...playbackProps(),
+        error_code: errorCode,
+      });
+
+      // The event answers "how often"; this answers "which episode, on which
+      // build, for whom" — the SDK attaches distinct_id, session and screen
+      // automatically. A stable message with the varying parts in attributes,
+      // so occurrences group instead of each being a unique string.
+      log.error('Episode playback failed', {
+        episode_id: String(episode?.id ?? ''),
+        series_id: String(movie?.id ?? ''),
+        error_code: errorCode,
+        // Distinguishes "the URL never arrived" from "the player rejected it",
+        // which are different bugs in different systems.
+        has_video_url: Boolean(episode?.videoUrl),
+      });
     }
   };
 
   const handleVideoEnd = () => {
     reportProgress(duration, true);
+    // The only source of `video_completed` — PROGRESS_MILESTONES deliberately
+    // stops at 75 so completion is never double-counted.
+    capture(ProductEvent.VideoCompleted, playbackProps());
     onVideoEnd?.();
   };
 

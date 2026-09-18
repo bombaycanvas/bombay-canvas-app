@@ -1,30 +1,38 @@
-# Getting Canvas onto TestFlight
+# Getting Canvas OTT onto TestFlight
 
-This app is bare React Native — no Expo, no EAS, no fastlane. So the way to TestFlight is:
-build an archive in Xcode, upload it, hand out invites. Here's the whole thing, in order.
+TestFlight is Apple's "try the app before it's on the App Store" system. You upload a build,
+your testers get it in the TestFlight app on their phone. That's it.
 
-| | |
-|---|---|
-| App name | Canvas |
-| Bundle ID | `com.bombaycanvas.app1` |
-| Team ID | `UKWJKZWBXY` |
-| Version (`MARKETING_VERSION`) | `2.0` |
-| Build number (`CURRENT_PROJECT_VERSION`) | `1` → bump me |
-| Open this file | `ios/bombaycanvas.xcworkspace` |
+The whole thing is one command now. Most of this doc is explaining _why_ it works, so when it
+breaks you know where to look.
 
-## What you need first
+|                                          |                                |
+| ---------------------------------------- | ------------------------------ |
+| App name                                 | Canvas OTT                     |
+| Apple ID (numeric)                       | `6753294439`                   |
+| Bundle ID                                | `com.bombaycanvas.app1`        |
+| Team ID                                  | `UKWJKZWBXY`                   |
+| Version (`MARKETING_VERSION`)            | `2.3`                          |
+| Build number (`CURRENT_PROJECT_VERSION`) | bumped automatically           |
+| Workspace                                | `ios/bombaycanvas.xcworkspace` |
 
-- A **paid Apple Developer account** ($99/year) that's on the Bombay Canvas team. Free accounts can't do TestFlight.
-- That account signed into Xcode: **Xcode → Settings → Accounts**.
-- A Mac with Xcode 16 or newer, and CocoaPods installed.
+## The short version
 
-You do *not* need a physical iPhone to upload. You do need one to test.
+```sh
+cd ios
+bundle exec fastlane ios beta
+```
 
-## The steps
+Wait ~15 minutes. Done. Skip to [What that command actually does](#what-that-command-actually-does)
+if you want to know what happened.
 
-### 1. Get the project building
+---
 
-Fresh dependencies, fresh pods. Run this from the repo root:
+## One-time setup
+
+You only ever do this once per Mac. If someone already handed you a working machine, skip ahead.
+
+### 1. Install the tools
 
 ```sh
 npm install
@@ -32,135 +40,245 @@ bundle install
 cd ios && bundle exec pod install && cd ..
 ```
 
-Then double-check `.env` exists and points at **production**. The app reads it through
-`react-native-dotenv`, which bakes the values in *at build time* — so if `NEXT_PUBLIC_BASE_URL`
-is still pointing at localhost, you'll ship a build that talks to nothing and there's no error
-telling you why.
+`bundle install` reads the `Gemfile` and installs fastlane and CocoaPods at the exact versions
+this project expects. Using a globally-installed fastlane instead usually works but can break in
+confusing ways, which is why every command below starts with `bundle exec`.
 
-### 2. Make the app record (once ever)
+### 2. Get an App Store Connect API key
 
-Go to [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **+** → **New App**.
+This is the thing that lets a script talk to Apple as you. Without it, uploading means clicking
+through Xcode by hand every time.
 
-- Platform: iOS
-- Bundle ID: pick `com.bombaycanvas.app1` from the dropdown
-- SKU: anything unique, like `canvas-ios`
+1. Go to [App Store Connect](https://appstoreconnect.apple.com) → **Users and Access**
+2. Click the **Integrations** tab
+3. In the left sidebar pick **App Store Connect API**, then **Team Keys**
+4. Hit **+**, name it something like `TestFlight Upload`
+5. **Access must be `Admin`.** Not App Manager. See the warning below.
+6. Download the `.p8` file — **Apple only lets you download it once, ever**
 
-If the bundle ID isn't in the dropdown, it hasn't been registered yet — go to
-[Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers)
-and add it there first, with **Sign in with Apple** turned on (the app uses it).
+Then put it where the tooling looks for it:
 
-### 3. Bump the build number
-
-This is the step everyone forgets. Apple rejects any upload whose build number it has seen
-before for that version. Right now it's `1`.
-
-In Xcode: select the **bombaycanvas** target → **General** → set **Build** to `2`.
-Version stays `2.0`.
-
-Rule of thumb: build number goes up by one *every single upload*. Version only changes when
-you actually ship something new to users.
-
-### 4. Add the encryption key (once ever)
-
-Otherwise App Store Connect asks you the same "does your app use encryption?" question on every
-single upload and blocks the build until you answer it. Add this to `ios/bombaycanvas/Info.plist`:
-
-```xml
-<key>ITSAppUsesNonExemptEncryption</key>
-<false/>
+```sh
+mkdir -p ~/.appstoreconnect/private_keys
+mv ~/Downloads/AuthKey_XXXXXXXXXX.p8 ~/.appstoreconnect/private_keys/
+chmod 600 ~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8
 ```
 
-This is the normal answer for an app that only uses HTTPS. Which is us.
+> **Why Admin and not App Manager?**
+> Signing a build needs a distribution certificate. Nobody on this project keeps one in their
+> local keychain, so we use _cloud signing_ — Apple holds the certificate and signs on their
+> side. Cloud signing only works if the API key has Admin access. An App Manager key can read
+> your certificates perfectly fine, which makes it look like it's working, and then fails at the
+> very last step with `Cloud signing permission error`. We burned an evening on this.
 
-### 5. Archive it
+> **Never commit the `.p8` file.** It's a private key — anyone with it can upload builds as you.
+> `.gitignore` blocks `*.p8`, but the file starts life in `~/Downloads`, so move it, don't copy it.
 
-Open `ios/bombaycanvas.xcworkspace` — the **workspace**, not the `.xcodeproj`. Opening the wrong
-one means no pods and a wall of errors.
+### 3. Tell fastlane about your key
 
-- Scheme (top left): **bombaycanvas**
-- Device dropdown: **Any iOS Device (arm64)** — not a simulator
-- Then **Product → Archive**
+The Fastfile has the current key baked in as a default. If you made your own, override it:
 
-Takes 5–15 minutes. If **Archive** is greyed out, you've still got a simulator selected.
+```sh
+export ASC_KEY_ID=YOURKEYID
+export ASC_ISSUER_ID=3e76ad7c-ce98-42f7-900e-4b2f8157da4a
+```
 
-### 6. Upload it
-
-The Organizer window pops open when the archive finishes. Pick your archive, then:
-
-- **Distribute App** → **App Store Connect** → **Upload**
-- Leave the defaults on (symbols on, manage signing automatically)
-- **Upload**, then wait for the green check
-
-Xcode handles certificates and provisioning profiles for you here. You don't need to make them
-by hand.
-
-### 7. Wait for processing
-
-In App Store Connect → your app → **TestFlight** tab, the build shows up as *Processing*.
-Usually 10–30 minutes, sometimes an hour.
-
-If Apple finds a problem it emails you instead, with an error code like `ITMS-90XXX`.
-Read the email — it says exactly what's wrong.
-
-### 8. Hand out invites
-
-Two flavours, and the difference matters:
-
-- **Internal testers** — up to 100 people, must be on your App Store Connect team. *No review.*
-  They can install within minutes. This is what you want for the dev team.
-- **External testers** — up to 10,000, any email address. Needs **Beta App Review** (usually a day
-  or two) and you have to fill in the "What to Test" and beta description fields first.
-
-Testers install the **TestFlight** app from the App Store, then tap the invite link in their email.
-
-## Stuff that will bite you
-
-### Razorpay vs. Apple's in-app purchase rule
-
-The app takes payments through Razorpay and there's no IAP library installed yet. Apple requires
-digital content — subscriptions, unlocking videos — to be sold through **in-app purchase**, and
-they reject apps that route around it. Internal TestFlight won't care. External Beta Review and
-the real App Store review absolutely will. That's what the `feat/apple-iap-impl` branch is for,
-so land it before you go external.
-
-### Two empty strings in Info.plist
-
-`NSLocationWhenInUseUsageDescription` and `LSApplicationCategoryType` are both empty. An empty
-permission message is a known rejection reason — the pop-up shows the user a blank explanation.
-Either write a real sentence or delete the key if the app never asks for location.
-
-### Arbitrary loads are turned on
-
-`NSAllowsArbitraryLoads` is `true`, which switches off Apple's HTTPS requirement. Fine for
-TestFlight, but App Store review can ask you to justify it. Better to turn it off and only allow
-specific domains if something genuinely needs plain HTTP.
-
-## When it breaks
-
-**"No account for team UKWJKZWBXY"**
-Your Apple ID isn't signed into Xcode, or isn't on the team. Xcode → Settings → Accounts → add the
-account, then hit **Download Manual Profiles**.
-
-**"The bundle version must be higher than the previously uploaded version"**
-You reused a build number. Bump it again and re-archive. You cannot delete a build number and
-reuse it — that number is burned forever.
-
-**Archive is greyed out in the Product menu**
-A simulator is selected as the destination. Switch to **Any iOS Device (arm64)**.
-
-**Pod / build errors after pulling new code**
-Nuke and redo: `cd ios && bundle exec pod deintegrate && bundle exec pod install`.
-Then in Xcode, **Product → Clean Build Folder** (Shift-Cmd-K).
-
-**Build uploaded but never shows in TestFlight**
-Check your email for an ITMS error. Also check whether it's stuck on an unanswered
-export-compliance question, which step 4 prevents.
-
-**App installs from TestFlight but the API doesn't work**
-Almost always `.env`. Release builds bake in whatever was in that file at build time, so a stale
-or localhost `NEXT_PUBLIC_BASE_URL` ships silently. Fix the file, bump the build, re-archive.
+The Issuer ID is the same for everyone on the team — it's printed at the top of that same
+**Integrations** page.
 
 ---
 
-Once step 2 and step 4 are done, every future release is just: bump the build number → Archive →
-Distribute → wait. About ten minutes of actual work.
+## Before every release: check `.env`
+
+**Read this bit even if you skip everything else. This is the one that actually bites.**
+
+Open `.env` at the repo root and look at `NEXT_PUBLIC_BASE_URL`. There are a bunch of commented-out
+lines; exactly one should be uncommented, and it should be the real backend:
+
+```
+NEXT_PUBLIC_BASE_URL="https://bombay-canvas-new-dev-v2-1018893063821.asia-south1.run.app"
+```
+
+Here's why this is dangerous. The app reads that value through `react-native-dotenv`, which does
+**not** read the file when the app runs. It pastes the value directly into the JavaScript at build
+time. So the URL becomes a permanent part of the build, like a phone number written in pen.
+
+Two ways that goes wrong:
+
+1. **You forgot to change `.env`.** Build ships pointing at your laptop or a dead ngrok tunnel.
+   Testers install it, nothing loads, no error message explains why.
+2. **You changed `.env` but Metro cached the old value.** Metro (the JS bundler) keeps a cache to
+   go faster, and that cache doesn't always notice `.env` changed. So you fix the file, rebuild,
+   and it _still_ ships the old URL. This one is genuinely nasty because you did the right thing
+   and got punished anyway.
+
+This actually happened: build `2.3 (1.5)` went to TestFlight pointing at an ngrok tunnel that was
+already dead.
+
+**So there's now a guard.** After building, the `beta` lane digs into the compiled JS bundle and
+checks the URLs inside it. It kills the release if it finds:
+
+- a dev host — `ngrok`, `localhost`, `127.0.0.1`, a `192.168.*` LAN IP, or port `5050`
+- **or** if the URL currently in `.env` isn't in the bundle at all
+
+That second check is the important one — that's the stale-cache case, where nothing looks wrong.
+
+If the guard trips, clear the cache and rebuild:
+
+```sh
+rm -rf "$TMPDIR"/metro-* "$TMPDIR"/haste-* node_modules/.cache
+```
+
+You can also check a build without uploading anything:
+
+```sh
+cd ios && bundle exec fastlane ios verify_archive
+```
+
+---
+
+## What that command actually does
+
+```sh
+cd ios
+bundle exec fastlane ios beta
+```
+
+Step by step:
+
+1. **Logs into Apple** with your API key.
+2. **Asks what's already on TestFlight.** Say it finds `1.6`.
+3. **Bumps the build number** to `1.7` and writes it into the Xcode project.
+4. **Builds and archives** — compiles all the native code and pods. This is the slow part, 10–15
+   minutes. Grab a snack.
+5. **Checks the backend URL** in the compiled bundle. Stops here if it's wrong.
+6. **Exports and signs** the app using cloud signing.
+7. **Uploads to App Store Connect.**
+8. **Sets the changelog** once Apple finishes processing.
+
+Add release notes for your testers like this:
+
+```sh
+bundle exec fastlane ios beta changelog:"Fixed the crash on the paywall screen"
+```
+
+### The other lanes
+
+| Command                       | What it's for                                                                                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fastlane ios status`         | Compares your local version/build against what's live. Takes 2 seconds. Run it when you're not sure whether your last upload worked.          |
+| `fastlane ios verify_archive` | Checks the backend URL baked into the most recent archive. Doesn't upload.                                                                    |
+| `fastlane ios upload_archive` | Re-exports and uploads an archive you already built. Use this when the build succeeded but the upload died — saves you the 15-minute rebuild. |
+
+`upload_archive` is a real time-saver. Upload failures are common (network blips, expired tokens)
+and there's no reason to recompile the entire app because a network request timed out.
+
+---
+
+## Build numbers, and why you can't reuse them
+
+Two different numbers, and people mix them up constantly:
+
+- **Version** (`MARKETING_VERSION`, currently `2.3`) — what users see. Changes when you ship
+  something meaningful.
+- **Build number** (`CURRENT_PROJECT_VERSION`, currently in the `1.x` series) — an internal
+  counter. Goes up **every single upload**, even if you only changed one line.
+
+Apple will reject an upload if it's seen that build number before for that version. And here's the
+part that catches people: **that number is burned forever.** You can't delete a build and reuse
+its number. If you upload `1.7` and it's broken, your next attempt is `1.8`. There's no undo.
+
+Our numbers are dotted (`1.5`, `1.6`, `1.7`) rather than plain integers. That's a bit unusual but
+it's fine — Apple compares them piece by piece like version numbers, so `1.7` correctly sorts
+above `1.6`. The lane just adds one to the last piece.
+
+You never have to set this by hand. The lane reads what's on TestFlight and bumps from there,
+which means it stays correct even if someone else uploaded from a different Mac.
+
+> **Note:** the lane writes the build number straight into the Xcode project settings. It
+> deliberately does _not_ use `agvtool`, Apple's usual tool for this, because `agvtool` rewrites
+> `Info.plist` and replaces `$(CURRENT_PROJECT_VERSION)` with a hardcoded number — quietly
+> breaking the link between the project setting and the plist.
+
+---
+
+## Getting it to your testers
+
+Once the build finishes processing (10–30 minutes, occasionally an hour), go to App Store Connect
+→ Canvas OTT → **TestFlight**.
+
+**Internal testers** — up to 100 people, and they must have an App Store Connect account on the
+team. **No review.** The build is installable within minutes of finishing processing. This is what
+you want for the dev team and anyone at the company.
+
+**External testers** — up to 10,000 people, any email address, no account needed. Requires **Beta
+App Review**, which is a real human at Apple looking at your app. Usually a day or two. You have
+to fill in "What to Test" and a beta description first. Rejections here are rarer and gentler than
+full App Store review, but they do happen — most often for a broken sign-in or a paywall the
+reviewer can't get past.
+
+Testers install the **TestFlight** app from the App Store, then tap the invite link in their email.
+Builds expire after **90 days**.
+
+### Expiring a bad build
+
+If you ship something broken, go to **TestFlight → Builds**, pick it, and hit **Expire**. It
+disappears for testers immediately. Do this rather than hoping nobody installs it — a tester on a
+broken build files confusing bug reports about problems you already fixed.
+
+---
+
+## When it breaks
+
+**`Cloud signing permission error` / `No signing certificate "iOS Distribution" found`**
+Your API key isn't Admin. Make a new key with Admin access ([step 2](#2-get-an-app-store-connect-api-key)).
+You can't change an existing key's role — Apple makes you create a new one. Note that a
+certificate showing up in the developer portal does _not_ mean you can use it: a certificate is
+half of a key pair, and the private half lives on whichever Mac created it.
+
+**`Authentication credentials are missing or invalid`**
+Wrong key type. Apple hands out several kinds of `.p8` and they all look identical:
+
+- `AuthKey_*.p8` from **App Store Connect → Integrations** — this is the upload key you want
+- `AuthKey_*.p8` from **developer.apple.com → Keys** — push notifications or Sign in with Apple
+- `SubscriptionKey_*.p8` — In-App Purchase keys, for the App Store _Server_ API
+
+You cannot tell them apart from the filename. If auth fails, you probably grabbed the wrong one.
+
+**`The bundle version must be higher than the previously uploaded version`**
+Build number collision. Run `fastlane ios status` to see what Apple actually has, then rerun
+`beta` — it reads the real number from Apple, so this shouldn't happen unless something was
+uploaded by hand.
+
+**Guard says `Bundle points at dev backend(s)`**
+`.env` has a dev URL uncommented. Fix it, clear the Metro cache, rebuild.
+
+**Guard says `Bundle is missing <url>`**
+Stale Metro cache. `.env` is right but the build didn't pick it up:
+
+```sh
+rm -rf "$TMPDIR"/metro-* "$TMPDIR"/haste-* node_modules/.cache
+```
+
+**Build uploaded but never appears in TestFlight**
+Check email for an `ITMS-` error from Apple. These are usually specific and readable. The classic
+one is an unanswered export-compliance question, which `ITSAppUsesNonExemptEncryption` in
+`Info.plist` already prevents for us.
+
+**Pod or build errors after pulling new code**
+
+```sh
+cd ios && bundle exec pod deintegrate && bundle exec pod install
+```
+
+Then in Xcode: **Product → Clean Build Folder** (Shift-Cmd-K).
+
+**App installs but the API doesn't work**
+`.env` again, almost always. See the section above.
+
+---
+
+## Related
+
+- [Publishing to the App Store](./APP_STORE_REVIEW.md) — going from a TestFlight build to
+  something the public can download. Much stricter, and there are open issues to fix first.

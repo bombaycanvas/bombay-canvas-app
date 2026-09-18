@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import Explore from '../components/Explore';
 import HeroSlider from '../components/HeroSlider';
@@ -17,6 +17,11 @@ import { Crown } from 'lucide-react-native';
 import { useMySubscription } from '../api/subscription';
 import { useAuthStore } from '../store/authStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { useLanguages, syncLocalLanguagePreferences } from '../api/language';
+import { applyLanguagePreference, formatLanguageList } from '../utils/languageRank';
+import { useSetting } from '../api/settings';
+import { useTrialPromptStore } from '../store/trialPromptStore';
+import { log } from '../utils/analytics/log';
 
 export default function HomeScreen() {
   const { data, isLoading } = useMoviesData();
@@ -27,13 +32,39 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [isSliderVisible, setIsSliderVisible] = useState(true);
   const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
-  const { token } = useAuthStore();
+  const { token, preferredLanguages } = useAuthStore();
+  const { data: languages = [] } = useLanguages();
+  const languageDisplayMode = useSetting('language.displayMode', 'RANK') as 'RANK' | 'FILTER';
+
+  // The device copy of the languages is otherwise only refreshed at login, so a
+  // change made on the web (or another device) would never reach the carousel.
+  useEffect(() => {
+    if (!token) return;
+    syncLocalLanguagePreferences().catch(error => {
+      log.warn('Language preference sync failed', {
+        message: String((error as Error)?.message ?? 'unknown'),
+      });
+    });
+  }, [token]);
 
   const { data: subscription, refetch } = useMySubscription();
+  // refetch() runs even while the query is disabled, so guests must be skipped
+  // here or every Home focus fires an unauthenticated /subscription/me (401).
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (token) refetch();
+    }, [token, refetch])
+  );
+
+  // Home is the only place the session prompt fires.
+  const trialConsumed = useTrialPromptStore(s => s.trialConsumed);
+  const promptedThisSession = useTrialPromptStore(s => s.promptedThisSession);
+  const showTrialPrompt = useTrialPromptStore(s => s.showTrialPrompt);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (trialConsumed && !promptedThisSession) showTrialPrompt();
+    }, [trialConsumed, promptedThisSession, showTrialPrompt])
   );
   const isActive = subscription &&
     (subscription.status === 'ACTIVE' ||
@@ -85,10 +116,10 @@ export default function HomeScreen() {
     }
   }, [data, recommendedSeriesData, coverVideoData]);
 
-  const getMoviesByGenre = () => {
+  const getMoviesByGenre = (series: any[]) => {
     const genreMap: Record<string, any[]> = {};
-    data?.series?.forEach(movie => {
-      movie.genres?.forEach(genre => {
+    series?.forEach(movie => {
+      movie.genres?.forEach((genre: { name: string }) => {
         if (!genreMap[genre.name]) genreMap[genre.name] = [];
         genreMap[genre.name].push(movie);
       });
@@ -96,7 +127,26 @@ export default function HomeScreen() {
     return genreMap;
   };
 
-  const genreMap = getMoviesByGenre();
+  // Apply once; genre buckets are then derived from the same processed list so
+  // FILTER mode actually removes non-preferred-language series from every
+  // genre row too, not just "New on canvas".
+  const languageProcessedSeries = useMemo(
+    () => applyLanguagePreference(data?.series ?? [], preferredLanguages, languageDisplayMode),
+    [data?.series, preferredLanguages, languageDisplayMode],
+  );
+
+  const genreMap = useMemo(
+    () => getMoviesByGenre(languageProcessedSeries),
+    [languageProcessedSeries],
+  );
+
+  const rankedLatest = languageProcessedSeries;
+
+  const rankedRecommended = useMemo(
+    () => applyLanguagePreference(recommendedSeriesData?.series ?? [], preferredLanguages, languageDisplayMode),
+    [recommendedSeriesData?.series, preferredLanguages, languageDisplayMode],
+  );
+
   const onCardPress = (movie: any) => {
     navigation.navigate('SeriesDetail', {
       id: movie.id,
@@ -115,17 +165,28 @@ export default function HomeScreen() {
           <Landing />
         )}
         <ContinueWatching />
+
         <Explore
           heading={'Recommended for you'}
-          movieData={recommendedSeriesData?.series ?? []}
+          movieData={rankedRecommended}
           isLoading={isRecommendedLoading}
           onCardPress={onCardPress}
+          emptyMessage={
+            languageDisplayMode === 'FILTER' && preferredLanguages?.length
+              ? 'No recommended titles in your preferred language yet.'
+              : 'No recommendations yet.'
+          }
         />
         <Explore
           heading={'New on canvas'}
-          movieData={data?.series ?? []}
+          movieData={rankedLatest}
           isLoading={isLoading}
           onCardPress={onCardPress}
+          emptyMessage={
+            languageDisplayMode === 'FILTER' && preferredLanguages?.length
+              ? 'No new titles in your preferred language yet.'
+              : 'No new titles yet.'
+          }
         />
         {Object.entries(genreMap)?.map(([genreName, movies]) => (
           <Explore
@@ -134,6 +195,7 @@ export default function HomeScreen() {
             movieData={movies}
             isLoading={isLoading}
             onCardPress={onCardPress}
+            emptyMessage="No titles in your preferred language for this genre yet."
           />
         ))}
       </ScrollView>

@@ -5,24 +5,30 @@ import { useCarouselSeriesData } from '../api/video';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Matches the web hero's rotation for slides that have no trailer to end on.
+const POSTER_SLIDE_MS = 7000;
+// A trailer that has not rendered a first frame by now is treated as dead.
+const TRAILER_START_TIMEOUT_MS = 12000;
+// onEnd is unreliable on HLS, so a playing trailer also advances on its own
+// reported duration rather than being cut short by a fixed ceiling.
+const TRAILER_END_GRACE_MS = 3000;
+const TRAILER_MAX_MS = 90000;
 
-export function useHeroSlider() {
+type ActiveVideo = { id: string; ready: boolean; durationMs: number | null };
+
+export function useHeroSlider({ isVisible = true }: { isVisible?: boolean } = {}) {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const { data, isLoading } = useCarouselSeriesData();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
+  const [failedSlideIds, setFailedSlideIds] = useState<Set<string>>(() => new Set());
 
   const flatListRef = useRef<FlatList>(null);
 
-  const sliderData = useMemo(() => {
-    const seriesList = data?.series || [];
-    const withTrailer = seriesList.filter((item: any) => item.trailerUrl);
-    if (withTrailer.length > 0) {
-      return withTrailer;
-    }
-    return seriesList;
-  }, [data]);
+  // Every admin-picked slide is shown; poster-only slides rotate on a timer.
+  const sliderData = useMemo(() => data?.series || [], [data]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
@@ -48,6 +54,52 @@ export function useHeroSlider() {
     }
   }, [activeIndex, sliderData.length]);
 
+  const handleVideoReady = useCallback((id: string) => {
+    setActiveVideo(prev =>
+      prev?.id === id
+        ? (prev.ready ? prev : { ...prev, ready: true })
+        : { id, ready: true, durationMs: null },
+    );
+  }, []);
+
+  const handleVideoLoad = useCallback((id: string, durationSec: number) => {
+    const durationMs =
+      Number.isFinite(durationSec) && durationSec > 0 ? durationSec * 1000 : null;
+    setActiveVideo(prev =>
+      prev?.id === id ? { ...prev, durationMs } : { id, ready: false, durationMs },
+    );
+  }, []);
+
+  // A broken trailer demotes its slide to poster-only rotation; advancing on the
+  // error itself would spin the carousel if every trailer were broken.
+  const handleVideoError = useCallback((id: string) => {
+    setFailedSlideIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
+  const activeSlideId = sliderData[activeIndex]?.id != null
+    ? String(sliderData[activeIndex].id)
+    : null;
+  const activeHasTrailer =
+    Boolean(sliderData[activeIndex]?.trailerUrl) &&
+    !(activeSlideId !== null && failedSlideIds.has(activeSlideId));
+
+  const slideDurationMs = useMemo(() => {
+    if (!activeHasTrailer) return POSTER_SLIDE_MS;
+    const state = activeVideo?.id === activeSlideId ? activeVideo : null;
+    if (!state?.ready) return TRAILER_START_TIMEOUT_MS;
+    return (state.durationMs ?? TRAILER_MAX_MS) + TRAILER_END_GRACE_MS;
+  }, [activeHasTrailer, activeVideo, activeSlideId]);
+
+  // Always armed: onEnd advances a healthy trailer first, and this catches every
+  // slide that never gets there.
+  useEffect(() => {
+    if (sliderData.length < 2 || !isFocused || !isVisible) {
+      return;
+    }
+    const timer = setTimeout(handleVideoEnd, slideDurationMs);
+    return () => clearTimeout(timer);
+  }, [slideDurationMs, sliderData.length, isFocused, isVisible, handleVideoEnd]);
+
   const getItemLayout = useCallback((_: any, index: number) => ({
     length: SCREEN_WIDTH,
     offset: SCREEN_WIDTH * index,
@@ -66,6 +118,9 @@ export function useHeroSlider() {
     onViewableItemsChanged,
     viewabilityConfig,
     handleVideoEnd,
+    handleVideoReady,
+    handleVideoLoad,
+    handleVideoError,
     getItemLayout,
   };
 }

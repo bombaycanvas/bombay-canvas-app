@@ -7,7 +7,14 @@ export interface Movie {
   id: string;
   title: string;
   posterUrl: string;
+  trailerUrl?: string | null;
   genres?: Genre[];
+  language?: {
+    id: string;
+    code: string;
+    label: string;
+    nativeLabel: string | null;
+  } | null;
   uploader?: {
     id: string;
     name: string;

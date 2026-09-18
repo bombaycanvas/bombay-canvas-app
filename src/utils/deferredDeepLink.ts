@@ -8,6 +8,7 @@ import {
 import { linking, pathFromDeepLink, getStateFromPath } from '../routes/linking';
 import type { RootStackParamList } from '../routes/routes';
 import { initMetaSdk } from './analytics';
+import { log } from './analytics/log';
 
 // Meta hands the deferred link over exactly once, on the first launch after an
 // ad-driven install. Anything after that is a normal deep link.
@@ -23,6 +24,7 @@ const fetchDeferredLink = async (): Promise<string | null> => {
   const url = await AppLink.fetchDeferredAppLink();
   await AsyncStorage.setItem(CHECKED_KEY, '1');
   console.log('[deeplink] deferred link fetched', { url });
+  log.info('Deferred deep link fetched', { has_link: Boolean(url) });
   return url ?? null;
 };
 
@@ -47,11 +49,13 @@ export const routeDeferredDeepLink = async (
     const state = path ? getStateFromPath(path, linking.config) : undefined;
     if (!state) {
       console.warn('[deeplink] deferred link has no matching route', { url });
+      log.warn('Deferred deep link has no matching route', { url });
       return;
     }
 
     const action = getActionFromState(state, linking.config);
     console.log('[deeplink] routing deferred link', { path });
+    log.info('Deferred deep link routed', { path });
 
     if (action) {
       navigationRef.dispatch(action);
@@ -60,5 +64,8 @@ export const routeDeferredDeepLink = async (
     }
   } catch (err) {
     console.warn('[deeplink] deferred link handling failed', err);
+    log.warn('Deferred deep link handling failed', {
+      message: String((err as Error)?.message ?? 'unknown'),
+    });
   }
 };

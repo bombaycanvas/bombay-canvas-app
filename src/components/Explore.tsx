@@ -25,6 +25,7 @@ type ExploreProps = {
   movieData: Movie[];
   isLoading?: boolean;
   onCardPress?: (movie: Movie, layout: any) => void;
+  emptyMessage?: string;
 };
 
 type RootStackParamList = {
@@ -43,6 +44,7 @@ const ExploreCard = React.memo(
     movie: Movie;
     navigation: Navigation;
     onCardPress?: (movie: Movie, layout: any) => void;
+    
   }) => {
     const opacity = React.useRef(new Animated.Value(0)).current;
     const cardRef = React.useRef<View>(null);
@@ -155,6 +157,7 @@ const Explore: React.FC<ExploreProps> = ({
   movieData,
   isLoading,
   onCardPress,
+  emptyMessage = 'Nothing here yet.',
 }) => {
   const navigation = useNavigation<Navigation>();
 
@@ -175,6 +178,8 @@ const Explore: React.FC<ExploreProps> = ({
     );
   }
 
+  const isEmpty = !movieData || movieData.length === 0;
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>
@@ -183,22 +188,28 @@ const Explore: React.FC<ExploreProps> = ({
         </Text>
       </Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginBottom: 10 }}
-      >
-        {(movieData || []).map(movie => (
-          <ExploreCard
-            key={movie.id}
-            movie={movie}
-            navigation={navigation}
-            onCardPress={onCardPress}
-          />
-        ))}
-      </ScrollView>
-    </View>
-  );
+      {isEmpty ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginBottom: 10 }}
+        >
+          {movieData.map(movie => (
+            <ExploreCard
+              key={movie.id}
+              movie={movie}
+              navigation={navigation}
+              onCardPress={onCardPress}
+            />
+          ))}
+        </ScrollView>
+      )}
+     </View>
+   );
 };
 
 export default Explore;
@@ -275,5 +286,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
     borderRadius: 12,
+  },
+    emptyState: {
+    height: 195,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  emptyText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    fontFamily: 'HelveticaNowDisplay-Regular',
   },
 });

@@ -65,8 +65,8 @@ const startPurchase = async ({
 };
 
 const cancel = async (): Promise<CancelOutcome> => {
-  await openManageSubscriptions();
-  return { status: 'deferredToStore' };
+  const { renewalTurnedOff } = await openManageSubscriptions();
+  return { status: 'deferredToStore', renewalTurnedOff };
 };
 
 const restore = async (): Promise<RestoredTransaction[]> => {

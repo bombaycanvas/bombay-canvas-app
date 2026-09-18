@@ -1,4 +1,27 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { appleAuth } from '@invertase/react-native-apple-authentication';
+
+export async function signInWithApple(): Promise<string | null> {
+  try {
+    const response = await appleAuth.performRequest({
+      requestedOperation: appleAuth.Operation.LOGIN,
+      requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+    });
+
+    if (!response.identityToken) {
+      throw new Error('No Apple identity token received');
+    }
+    console.log('Apple Sign-In success');
+    return response.identityToken;
+  } catch (error: any) {
+    if (error?.code === appleAuth.Error.CANCELED) {
+      console.log('Apple Sign-In cancelled by user');
+      return null;
+    }
+    console.log('Apple Login Error:', error);
+    throw error;
+  }
+}
 
 export async function signInWithGoogle() {
   try {
