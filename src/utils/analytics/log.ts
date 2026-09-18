@@ -1,4 +1,5 @@
 import { posthog } from './posthog';
+import { LOGS_ENABLED } from './flags';
 
 // Structured logging to PostHog Logs.
 
@@ -19,6 +20,9 @@ const write = (
   message: string,
   attributes?: LogAttributes,
 ): void => {
+  // The SDK has no switch for logs, so this wrapper is the gate.
+  if (!LOGS_ENABLED) return;
+
   try {
     posthog.logger[level](message, attributes);
   } catch {

@@ -2,6 +2,7 @@ import PostHog from 'posthog-react-native';
 import DeviceInfo from 'react-native-device-info';
 import { POSTHOG_API_KEY, POSTHOG_API_HOST } from '@env';
 import { redactLogRecord } from './logRedaction';
+import { EVENTS_ENABLED, LOGS_ENABLED, SESSION_REPLAY_ENABLED } from './flags';
 
 // PostHog (product analytics) provider.
 
@@ -12,9 +13,9 @@ export const posthog = new PostHog(apiKey, {
   host,
   disabled: !apiKey,
 
-  captureAppLifecycleEvents: true,
+  captureAppLifecycleEvents: EVENTS_ENABLED,
 
-  enableSessionReplay: true,
+  enableSessionReplay: SESSION_REPLAY_ENABLED,
   sessionReplayConfig: {
     maskAllTextInputs: true,
     maskAllImages: false,
@@ -27,14 +28,16 @@ export const posthog = new PostHog(apiKey, {
   enablePersistSessionIdAcrossRestart: true,
 
 
-  logs: {
-    serviceName: 'bombay-canvas-app',
-    serviceVersion: `${DeviceInfo.getVersion()}(${DeviceInfo.getBuildNumber()})`,
+  logs: LOGS_ENABLED
+    ? {
+        serviceName: 'bombay-canvas-app',
+        serviceVersion: `${DeviceInfo.getVersion()}(${DeviceInfo.getBuildNumber()})`,
 
-    environment: __DEV__ ? 'development' : 'production',
-    beforeSend: redactLogRecord,
-    rateCap: { maxLogs: 200, windowMs: 10000 },
-  },
+        environment: __DEV__ ? 'development' : 'production',
+        beforeSend: redactLogRecord,
+        rateCap: { maxLogs: 200, windowMs: 10000 },
+      }
+    : undefined,
 });
 
 export type EventProperties = Record<string, string | number | boolean>;
@@ -48,6 +51,8 @@ export const capture = (
   eventName: string,
   properties?: EventProperties,
 ): void => {
+  if (!EVENTS_ENABLED) return;
+
   try {
     posthog.capture(eventName, properties);
   } catch (err) {
@@ -61,6 +66,8 @@ export const screen = (
   screenName: string,
   properties?: EventProperties,
 ): void => {
+  if (!EVENTS_ENABLED) return;
+
   try {
     posthog.screen(screenName, properties);
   } catch (err) {

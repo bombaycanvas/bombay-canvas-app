@@ -1,6 +1,7 @@
 import { posthog } from './posthog';
 import { redactText, redactAttributes } from './logRedaction';
 import type { LogAttributes } from './log';
+import { ERRORS_ENABLED } from './flags';
 
 // PostHog Error Tracking.
 //
@@ -81,6 +82,7 @@ export const captureError = (
   error: unknown,
   properties: LogAttributes = {},
 ): void => {
+  if (!ERRORS_ENABLED) return;
   if (error === null || error === undefined) return;
   if (isExpectedError(error)) return;
   if (!shouldSend(errorFingerprint(error))) return;
@@ -170,7 +172,9 @@ let initialised = false;
 
 /** Call once, as early as possible. */
 export const initErrorTracking = (): void => {
-  if (initialised) return;
+  // Skipped entirely when off, so neither the global handler nor the console
+  // wrapper is installed and the app's behaviour is untouched.
+  if (initialised || !ERRORS_ENABLED) return;
   initialised = true;
 
   installGlobalHandler();
