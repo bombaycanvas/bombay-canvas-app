@@ -282,10 +282,13 @@ Masking is **targeted, not blanket.** The global text and image masks are OFF; e
 | `LoginScreen` | Password | existing `passwordWrapper` swapped for the mask |
 | `StartLoginScreen` | Phone number | existing `phoneInputPill` swapped |
 | `StartLoginScreen` | OTP digits | existing `otpCirclesWrapper` swapped |
+| `StartLoginScreen` | "OTP sent to …" phone text | wrapper added |
 | `StartLoginScreen` | Email | wrapper added |
 | `StartLoginScreen` | Password | existing `passwordContainer` swapped |
 
-Where a wrapper `View` already existed it was swapped for `PostHogMaskView` rather than nested inside one, so the layout is untouched.
+Where a wrapper `View` already existed it was swapped for `PostHogMaskView` rather than nested inside one, so the layout is untouched. `PostHogMaskView` is re-exported from `utils/analytics`, so feature code keeps importing through that one seam.
+
+> **A masked wrapper greys its whole subtree.** `phoneInputPill` also holds the submit chevron and the password wrappers also hold the eye toggle and error text, so those are greyed too. That is deliberate: swapping an existing wrapper cannot shift layout, where nesting a new view inside a flex row can.
 
 > **The OTP mask is on the digits, not the input.** `StartLoginScreen`'s OTP `<TextInput>` is positioned offscreen at `opacity: 0` and shows no characters; the digits the recorder sees are the `<Text>` nodes in `otpCirclesWrapper`. Masking the input would look correct in a diff and protect nothing.
 

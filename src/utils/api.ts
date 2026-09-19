@@ -101,8 +101,6 @@ export const api = async (endpoint: string, config: any = {}) => {
   try {
     const url = getApiUrl(endpoint);
 
-    console.log(`[API] ${requestConfig.method} ${url}`);
-
     const response = await fetch(url, requestConfig);
 
     if (!response.ok) {
@@ -172,10 +170,21 @@ export const api = async (endpoint: string, config: any = {}) => {
         status: response.status,
       });
     }
+    const isJson = response.headers
+      .get('Content-Type')
+      ?.includes('application/json');
 
-    return response.headers.get('Content-Type')?.includes('application/json')
-      ? response.json()
-      : response;
+    if (!isJson) {
+      return response;
+    }
+
+    // The body is a one-shot stream, so it has to be read once and reused —
+    // logging it separately consumes it and the return then throws "Already read".
+    const data = await response.json();
+    if (__DEV__) {
+      console.log(`[API Response] ${url} - ${response.status}`, data);
+    }
+    return data;
   } catch (error: any) {
     // Only a transport failure reaches here unlabelled; HTTP errors are already
     // logged above and rethrown.
