@@ -23,6 +23,10 @@ import { track as trackMeta } from './meta';
 import { capture as capturePostHog, screen as screenPostHog } from './posthog';
 import { mapEvent, type TrackParams } from './events';
 
+// Session replay masking. Global text/image masks are OFF (see posthog.ts), so
+// every credential, phone number and payment field must be wrapped in this.
+export { PostHogMaskView } from 'posthog-react-native';
+
 export { initMetaSdk } from './meta';
 export { getAppDataHeader } from './appData';
 export {

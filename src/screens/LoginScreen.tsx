@@ -24,6 +24,7 @@ import { AppleButton } from '@invertase/react-native-apple-authentication';
 import { signInWithApple, signInWithGoogle } from '../utils/authService';
 import Toast from 'react-native-toast-message';
 import { Smartphone } from 'lucide-react-native';
+import { PostHogMaskView } from '../utils/analytics';
 
 type LoginScreenProps = {
   fromSignup?: boolean;
@@ -140,6 +141,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
           }}
           render={({ field: { onChange, value } }) => (
             <>
+              <PostHogMaskView>
                 <TextInput
                   style={styles.input}
                   placeholder="Email"
@@ -149,6 +151,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
+              </PostHogMaskView>
               {errors.email?.message && (
                 <Text style={styles.error}>
                   {errors.email.message as string}
@@ -169,7 +172,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
             },
           }}
           render={({ field: { onChange, value } }) => (
-            <View style={styles.passwordWrapper}>
+            <PostHogMaskView style={styles.passwordWrapper}>
               <TextInput
                 style={styles.input}
                 placeholder="Your Password"
@@ -190,7 +193,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ fromSignup = false }) => {
                   {errors.password?.message as string}
                 </Text>
               )}
-            </View>
+            </PostHogMaskView>
           )}
         />
 

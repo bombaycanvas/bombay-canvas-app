@@ -17,7 +17,9 @@ export const posthog = new PostHog(apiKey, {
 
   enableSessionReplay: SESSION_REPLAY_ENABLED,
   sessionReplayConfig: {
-    maskAllTextInputs: true,
+    // Off by design: sensitive fields are wrapped in <PostHogMaskView> individually.
+    // A new credential/phone/payment input is recorded in full unless it is wrapped.
+    maskAllTextInputs: false,
     maskAllImages: false,
     maskAllSandboxedViews: true,
     captureLog: false,

@@ -43,6 +43,7 @@ import EyeIcon from '../assets/EyeIcon';
 import EyeSlashIcon from '../assets/EyeSlashIcon';
 import handleOpenURL from '../services/handleOpenUrl';
 import { usePostHog } from 'posthog-react-native';
+import { PostHogMaskView } from '../utils/analytics';
 
 const { height } = Dimensions.get('window');
 
@@ -305,7 +306,7 @@ const StartLoginScreen = () => {
         },
       ]}
     >
-      <View style={styles.phoneInputPill}>
+      <PostHogMaskView style={styles.phoneInputPill}>
         <PhoneInput
           value={phoneValue}
           onChangePhoneNumber={handlePhoneInputChange}
@@ -348,7 +349,7 @@ const StartLoginScreen = () => {
             <Ionicons name="chevron-forward" size={24} color="#fff" />
           )}
         </TouchableOpacity>
-      </View>
+      </PostHogMaskView>
 
       {Platform.OS === 'ios' && (
         <AppleButton
@@ -469,7 +470,9 @@ const StartLoginScreen = () => {
           pointerEvents="none"
         />
         <View style={styles.otpPillWrapper}>
-          <View style={styles.otpCirclesWrapper}>
+          {/* Masks the digit Text nodes, not the input: the real <TextInput> is
+              offscreen at opacity 0, so masking it would protect nothing. */}
+          <PostHogMaskView style={styles.otpCirclesWrapper}>
             {[0, 1, 2, 3].map((_, index) => {
               const isActive = index === activeIndex;
 
@@ -493,7 +496,7 @@ const StartLoginScreen = () => {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </PostHogMaskView>
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -517,9 +520,11 @@ const StartLoginScreen = () => {
           </TouchableOpacity>
         </View>
         <View style={styles.otpBottomInfo}>
-          <Text style={styles.otpSentToText}>
-            OTP sent to {selectedCountry?.callingCode} {phoneValue}
-          </Text>
+          <PostHogMaskView>
+            <Text style={styles.otpSentToText}>
+              OTP sent to {selectedCountry?.callingCode} {phoneValue}
+            </Text>
+          </PostHogMaskView>
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -609,7 +614,7 @@ const StartLoginScreen = () => {
               }}
               render={({ field: { onChange, value } }) => (
                 <>
-                  
+                  <PostHogMaskView>
                     <TextInput
                       style={styles.emailInput}
                       placeholder="Email"
@@ -619,6 +624,7 @@ const StartLoginScreen = () => {
                       keyboardType="email-address"
                       autoCapitalize="none"
                     />
+                  </PostHogMaskView>
                   {errors.email?.message && (
                     <Text style={styles.errorText}>
                       {errors.email.message as string}
@@ -639,7 +645,7 @@ const StartLoginScreen = () => {
                 },
               }}
               render={({ field: { onChange, value } }) => (
-                <View style={styles.passwordContainer}>
+                <PostHogMaskView style={styles.passwordContainer}>
                   <TextInput
                     style={styles.emailInput}
                     placeholder="Password"
@@ -655,7 +661,7 @@ const StartLoginScreen = () => {
                   >
                     {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
                   </TouchableOpacity>
-                </View>
+                </PostHogMaskView>
               )}
             />
             {errors.password && (
