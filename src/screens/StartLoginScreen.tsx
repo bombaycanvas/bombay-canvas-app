@@ -28,6 +28,7 @@ import { postAuthRoute } from '../utils/postAuthRoute';
 import PhoneInput from 'react-native-international-phone-number';
 import {
   useAppleLogin,
+  useForgotPassword,
   useGoogleLogin,
   useSendOtpMutation,
   useVerifyOtpMutation,
@@ -63,6 +64,189 @@ const renderCustomFlag = (country: any) => {
   );
 };
 
+const EMAIL_RULES = {
+  required: 'Email is required',
+  pattern: {
+    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+    message: 'Invalid email address',
+  },
+};
+
+// The backend omits `message` when no account matches, to avoid user enumeration.
+const DEFAULT_RESET_SENT_MESSAGE =
+  'If an account exists for this email, a reset link has been sent. Please check your inbox.';
+
+const RESEND_COOLDOWN_SECONDS = 30;
+
+type ResetLinkSentProps = {
+  email: string;
+  message: string;
+  cooldown: number;
+  isResending: boolean;
+  onResend: () => void;
+  onBackToLogin: () => void;
+};
+
+const ResetLinkSent = ({
+  email,
+  message,
+  cooldown,
+  isResending,
+  onResend,
+  onBackToLogin,
+}: ResetLinkSentProps) => (
+  <View>
+    <Text style={styles.sentTitle}>Check your email</Text>
+    <Text style={styles.sentMessage}>{message}</Text>
+
+    <View style={styles.sentEmailRow}>
+      <Ionicons name="mail-outline" size={18} color="rgba(255,255,255,0.5)" />
+      <PostHogMaskView style={styles.sentEmailMask}>
+        <Text style={styles.sentEmail} numberOfLines={1} ellipsizeMode="middle">
+          {email}
+        </Text>
+      </PostHogMaskView>
+    </View>
+
+    <Text style={styles.sentHint}>
+      The link expires in 1 hour. If you don't see it, check your spam folder.
+    </Text>
+
+    <TouchableOpacity
+      activeOpacity={0.8}
+      style={styles.emailLoginBtn}
+      onPress={onBackToLogin}
+    >
+      <Text style={styles.emailLoginBtnText}>Back to Login</Text>
+    </TouchableOpacity>
+
+    <View style={styles.resendRow}>
+      <Text style={styles.resendPrompt}>Didn't receive it?</Text>
+      {isResending ? (
+        <ActivityIndicator size="small" color="rgb(255,106,0)" />
+      ) : (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          hitSlop={8}
+          disabled={cooldown > 0}
+          onPress={onResend}
+        >
+          <Text
+            style={[
+              styles.resendAction,
+              cooldown > 0 && styles.resendActionDisabled,
+            ]}
+          >
+            {cooldown > 0
+              ? `Resend in 0:${String(cooldown).padStart(2, '0')}`
+              : 'Resend'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  </View>
+);
+
+const ForgotPasswordForm = ({
+  onSent,
+  onBackToLogin,
+}: {
+  onSent: () => void;
+  onBackToLogin: () => void;
+}) => {
+  const [sent, setSent] = useState<{ email: string; message: string } | null>(
+    null,
+  );
+  const [cooldown, setCooldown] = useState(0);
+  const { mutate, isPending } = useForgotPassword();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<{ email: string }>();
+
+  useEffect(() => {
+    if (cooldown <= 0) {
+      return;
+    }
+    const timeout = setTimeout(() => setCooldown(prev => prev - 1), 1000);
+    return () => clearTimeout(timeout);
+  }, [cooldown]);
+
+  const sendResetLink = (email: string) =>
+    mutate(
+      { email },
+      {
+        onSuccess: data => {
+          setSent({
+            email: email.trim(),
+            message: data?.message || DEFAULT_RESET_SENT_MESSAGE,
+          });
+          setCooldown(RESEND_COOLDOWN_SECONDS);
+          onSent();
+        },
+      },
+    );
+
+  if (sent) {
+    return (
+      <ResetLinkSent
+        email={sent.email}
+        message={sent.message}
+        cooldown={cooldown}
+        isResending={isPending}
+        onResend={() => sendResetLink(sent.email)}
+        onBackToLogin={onBackToLogin}
+      />
+    );
+  }
+
+  return (
+    <View>
+      <Text style={styles.forgotInfoText}>
+        Enter your email and we'll send you a link to reset your password
+      </Text>
+
+      <Controller
+        control={control}
+        name="email"
+        rules={EMAIL_RULES}
+        render={({ field: { onChange, value } }) => (
+          <>
+            <PostHogMaskView>
+              <TextInput
+                style={styles.emailInput}
+                placeholder="Email"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={value}
+                onChangeText={onChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </PostHogMaskView>
+            {errors.email?.message && (
+              <Text style={styles.errorText}>{errors.email.message}</Text>
+            )}
+          </>
+        )}
+      />
+
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={styles.emailLoginBtn}
+        disabled={isPending}
+        onPress={handleSubmit(({ email }) => sendResetLink(email))}
+      >
+        {isPending ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.emailLoginBtnText}>Send Reset Link</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -79,6 +263,8 @@ const StartLoginScreen = () => {
   const [timer, setTimer] = useState(30);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [isResetLinkSent, setIsResetLinkSent] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const otpInputs = useRef<Array<TextInput | null>>([]);
@@ -98,6 +284,17 @@ const StartLoginScreen = () => {
     handleSubmit,
     formState: { errors },
   } = useForm();
+
+  const exitForgotMode = () => {
+    setIsForgotMode(false);
+    setIsResetLinkSent(false);
+  };
+
+  const closeMethodsSheet = () => {
+    setFlow('phone');
+    exitForgotMode();
+    Keyboard.dismiss();
+  };
 
   const handleSkip = async () => {
     await setHasSkipped(true);
@@ -552,12 +749,7 @@ const StartLoginScreen = () => {
       style={[StyleSheet.absoluteFill, { zIndex: 999 }]}
       pointerEvents={flow === 'methods' ? 'auto' : 'none'}
     >
-      <TouchableWithoutFeedback
-        onPress={() => {
-          setFlow('phone');
-          Keyboard.dismiss();
-        }}
-      >
+      <TouchableWithoutFeedback onPress={closeMethodsSheet}>
         <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]} />
       </TouchableWithoutFeedback>
 
@@ -576,147 +768,170 @@ const StartLoginScreen = () => {
         >
           <View style={styles.sheetHandle} />
 
-          <View>
-            {isSignup && (
+          {isForgotMode ? (
+            <ForgotPasswordForm
+              onSent={() => setIsResetLinkSent(true)}
+              onBackToLogin={exitForgotMode}
+            />
+          ) : (
+            <View>
+              {isSignup && (
+                <Controller
+                  control={control}
+                  name="fullname"
+                  rules={{ required: 'Fullname is required' }}
+                  render={({ field: { onChange, value } }) => (
+                    <>
+                      <TextInput
+                        style={styles.emailInput}
+                        placeholder="Full Name"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={value}
+                        onChangeText={onChange}
+                        autoCapitalize="words"
+                      />
+                      {errors.fullname && (
+                        <Text style={styles.errorText}>
+                          {errors.fullname.message as string}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                />
+              )}
+
               <Controller
                 control={control}
-                name="fullname"
-                rules={{ required: 'Fullname is required' }}
+                name="email"
+                rules={EMAIL_RULES}
                 render={({ field: { onChange, value } }) => (
                   <>
-                    <TextInput
-                      style={styles.emailInput}
-                      placeholder="Full Name"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={value}
-                      onChangeText={onChange}
-                      autoCapitalize="words"
-                    />
-                    {errors.fullname && (
+                    <PostHogMaskView>
+                      <TextInput
+                        style={styles.emailInput}
+                        placeholder="Email"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                    </PostHogMaskView>
+                    {errors.email?.message && (
                       <Text style={styles.errorText}>
-                        {errors.fullname.message as string}
+                        {errors.email.message as string}
                       </Text>
                     )}
                   </>
                 )}
               />
-            )}
 
-            <Controller
-              control={control}
-              name="email"
-              rules={{
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address',
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <PostHogMaskView>
+              <Controller
+                control={control}
+                name="password"
+                rules={{
+                  required: 'Password is required',
+                  minLength: {
+                    value: 8,
+                    message: 'Password must be at least 8 characters',
+                  },
+                }}
+                render={({ field: { onChange, value } }) => (
+                  <PostHogMaskView style={styles.passwordContainer}>
                     <TextInput
                       style={styles.emailInput}
-                      placeholder="Email"
+                      placeholder="Password"
                       placeholderTextColor="rgba(255,255,255,0.3)"
+                      secureTextEntry={!showPassword}
                       value={value}
                       onChangeText={onChange}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
                     />
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.eyeIcon}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                    </TouchableOpacity>
                   </PostHogMaskView>
-                  {errors.email?.message && (
-                    <Text style={styles.errorText}>
-                      {errors.email.message as string}
-                    </Text>
+                )}
+              />
+              {errors.password && (
+                <Text style={styles.errorText}>
+                  {errors.password?.message as string}
+                </Text>
+              )}
+
+              {!isSignup && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.forgotLink}
+                  hitSlop={8}
+                  onPress={() => setIsForgotMode(true)}
+                >
+                  <Text style={styles.forgotLinkText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.emailLoginBtn}
+                onPress={handleSubmit(onEmailSubmit)}
+              >
+                <Text style={styles.emailLoginBtnText}>
+                  {isSignup ? 'Sign Up' : 'Login'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!isResetLinkSent && (
+            <>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.toggleMethodsLink}
+              >
+                <Text style={styles.toggleMethodsText}>
+                  {isForgotMode ? (
+                    <Fragment>
+                      Remembered it?{' '}
+                      <Text onPress={exitForgotMode} style={styles.link}>
+                        Login
+                      </Text>
+                    </Fragment>
+                  ) : isSignup ? (
+                    <Fragment>
+                      Already have an account?{' '}
+                      <Text
+                        onPress={() => setIsSignup(!isSignup)}
+                        style={styles.link}
+                      >
+                        Login
+                      </Text>
+                    </Fragment>
+                  ) : (
+                    <Fragment>
+                      Don't have an account?{' '}
+                      <Text
+                        onPress={() => setIsSignup(!isSignup)}
+                        style={styles.link}
+                      >
+                        Sign Up
+                      </Text>
+                    </Fragment>
                   )}
-                </>
-              )}
-            />
+                </Text>
+              </TouchableOpacity>
 
-            <Controller
-              control={control}
-              name="password"
-              rules={{
-                required: 'Password is required',
-                minLength: {
-                  value: 8,
-                  message: 'Password must be at least 8 characters',
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <PostHogMaskView style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.emailInput}
-                    placeholder="Password"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    secureTextEntry={!showPassword}
-                    value={value}
-                    onChangeText={onChange}
-                  />
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-                  </TouchableOpacity>
-                </PostHogMaskView>
-              )}
-            />
-            {errors.password && (
-              <Text style={styles.errorText}>
-                {errors.password?.message as string}
-              </Text>
-            )}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.emailLoginBtn}
-              onPress={handleSubmit(onEmailSubmit)}
-            >
-              <Text style={styles.emailLoginBtnText}>
-                {isSignup ? 'Sign Up' : 'Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.toggleMethodsLink}
-          >
-            <Text style={styles.toggleMethodsText}>
-              {isSignup ? (
-                <Fragment>
-                  Already have an account?{' '}
-                  <Text
-                    onPress={() => setIsSignup(!isSignup)}
-                    style={styles.link}
-                  >
-                    Login
-                  </Text>
-                </Fragment>
-              ) : (
-                <Fragment>
-                  Don't have an account?{' '}
-                  <Text
-                    onPress={() => setIsSignup(!isSignup)}
-                    style={styles.link}
-                  >
-                    Sign Up
-                  </Text>
-                </Fragment>
-              )}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.cancelLink}
-            onPress={() => setFlow('phone')}
-          >
-            <Text style={styles.cancelLinkText}>Cancel</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.cancelLink}
+                onPress={closeMethodsSheet}
+              >
+                <Text style={styles.cancelLinkText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -1101,6 +1316,85 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     top: '26%',
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 15,
+  },
+  forgotLinkText: {
+    color: 'rgb(255,106,0)',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  forgotInfoText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    marginBottom: 20,
+  },
+  sentTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sentMessage: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    marginBottom: 20,
+  },
+  sentEmailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 15,
+  },
+  sentEmailMask: {
+    flex: 1,
+  },
+  sentEmail: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  sentHint: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    marginBottom: 20,
+  },
+  resendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -5,
+    marginBottom: 20,
+  },
+  resendPrompt: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  resendAction: {
+    color: 'rgb(255,106,0)',
+    fontSize: 14,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    fontWeight: '700',
+  },
+  resendActionDisabled: {
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: 'HelveticaNowDisplay-Regular',
+    fontWeight: '400',
   },
   errorText: {
     color: '#FF6B6B',

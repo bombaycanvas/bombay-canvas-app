@@ -14,6 +14,10 @@ import {
   type AuthMethod,
   type AuthStage,
 } from "../utils/analytics";
+import type {
+  ResetPasswordLinkParams,
+  ResetPasswordLinkResponse,
+} from "../types/auth";
 
 /**
  * One shape for every auth failure, so the four methods stay comparable in a
@@ -368,6 +372,28 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
         type: "error",
         text1: "Login Failed",
         text2: error.message || "Please verify your email and password, then try again.",
+      });
+    },
+  });
+};
+
+export const requestPasswordReset = async ({
+  email,
+}: ResetPasswordLinkParams): Promise<ResetPasswordLinkResponse> => {
+  return api("/api/auth/reset-password", {
+    method: "POST",
+    body: { email: email.trim() },
+  });
+};
+
+export const useForgotPassword = () => {
+  return useMutation({
+    mutationFn: requestPasswordReset,
+    onError: (error: any) => {
+      Toast.show({
+        type: "error",
+        text1: "Reset link failed",
+        text2: error.message || "Something went wrong, please try again.",
       });
     },
   });
