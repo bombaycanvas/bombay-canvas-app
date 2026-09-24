@@ -7,21 +7,37 @@ import {
   Animated,
   Platform,
   Share,
+  ScrollView,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
-import { Play, Volume2, VolumeX } from 'lucide-react-native';
+import { MessageCircle, Play, Volume2, VolumeX } from 'lucide-react-native';
 import Video, { OnLoadData, OnProgressData } from 'react-native-video';
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { imgUrl } from '../api/video';
+import { useFlag } from '../api/settings';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import EpisodesIcon from '../assets/EpisodesIcon';
 import ShareIcon from '../assets/ShareIcon';
 
 const FALLBACK_AVATAR =
   'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
+
+const COLLAPSED_DESCRIPTION_LINES = 2;
+// Expanded text scrolls past this share of the reel so the overlay stays on screen
+const EXPANDED_DESCRIPTION_MAX_HEIGHT_RATIO = 0.35;
+
+const formatCount = (count: number): string => {
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+  }
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return count.toString();
+};
 
 interface RecommendationPostProps {
   item: any;
@@ -34,6 +50,7 @@ interface RecommendationPostProps {
   isPaused: boolean;
   onToggleMute: () => void;
   onEpisodesPress: (item: any) => void;
+  onCommentsPress: (item: any) => void;
 }
 
 const RecommendationPost: React.FC<RecommendationPostProps> = ({
@@ -46,7 +63,9 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
   isPaused,
   onToggleMute,
   onEpisodesPress,
+  onCommentsPress,
 }) => {
+  const showComments = useFlag('engagement.showReviews', true);
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -54,6 +73,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
   // width / height of a landscape trailer; null means portrait (full-bleed)
   const [landscapeRatio, setLandscapeRatio] = useState<number | null>(null);
   const videoOpacity = useRef(new Animated.Value(0)).current;
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const shouldMountVideo =
     !!item.trailerUrl && isFocused && (isActive || shouldPreload);
@@ -77,7 +97,14 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
     }
   }, [isVideoReady, isPlaying, videoOpacity]);
 
-  const handleProgress = ({ currentTime, seekableDuration }: OnProgressData) => {
+  // collapse again once the reel is swiped away
+  useEffect(() => {
+    if (!isActive) setIsDescriptionExpanded(false);
+  }, [isActive]);
+
+  const toggleDescription = () => setIsDescriptionExpanded(prev => !prev);
+
+  const handleProgress =({ currentTime, seekableDuration }: OnProgressData) => {
     if (seekableDuration > 0) {
       setProgress(Math.min(1, currentTime / seekableDuration));
     }
@@ -219,11 +246,28 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
             <Text style={styles.title} numberOfLines={1}>
               {item.title}
             </Text>
-            {!!item.description && (
-              <Text style={styles.description} numberOfLines={2}>
-                {item.description}
-              </Text>
-            )}
+            {!!item.description &&
+              (isDescriptionExpanded ? (
+                <ScrollView
+                  style={{
+                    maxHeight: height * EXPANDED_DESCRIPTION_MAX_HEIGHT_RATIO,
+                  }}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Text style={styles.description} onPress={toggleDescription}>
+                    {item.description}
+                  </Text>
+                </ScrollView>
+              ) : (
+                <Text
+                  style={styles.description}
+                  numberOfLines={COLLAPSED_DESCRIPTION_LINES}
+                  onPress={toggleDescription}
+                >
+                  {item.description}
+                </Text>
+              ))}
           </View>
 
           <View style={styles.rightOverlay}>
@@ -237,6 +281,24 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
                 Episodes
               </Text>
             </TouchableOpacity>
+
+            {showComments && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.rightActionBtn}
+                onPress={() => onCommentsPress(item)}
+              >
+                <MessageCircle
+                  size={Platform.OS === 'ios' ? 30 : 33}
+                  color="#ffffff"
+                />
+                <Text style={styles.actionText} numberOfLines={1}>
+                  {item.ratingCount > 0
+                    ? formatCount(item.ratingCount)
+                    : 'Comments'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               activeOpacity={0.8}
@@ -410,6 +472,8 @@ export default memo(
     prevProps.isMuted === nextProps.isMuted &&
     prevProps.isPaused === nextProps.isPaused &&
     prevProps.onEpisodesPress === nextProps.onEpisodesPress &&
+    prevProps.onCommentsPress === nextProps.onCommentsPress &&
+    prevProps.item.ratingCount === nextProps.item.ratingCount &&
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.title === nextProps.item.title,
 );

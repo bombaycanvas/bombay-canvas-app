@@ -12,6 +12,7 @@ import RecommendationPost from '../components/RecommendationPost';
 import LoadingDiscovery from '../components/LoadingDiscovery';
 import NoMatchesFound from '../components/NoMatchesFound';
 import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
+import { CommentsBottomSheet } from '../components/CommentsBottomSheet';
 import { useMoviesData, useMoviesDataById } from '../api/video';
 import { useAuthStore } from '../store/authStore';
 import { trackEvent } from '../api/events';
@@ -27,6 +28,8 @@ const RecommendationScreen = () => {
   const [pageHeight, setPageHeight] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [episodesSeriesId, setEpisodesSeriesId] = useState<string | null>(null);
+  const [commentsSeries, setCommentsSeries] = useState<any>(null);
+  const isSheetOpen = !!episodesSeriesId || !!commentsSeries;
 
   const { isAuthenticated } = useAuthStore();
   const { data: episodesSeriesData, isLoading: isEpisodesLoading } =
@@ -50,6 +53,9 @@ const RecommendationScreen = () => {
     [],
   );
   const closeEpisodes = useCallback(() => setEpisodesSeriesId(null), []);
+
+  const openComments = useCallback((item: any) => setCommentsSeries(item), []);
+  const closeComments = useCallback(() => setCommentsSeries(null), []);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: any[] }) => {
@@ -85,9 +91,10 @@ const RecommendationScreen = () => {
         shouldPreload={index === activeIndex + 1}
         height={pageHeight}
         isMuted={isMuted}
-        isPaused={!!episodesSeriesId}
+        isPaused={isSheetOpen}
         onToggleMute={toggleMute}
         onEpisodesPress={openEpisodes}
+        onCommentsPress={openComments}
       />
     ),
     [
@@ -95,9 +102,10 @@ const RecommendationScreen = () => {
       activeIndex,
       pageHeight,
       isMuted,
-      episodesSeriesId,
+      isSheetOpen,
       toggleMute,
       openEpisodes,
+      openComments,
     ],
   );
 
@@ -154,6 +162,12 @@ const RecommendationScreen = () => {
         series={episodesSeries}
         screenType="seriesDetail"
         posterUrl={episodesSeries?.posterUrl}
+      />
+
+      <CommentsBottomSheet
+        visible={!!commentsSeries}
+        onClose={closeComments}
+        series={commentsSeries}
       />
     </View>
   );
