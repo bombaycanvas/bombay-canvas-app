@@ -1,15 +1,23 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, FlatList, StatusBar, StyleSheet, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  View,
+  FlatList,
+  StatusBar,
+  StyleSheet,
+  Platform,
+  LayoutChangeEvent,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import RecommendationPost from '../components/RecommendationPost';
 import LoadingDiscovery from '../components/LoadingDiscovery';
 import NoMatchesFound from '../components/NoMatchesFound';
-import { useMoviesData } from '../api/video';
+import { EpisodesBottomSheet } from '../components/EpisodesBottomSheet';
+import { CommentsBottomSheet } from '../components/CommentsBottomSheet';
+import { useMoviesData, useMoviesDataById } from '../api/video';
+import { useAuthStore } from '../store/authStore';
 import { trackEvent } from '../api/events';
 
 const RecommendationScreen = () => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
   const { data: moviesResponse, isLoading: loading } = useMoviesData();
@@ -17,24 +25,44 @@ const RecommendationScreen = () => {
     (item: any) => item.trailerUrl,
   );
 
-  const [activeId, setActiveId] = useState<string | number | null>(null);
-  const activeIdRef = useRef<string | number | null>(null);
-  const pendingActiveId = useRef<string | number | null>(null);
+  const [pageHeight, setPageHeight] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
+  const [episodesSeriesId, setEpisodesSeriesId] = useState<string | null>(null);
+  const [commentsSeries, setCommentsSeries] = useState<any>(null);
+  const isSheetOpen = !!episodesSeriesId || !!commentsSeries;
+
+  const { isAuthenticated } = useAuthStore();
+  const { data: episodesSeriesData, isLoading: isEpisodesLoading } =
+    useMoviesDataById(episodesSeriesId ?? '');
+  const episodesSeries = episodesSeriesData?.series;
+
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const viewStartTime = useRef<number>(Date.now());
   const currentItemId = useRef<string | number | null>(null);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height > 0 && height !== pageHeight) setPageHeight(height);
+  };
+
+  const toggleMute = useCallback(() => setIsMuted(prev => !prev), []);
+
+  const openEpisodes = useCallback(
+    (item: any) => setEpisodesSeriesId(item.id),
+    [],
+  );
+  const closeEpisodes = useCallback(() => setEpisodesSeriesId(null), []);
+
+  const openComments = useCallback((item: any) => setCommentsSeries(item), []);
+  const closeComments = useCallback(() => setCommentsSeries(null), []);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: any[] }) => {
       if (!viewableItems || viewableItems.length === 0) return;
 
-      const item: any = viewableItems[0].item;
-      pendingActiveId.current = item.id;
-
-      if (activeIdRef.current === null) {
-        activeIdRef.current = item.id;
-        setActiveId(item.id);
-      }
+      const { item, index } = viewableItems[0];
+      if (index != null) setActiveIndex(index);
 
       const now = Date.now();
 
@@ -53,15 +81,32 @@ const RecommendationScreen = () => {
     },
     [],
   );
+
   const renderItem = useCallback(
-    ({ item }: { item: any }) => (
+    ({ item, index }: { item: any; index: number }) => (
       <RecommendationPost
         item={item}
         navigation={navigation}
-        isActive={item.id === activeId}
+        isActive={index === activeIndex}
+        shouldPreload={index === activeIndex + 1}
+        height={pageHeight}
+        isMuted={isMuted}
+        isPaused={isSheetOpen}
+        onToggleMute={toggleMute}
+        onEpisodesPress={openEpisodes}
+        onCommentsPress={openComments}
       />
     ),
-    [navigation, activeId],
+    [
+      navigation,
+      activeIndex,
+      pageHeight,
+      isMuted,
+      isSheetOpen,
+      toggleMute,
+      openEpisodes,
+      openComments,
+    ],
   );
 
   const viewabilityConfig = useRef({
@@ -69,7 +114,7 @@ const RecommendationScreen = () => {
   }).current;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container} onLayout={handleLayout}>
       <StatusBar
         barStyle="light-content"
         translucent
@@ -81,39 +126,49 @@ const RecommendationScreen = () => {
       ) : data.length === 0 ? (
         <NoMatchesFound />
       ) : (
-        <FlatList
-          data={data}
-          renderItem={renderItem}
-          keyExtractor={item => item.id.toString()}
-          onMomentumScrollEnd={() => {
-            const next = pendingActiveId.current;
-            activeIdRef.current = next;
-            setActiveId(next);
-          }}
-          onScrollEndDrag={() => {
-            if (Platform.OS === 'ios') return;
-            const next = pendingActiveId.current;
-            activeIdRef.current = next;
-            setActiveId(next);
-          }}
-          decelerationRate="fast"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 200,
-          }}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          contentInsetAdjustmentBehavior="never"
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          updateCellsBatchingPeriod={50}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
-          }}
-        />
+        pageHeight > 0 && (
+          <FlatList
+            data={data}
+            renderItem={renderItem}
+            keyExtractor={item => item.id.toString()}
+            pagingEnabled
+            snapToInterval={pageHeight}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
+            getItemLayout={(_, index) => ({
+              length: pageHeight,
+              offset: pageHeight * index,
+              index,
+            })}
+            showsVerticalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            contentInsetAdjustmentBehavior="never"
+            overScrollMode="never"
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+          />
+        )
       )}
+
+      <EpisodesBottomSheet
+        visible={!!episodesSeriesId}
+        onClose={closeEpisodes}
+        episodes={episodesSeries?.episodes}
+        isAuthenticated={episodesSeries?.isAuthenticated || isAuthenticated}
+        isPending={isEpisodesLoading}
+        series={episodesSeries}
+        screenType="seriesDetail"
+        posterUrl={episodesSeries?.posterUrl}
+      />
+
+      <CommentsBottomSheet
+        visible={!!commentsSeries}
+        onClose={closeComments}
+        series={commentsSeries}
+      />
     </View>
   );
 };
