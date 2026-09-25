@@ -103,37 +103,49 @@ export const sendOtpRequest = async (data: any) => {
   }
 };
 
-export const requestOtp = async (data: any) => {
-  try {
-    const response = await api("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.email,
-        name: data.fullname,
-        password: data.password,
-      }),
-    });
+export interface EmailSignupData {
+  fullname: string;
+  email: string;
+  password: string;
+  otp: string;
+}
 
-    const resp = await response;
-    return resp;
-  } catch (error) {
-    if (error instanceof Error) {
+export const sendSignupOtp = (email: string) =>
+  api("/api/auth/signup/send-otp", {
+    method: "POST",
+    body: { email: email.trim() },
+  });
+
+export const signupWithOtp = (data: EmailSignupData) =>
+  api("/api/auth/signup/verified", {
+    method: "POST",
+    body: {
+      email: data.email.trim(),
+      name: data.fullname,
+      password: data.password,
+      otp: data.otp,
+    },
+  });
+
+export type SignupDetails = Omit<EmailSignupData, "otp">;
+
+/** Sends the signup code; `onSent` gets the details that were submitted. */
+export const useSendSignupOtp = (onSent: (details: SignupDetails) => void) =>
+  useMutation({
+    mutationFn: (details: SignupDetails) => sendSignupOtp(details.email),
+    onSuccess: (_data, details) => {
+      capture(ProductEvent.OtpRequested, { method: "email" });
+      onSent(details);
+    },
+    onError: (error: any) => {
+      captureAuthFailure("email", "otp_request", error);
       Toast.show({
         type: "error",
-        text1: "Signup Failed",
-        text2: `${error.message || "Please check your details and try again."}`,
+        text1: "OTP Failed",
+        text2: error.message || "Failed to send OTP",
       });
-    } else {
-      Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: `${error || "Please verify your email and password, then try again"
-          }`,
-      });
-    }
-  }
-};
+    },
+  });
 
 const handleAuthRedirect = (
   navigation: any,
@@ -267,22 +279,44 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
   });
 };
 
-export const useRequest = (redirect?: { screen: string; params?: any }) => {
+/** Wrong/expired/used code: the screen shows it inline instead of a toast. */
+export const isInvalidOtpError = (error: any) => error?.code === "INVALID_OTP";
+
+const useAuthRedirect = (redirect?: { screen: string; params?: any }) => {
   const navigation = useNavigation();
+  return () => {
+    if (redirect) {
+      handleAuthRedirect(navigation, redirect);
+    } else {
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: postAuthRoute() }],
+      });
+    }
+  };
+};
+
+/**
+ * Creates the account from a verified email code. The session is only started
+ * by `finish`, which the caller runs from the "Email verified" step, so the
+ * success step isn't unmounted by the auth-state change underneath it.
+ */
+export const useRequest = (
+  redirect: { screen: string; params?: any } | undefined,
+  {
+    onAccountCreated,
+    onInvalidOtp,
+  }: {
+    onAccountCreated: (finish: () => Promise<void>) => void;
+    onInvalidOtp: () => void;
+  },
+) => {
+  const goAfterAuth = useAuthRedirect(redirect);
 
   return useMutation({
-    mutationFn: async (data) => {
-      const response = await requestOtp(data);
-      return response;
-    },
+    mutationFn: signupWithOtp,
     onSuccess: async (data) => {
-      if (data.token) {
-        await useAuthStore.getState().saveToken(data.token);
-        await syncLanguagesAfterAuth();
-
-        // Signup does not receive its user through setUser here. The language
-        // sync refreshes userData after the token is available, which also
-        // supplies the authoritative onboarding timestamp for routing.
+      if (data?.token) {
         if (data?.user?.id) {
           identifyUser(String(data.user.id), {
             email: data.user.email ?? null,
@@ -298,18 +332,19 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
         });
         log.info("Account created", { method: "email" });
 
-        if (redirect) {
-          handleAuthRedirect(navigation, redirect);
-        } else {
-          (navigation as any).reset({
-            index: 0,
-            routes: [{ name: postAuthRoute() }],
-          });
-        }
+        onAccountCreated(async () => {
+          await useAuthStore.getState().saveToken(data.token);
+          // Signup does not receive its user through setUser here. The language
+          // sync refreshes userData after the token is available, which also
+          // supplies the authoritative onboarding timestamp for routing.
+          await syncLanguagesAfterAuth();
+          goAfterAuth();
+        });
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       captureAuthFailure("email", "signup", error);
+      if (isInvalidOtpError(error)) return onInvalidOtp();
       Toast.show({
         type: "error",
         text1: "Signup Failed",
@@ -319,51 +354,53 @@ export const useRequest = (redirect?: { screen: string; params?: any }) => {
   });
 };
 
-export const login = async (data: any) => {
-  try {
-    const response = await api("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.email,
-        password: data.password,
-      }),
-    });
+// Unverified emails get `requiresEmailOtp` (a code is emailed) instead of a token.
+export const login = (data: { email: string; password: string }) =>
+  api("/api/auth/login/v2", {
+    method: "POST",
+    body: { email: data.email.trim(), password: data.password },
+  });
 
-    const resp = await response;
-    return resp;
-  } catch (error) {
-    throw error;
-  }
+export const verifyLoginOtp = (data: { email: string; otp: string }) =>
+  api("/api/auth/login/verify-otp", {
+    method: "POST",
+    body: { email: data.email.trim(), otp: data.otp },
+  });
+
+const useCompleteEmailLogin = (redirect?: {
+  screen: string;
+  params?: any;
+}) => {
+  const goAfterAuth = useAuthRedirect(redirect);
+
+  return async (data: any) => {
+    await useAuthStore.getState().saveToken(data.token);
+    await useAuthStore.getState().setUser(data.user);
+    await syncLanguagesAfterAuth();
+    capture(ProductEvent.SignedIn, {
+      method: "email",
+      role: String(data?.user?.role ?? "USER"),
+    });
+    log.info("Signed in", { method: "email" });
+    goAfterAuth();
+  };
 };
 
-export const useLogin = (redirect?: { screen: string; params?: any }) => {
-  const navigation = useNavigation();
+export const useLogin = (
+  redirect: { screen: string; params?: any } | undefined,
+  /** Gets the credentials that were submitted, not the live form values. */
+  onOtpRequired: (credentials: { email: string; password: string }) => void,
+) => {
+  const completeLogin = useCompleteEmailLogin(redirect);
 
   return useMutation({
-    mutationFn: async (data) => {
-      const response = await login(data);
-      return response;
-    },
-    onSuccess: async (data) => {
-      if (data?.token) {
-        await useAuthStore.getState().saveToken(data.token);
-        await useAuthStore.getState().setUser(data.user);
-        await syncLanguagesAfterAuth();
-        capture(ProductEvent.SignedIn, {
-          method: "email",
-          role: String(data?.user?.role ?? "USER"),
-        });
-        log.info("Signed in", { method: "email" });
-
-        if (redirect) {
-          handleAuthRedirect(navigation, redirect);
-        } else {
-          (navigation as any).reset({
-            index: 0,
-            routes: [{ name: postAuthRoute() }],
-          });
-        }
+    mutationFn: login,
+    onSuccess: async (data, variables) => {
+      if (data?.requiresEmailOtp) {
+        capture(ProductEvent.OtpRequested, { method: "email" });
+        onOtpRequired({ ...variables, email: variables.email.trim() });
+      } else if (data?.token) {
+        await completeLogin(data);
       }
     },
     onError: (error: any) => {
@@ -372,6 +409,29 @@ export const useLogin = (redirect?: { screen: string; params?: any }) => {
         type: "error",
         text1: "Login Failed",
         text2: error.message || "Please verify your email and password, then try again.",
+      });
+    },
+  });
+};
+
+export const useVerifyLoginOtp = (
+  redirect: { screen: string; params?: any } | undefined,
+  onInvalidOtp: () => void,
+) => {
+  const completeLogin = useCompleteEmailLogin(redirect);
+
+  return useMutation({
+    mutationFn: verifyLoginOtp,
+    onSuccess: async (data) => {
+      if (data?.token) await completeLogin(data);
+    },
+    onError: (error: any) => {
+      captureAuthFailure("email", "otp_verify", error);
+      if (isInvalidOtpError(error)) return onInvalidOtp();
+      Toast.show({
+        type: "error",
+        text1: "OTP verification Failed",
+        text2: error.message || "Please enter correct OTP and try again.",
       });
     },
   });

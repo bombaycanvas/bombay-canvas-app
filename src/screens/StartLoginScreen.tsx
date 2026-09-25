@@ -34,7 +34,12 @@ import {
   useVerifyOtpMutation,
   useLogin,
   useRequest,
+  useSendSignupOtp,
+  useVerifyLoginOtp,
 } from '../api/auth';
+import OtpInput from '../components/OtpInput';
+import OtpVerifyStep, { otpFooterStyles } from '../components/OtpVerifyStep';
+import { useResendTimer } from '../hooks/useResendTimer';
 import { type CountryCode } from 'libphonenumber-js';
 import metadata from 'libphonenumber-js/metadata.min.json';
 import { signInWithApple, signInWithGoogle } from '../utils/authService';
@@ -77,6 +82,15 @@ const DEFAULT_RESET_SENT_MESSAGE =
   'If an account exists for this email, a reset link has been sent. Please check your inbox.';
 
 const RESEND_COOLDOWN_SECONDS = 30;
+const OTP_LENGTH = 4;
+const INCORRECT_CODE = 'Incorrect code. Please try again.';
+
+interface PendingEmailAuth {
+  mode: 'signup' | 'login';
+  email: string;
+  password: string;
+  fullname?: string;
+}
 
 type ResetLinkSentProps = {
   email: string;
@@ -257,25 +271,85 @@ const StartLoginScreen = () => {
   const videoUrl = useVideoCache(data?.CoverUrlVideo?.url);
   console.log('data', data);
   const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
+  // The methods sheet swaps between the email form, its code step and success.
+  const [emailStep, setEmailStep] = useState<'form' | 'otp' | 'verified'>(
+    'form',
+  );
+  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
+  const [isFinishingSignup, setIsFinishingSignup] = useState(false);
+  const finishSignupRef = useRef<(() => Promise<void>) | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [phoneValue, setPhoneValue] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const [timer, setTimer] = useState(30);
+  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
   const [isResetLinkSent, setIsResetLinkSent] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  // Form values held while the user enters the emailed code.
+  const [pendingEmailAuth, setPendingEmailAuth] =
+    useState<PendingEmailAuth | null>(null);
 
-  const otpInputs = useRef<Array<TextInput | null>>([]);
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const resendTimer = useResendTimer(
+    RESEND_COOLDOWN_SECONDS,
+    flow === 'otp' || emailStep === 'otp',
+  );
 
   const verifyOtpMutation = useVerifyOtpMutation(redirect);
   const { mutate: googleLoginMutate } = useGoogleLogin(redirect);
   const { mutate: appleLoginMutate } = useAppleLogin(redirect);
-  const { mutate: loginMutate } = useLogin(redirect);
-  const { mutate: signupMutate } = useRequest(redirect);
+  const showIncorrectCode = () => setEmailOtpError(INCORRECT_CODE);
+  const { mutate: signupMutate, isPending: isSigningUp } = useRequest(
+    redirect,
+    {
+      onAccountCreated: finish => {
+        finishSignupRef.current = finish;
+        Keyboard.dismiss();
+        setEmailStep('verified');
+      },
+      onInvalidOtp: showIncorrectCode,
+    },
+  );
+  const verifyLoginOtpMutation = useVerifyLoginOtp(redirect, showIncorrectCode);
+
+  const showEmailOtpStep = (pending: PendingEmailAuth) => {
+    setPendingEmailAuth(pending);
+    setOtp('');
+    setEmailOtpError(null);
+    resendTimer.restart();
+    setEmailStep('otp');
+  };
+
+  const continueAfterSignup = async () => {
+    const finish = finishSignupRef.current;
+    if (!finish || isFinishingSignup) return;
+    setIsFinishingSignup(true);
+    try {
+      await finish();
+      finishSignupRef.current = null;
+    } catch {
+      // The account exists and is verified; only the local sign-in failed.
+      // Hand over to the login form rather than trapping them on this step.
+      finishSignupRef.current = null;
+      setEmailStep('form');
+      setIsSignup(false);
+      Toast.show({
+        type: 'error',
+        text1: 'Your account is ready',
+        text2: 'Please log in with your email and password.',
+      });
+    } finally {
+      setIsFinishingSignup(false);
+    }
+  };
+
+  const loginMutation = useLogin(redirect, credentials =>
+    showEmailOtpStep({ mode: 'login', ...credentials }),
+  );
+  const sendSignupOtpMutation = useSendSignupOtp(details =>
+    showEmailOtpStep({ mode: 'signup', ...details }),
+  );
 
   const posthog = usePostHog()
 
@@ -291,6 +365,13 @@ const StartLoginScreen = () => {
   };
 
   const closeMethodsSheet = () => {
+    // The account already exists at this point; dismissing still signs in.
+    if (emailStep === 'verified') {
+      continueAfterSignup();
+      return;
+    }
+    setEmailStep('form');
+    setPendingEmailAuth(null);
     setFlow('phone');
     exitForgotMode();
     Keyboard.dismiss();
@@ -305,20 +386,65 @@ const StartLoginScreen = () => {
   };
 
   const onEmailSubmit = (data: any) => {
-
     if (isSignup) {
-        posthog.capture('signup', { method: 'email' });
-      signupMutate(data);
+      posthog.capture('signup', { method: 'email' });
+      sendSignupOtpMutation.mutate({
+        email: data.email.trim(),
+        password: data.password,
+        fullname: data.fullname.trim(),
+      });
     } else {
-      loginMutate(data);
+      loginMutation.mutate({ email: data.email, password: data.password });
     }
+  };
+
+  const submitEmailOtp = (code: string) => {
+    if (!pendingEmailAuth || code.length !== OTP_LENGTH) return;
+    if (pendingEmailAuth.mode === 'signup') {
+      signupMutate({
+        fullname: pendingEmailAuth.fullname ?? '',
+        email: pendingEmailAuth.email,
+        password: pendingEmailAuth.password,
+        otp: code,
+      });
+    } else {
+      verifyLoginOtpMutation.mutate({ email: pendingEmailAuth.email, otp: code });
+    }
+  };
+
+  // Login resends by repeating the password check, which re-issues the code.
+  const resendEmailOtp = () => {
+    if (!pendingEmailAuth) return;
+    if (pendingEmailAuth.mode === 'signup') {
+      sendSignupOtpMutation.mutate({
+        email: pendingEmailAuth.email,
+        password: pendingEmailAuth.password,
+        fullname: pendingEmailAuth.fullname ?? '',
+      });
+    } else {
+      loginMutation.mutate({
+        email: pendingEmailAuth.email,
+        password: pendingEmailAuth.password,
+      });
+    }
+  };
+
+  const backToEmailForm = () => {
+    setOtp('');
+    setEmailOtpError(null);
+    setPendingEmailAuth(null);
+    setEmailStep('form');
+  };
+
+  const onEmailOtpChange = (code: string) => {
+    setOtp(code);
+    setEmailOtpError(null);
   };
 
   const sendOtpMutation = useSendOtpMutation(response => {
     setFlow('otp');
-    setOtp(['', '', '', '']);
-    setActiveIndex(0);
-    setTimer(30);
+    setOtp('');
+    resendTimer.restart();
     Toast.show({
       type: 'success',
       text1: 'OTP Sent',
@@ -326,9 +452,8 @@ const StartLoginScreen = () => {
     });
 
     if (response?.otp) {
-      const otpDigits = response.otp.split('');
       setTimeout(() => {
-        setOtp(otpDigits);
+        setOtp(response.otp);
       }, 500);
 
       const countryCode = (selectedCountry?.cca2 || 'IN') as CountryCode;
@@ -345,16 +470,6 @@ const StartLoginScreen = () => {
       }, 1500);
     }
   });
-
-  useEffect(() => {
-    let interval: any;
-    if (flow === 'otp' && timer > 0) {
-      interval = setInterval(() => {
-        setTimer(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [flow, timer]);
 
   useEffect(() => {
     if (flow === 'methods') {
@@ -621,125 +736,85 @@ const StartLoginScreen = () => {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
-              setOtp(['', '', '', '']);
-              setActiveIndex(0);
+              setOtp('');
               setFlow('phone');
             }}
           >
             <Ionicons name="arrow-back" size={25} color="#fff" />
           </TouchableOpacity>
         </View>
-        <TextInput
-          ref={ref => {
-            otpInputs.current[0] = ref;
+        <OtpInput
+          value={otp}
+          onChange={setOtp}
+          onSubmit={code => {
+            if (code.length !== OTP_LENGTH) return;
+            verifyOtpMutation.mutate({ phone: getFullPhoneNumber(), otp: code });
           }}
-          value={otp.join('')}
-          onChangeText={text => {
-            const cleaned = text.replace(/\D/g, '').slice(0, 4);
-            console.log('OTP:', cleaned);
-            const otpArray = cleaned.split('');
-            while (otpArray.length < 4) otpArray.push('');
-            setOtp(otpArray);
-            if (cleaned.length < 4) {
-              setActiveIndex(cleaned.length);
-            } else {
-              setActiveIndex(3);
-            }
-            if (cleaned.length === 4) {
-              verifyOtpMutation.mutate({
-                phone: getFullPhoneNumber(),
-                otp: cleaned,
-              });
-            }
-          }}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          maxLength={4}
-          autoFocus
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            opacity: 0,
-            left: -1000,
-          }}
-          pointerEvents="none"
+          isSubmitting={verifyOtpMutation.isPending}
+          sentTo={`${selectedCountry?.callingCode ?? ''} ${phoneValue}`}
+          resendRemaining={resendTimer.remaining}
+          onResend={() => sendOtpMutation.mutate({ phone: getFullPhoneNumber() })}
+          isResending={sendOtpMutation.isPending}
         />
-        <View style={styles.otpPillWrapper}>
-          {/* Masks the digit Text nodes, not the input: the real <TextInput> is
-              offscreen at opacity 0, so masking it would protect nothing. */}
-          <PostHogMaskView style={styles.otpCirclesWrapper}>
-            {[0, 1, 2, 3].map((_, index) => {
-              const isActive = index === activeIndex;
+      </View>
+    );
+  };
 
-              return (
-                <TouchableOpacity
-                  key={index}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    otpInputs.current[0]?.focus();
-                    setActiveIndex(index);
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.otpCircle,
-                      isActive && styles.activeOtpCircle,
-                    ]}
-                  >
-                    <Text style={styles.otpText}>{otp[index] || ''}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </PostHogMaskView>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.otpSentPill}
-            onPress={() => {
-              const fullOtp = otp.join('');
-              if (fullOtp.length === 4) {
-                verifyOtpMutation.mutate({
-                  phone: getFullPhoneNumber(),
-                  otp: fullOtp,
-                });
-              }
-            }}
-            disabled={verifyOtpMutation.isPending || otp.join('').length !== 4}
-          >
-            {verifyOtpMutation.isPending ? (
-              <ActivityIndicator size="small" color="rgba(255, 106, 0, 1)" />
-            ) : (
-              <Text style={styles.otpSentPillText}>Submit</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.otpBottomInfo}>
-          <PostHogMaskView>
-            <Text style={styles.otpSentToText}>
-              OTP sent to {selectedCountry?.callingCode} {phoneValue}
+  const renderEmailOtpStep = () => (
+    <View>
+      <View style={styles.backWrapper}>
+        <TouchableOpacity activeOpacity={0.8} onPress={backToEmailForm}>
+          <Ionicons name="arrow-back" size={25} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      <OtpVerifyStep
+        title="Verify your email"
+        destination={pendingEmailAuth?.email ?? ''}
+        value={otp}
+        onChange={onEmailOtpChange}
+        onSubmit={submitEmailOtp}
+        isSubmitting={isSigningUp || verifyLoginOtpMutation.isPending}
+        error={emailOtpError}
+        resendRemaining={resendTimer.remaining}
+        onResend={resendEmailOtp}
+        isResending={sendSignupOtpMutation.isPending || loginMutation.isPending}
+        autoComplete="one-time-code"
+        footerLeft={
+          <Text style={otpFooterStyles.text}>
+            Wrong email?{' '}
+            <Text style={otpFooterStyles.link} onPress={backToEmailForm}>
+              Change
             </Text>
-          </PostHogMaskView>
+          </Text>
+        }
+      />
+    </View>
+  );
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            disabled={timer > 0 || sendOtpMutation.isPending}
-            onPress={() => {
-              const fullPhoneNumber = getFullPhoneNumber();
-              sendOtpMutation.mutate({ phone: fullPhoneNumber });
-            }}
-          >
-            <Text
-              style={[styles.timerText, timer === 0 && styles.resendActive]}
-            >
-              {timer > 0
-                ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer}`
-                : 'Resend OTP'}
-            </Text>
-          </TouchableOpacity>
+  const renderEmailVerified = () => {
+    const firstName = pendingEmailAuth?.fullname?.trim().split(/\s+/)[0];
+    return (
+      <View style={styles.verifiedWrapper}>
+        <View style={styles.verifiedIcon}>
+          <Ionicons name="checkmark" size={26} color="#ff6a00" />
         </View>
+        <Text style={styles.verifiedTitle}>Email verified</Text>
+        <Text style={styles.verifiedText}>
+          Welcome to Canvas{firstName ? `, ${firstName}` : ''}. Your account is
+          ready.
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.emailLoginBtn, styles.verifiedButton]}
+          onPress={continueAfterSignup}
+          disabled={isFinishingSignup}
+        >
+          {isFinishingSignup ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.emailLoginBtnText}>Continue</Text>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -768,7 +843,11 @@ const StartLoginScreen = () => {
         >
           <View style={styles.sheetHandle} />
 
-          {isForgotMode ? (
+          {emailStep === 'otp' ? (
+            renderEmailOtpStep()
+          ) : emailStep === 'verified' ? (
+            renderEmailVerified()
+          ) : isForgotMode ? (
             <ForgotPasswordForm
               onSent={() => setIsResetLinkSent(true)}
               onBackToLogin={exitForgotMode}
@@ -779,7 +858,10 @@ const StartLoginScreen = () => {
                 <Controller
                   control={control}
                   name="fullname"
-                  rules={{ required: 'Fullname is required' }}
+                  rules={{
+                    validate: value =>
+                      !!value?.trim() || 'Fullname is required',
+                  }}
                   render={({ field: { onChange, value } }) => (
                     <>
                       <TextInput
@@ -877,15 +959,27 @@ const StartLoginScreen = () => {
                 activeOpacity={0.8}
                 style={styles.emailLoginBtn}
                 onPress={handleSubmit(onEmailSubmit)}
+                disabled={
+                  sendSignupOtpMutation.isPending || loginMutation.isPending
+                }
               >
-                <Text style={styles.emailLoginBtnText}>
-                  {isSignup ? 'Sign Up' : 'Login'}
-                </Text>
+                {sendSignupOtpMutation.isPending || loginMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.emailLoginBtnText}>
+                    {isSignup ? 'Continue' : 'Login'}
+                  </Text>
+                )}
               </TouchableOpacity>
+              {isSignup && (
+                <Text style={styles.signupHint}>
+                  We'll send a 4-digit code to verify your email.
+                </Text>
+              )}
             </View>
           )}
 
-          {!isResetLinkSent && (
+          {emailStep === 'form' && !isResetLinkSent && (
             <>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -1148,71 +1242,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
-  backWrapper: {
-    marginBottom: 15,
-  },
-  otpPillWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 35,
-    gap: 10,
-  },
-  otpCirclesWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 5,
-  },
-  otpCircle: {
-    width: 40,
-    height: 40,
-    aspectRatio: 1,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    color: '#fff',
-    fontSize: 18,
+  signupHint: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otpSentPill: {
-    backgroundColor: 'rgba(255, 106, 0, 0.1)',
-    borderRadius: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 106, 0, 0.8)',
-  },
-  otpSentPillText: {
-    color: 'rgba(255, 106, 0, 1)',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-  },
-  otpBottomInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  otpSentToText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
+    marginTop: -8,
+    marginBottom: 18,
     fontFamily: 'HelveticaNowDisplay-Regular',
   },
-  timerText: {
-    color: 'rgba(255, 106, 0, 1)',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
+  verifiedWrapper: {
+    alignItems: 'center',
+    paddingTop: 6,
   },
-  resendActive: {
-    textDecorationLine: 'underline',
+  verifiedIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,106,0,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  verifiedTitle: {
+    color: '#fff',
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: 'HelveticaNowDisplay-Bold',
+    marginBottom: 8,
+  },
+  verifiedText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontFamily: 'HelveticaNowDisplay-Regular',
+  },
+  verifiedButton: {
+    alignSelf: 'stretch',
+  },
+  backWrapper: {
+    marginBottom: 15,
   },
   methodsSheetKAV: {
     position: 'absolute',
@@ -1482,19 +1555,5 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     opacity: 0.4,
   },
-  activeOtpCircle: {
-    borderColor: 'rgba(255,106,0,1)',
-    borderWidth: 2,
-    shadowColor: 'rgba(255,106,0,0.8)',
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
 
-  otpText: {
-    color: '#fff',
-    fontSize: 20,
-    textAlign: 'center',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-  },
 });
