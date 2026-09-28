@@ -1,5 +1,4 @@
 import { api } from '../utils/api';
-import { login, sendSignupOtp, signupWithOtp } from './auth';
 import { updateProfile } from './profile';
 
 jest.mock('../utils/api', () => ({ api: jest.fn() }));
@@ -10,53 +9,10 @@ jest.mock('react-native-toast-message', () => ({
 jest.mock('../store/authStore', () => ({
   useAuthStore: { getState: jest.fn() },
 }));
-jest.mock('./language', () => ({ syncLocalLanguagePreferences: jest.fn() }));
-jest.mock('../utils/analytics', () => ({
-  authFailureReason: jest.fn(),
-  capture: jest.fn(),
-  identifyUser: jest.fn(),
-  log: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
-  ProductEvent: {},
-}));
-jest.mock('@react-navigation/native', () => ({ useNavigation: jest.fn() }));
 
 const mockApi = api as jest.Mock;
 
 beforeEach(() => mockApi.mockReset());
-
-describe('email auth endpoints (new builds)', () => {
-  it('logs in through /login with no code step', async () => {
-    await login({ email: ' a@x.com ', password: 'pw' });
-    expect(mockApi).toHaveBeenCalledWith('/api/auth/login', {
-      method: 'POST',
-      body: { email: 'a@x.com', password: 'pw' },
-    });
-  });
-
-  it('signup sends the OTP first, then creates via /signup/verified', async () => {
-    await sendSignupOtp('a@x.com ');
-    expect(mockApi).toHaveBeenLastCalledWith('/api/auth/signup/send-otp', {
-      method: 'POST',
-      body: { email: 'a@x.com' },
-    });
-
-    await signupWithOtp({
-      fullname: 'Asha',
-      email: 'a@x.com',
-      password: 'secret123',
-      otp: '1234',
-    });
-    expect(mockApi).toHaveBeenLastCalledWith('/api/auth/signup/verified', {
-      method: 'POST',
-      body: {
-        email: 'a@x.com',
-        name: 'Asha',
-        password: 'secret123',
-        otp: '1234',
-      },
-    });
-  });
-});
 
 describe('updateProfile', () => {
   const originalFetch = globalThis.fetch;

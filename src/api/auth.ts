@@ -8,16 +8,11 @@ import { syncLocalLanguagePreferences } from "./language";
 import {
   authFailureReason,
   capture,
-  identifyUser,
   log,
   ProductEvent,
   type AuthMethod,
   type AuthStage,
 } from "../utils/analytics";
-import type {
-  ResetPasswordLinkParams,
-  ResetPasswordLinkResponse,
-} from "../types/auth";
 
 /**
  * One shape for every auth failure, so the four methods stay comparable in a
@@ -102,50 +97,6 @@ export const sendOtpRequest = async (data: any) => {
     throw error;
   }
 };
-
-export interface EmailSignupData {
-  fullname: string;
-  email: string;
-  password: string;
-  otp: string;
-}
-
-export const sendSignupOtp = (email: string) =>
-  api("/api/auth/signup/send-otp", {
-    method: "POST",
-    body: { email: email.trim() },
-  });
-
-export const signupWithOtp = (data: EmailSignupData) =>
-  api("/api/auth/signup/verified", {
-    method: "POST",
-    body: {
-      email: data.email.trim(),
-      name: data.fullname,
-      password: data.password,
-      otp: data.otp,
-    },
-  });
-
-export type SignupDetails = Omit<EmailSignupData, "otp">;
-
-/** Sends the signup code; `onSent` gets the details that were submitted. */
-export const useSendSignupOtp = (onSent: (details: SignupDetails) => void) =>
-  useMutation({
-    mutationFn: (details: SignupDetails) => sendSignupOtp(details.email),
-    onSuccess: (_data, details) => {
-      capture(ProductEvent.OtpRequested, { method: "email" });
-      onSent(details);
-    },
-    onError: (error: any) => {
-      captureAuthFailure("email", "otp_request", error);
-      Toast.show({
-        type: "error",
-        text1: "OTP Failed",
-        text2: error.message || "Failed to send OTP",
-      });
-    },
-  });
 
 const handleAuthRedirect = (
   navigation: any,
@@ -274,137 +225,6 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
         type: "error",
         text1: "OTP Failed",
         text2: error.message || "Failed to send OTP",
-      });
-    },
-  });
-};
-
-/** Wrong/expired/used code: the screen shows it inline instead of a toast. */
-export const isInvalidOtpError = (error: any) => error?.code === "INVALID_OTP";
-
-const useAuthRedirect = (redirect?: { screen: string; params?: any }) => {
-  const navigation = useNavigation();
-  return () => {
-    if (redirect) {
-      handleAuthRedirect(navigation, redirect);
-    } else {
-      (navigation as any).reset({
-        index: 0,
-        routes: [{ name: postAuthRoute() }],
-      });
-    }
-  };
-};
-
-/**
- * Creates the account from a verified email code. The session is only started
- * by `finish`, which the caller runs from the "Email verified" step, so the
- * success step isn't unmounted by the auth-state change underneath it.
- */
-export const useRequest = (
-  redirect: { screen: string; params?: any } | undefined,
-  {
-    onAccountCreated,
-    onInvalidOtp,
-  }: {
-    onAccountCreated: (finish: () => Promise<void>) => void;
-    onInvalidOtp: () => void;
-  },
-) => {
-  const goAfterAuth = useAuthRedirect(redirect);
-
-  return useMutation({
-    mutationFn: signupWithOtp,
-    onSuccess: async (data) => {
-      if (data?.token) {
-        if (data?.user?.id) {
-          identifyUser(String(data.user.id), {
-            email: data.user.email ?? null,
-            name: data.user.name ?? null,
-          });
-        }
-
-        // The ONLY unambiguous registration in the app: /api/auth/signup creates
-        // accounts and nothing else.
-        capture(ProductEvent.SignedUp, {
-          method: "email",
-          role: String(data?.user?.role ?? "USER"),
-        });
-        log.info("Account created", { method: "email" });
-
-        onAccountCreated(async () => {
-          await useAuthStore.getState().saveToken(data.token);
-          // Signup does not receive its user through setUser here. The language
-          // sync refreshes userData after the token is available, which also
-          // supplies the authoritative onboarding timestamp for routing.
-          await syncLanguagesAfterAuth();
-          goAfterAuth();
-        });
-      }
-    },
-    onError: (error: any) => {
-      captureAuthFailure("email", "signup", error);
-      if (isInvalidOtpError(error)) return onInvalidOtp();
-      Toast.show({
-        type: "error",
-        text1: "Signup Failed",
-        text2: `${error.message || "Please check your details and try again."}`,
-      });
-    },
-  });
-};
-
-export const login = (data: { email: string; password: string }) =>
-  api("/api/auth/login", {
-    method: "POST",
-    body: { email: data.email.trim(), password: data.password },
-  });
-
-export const useLogin = (redirect?: { screen: string; params?: any }) => {
-  const goAfterAuth = useAuthRedirect(redirect);
-
-  return useMutation({
-    mutationFn: login,
-    onSuccess: async (data) => {
-      if (!data?.token) return;
-      await useAuthStore.getState().saveToken(data.token);
-      await useAuthStore.getState().setUser(data.user);
-      await syncLanguagesAfterAuth();
-      capture(ProductEvent.SignedIn, {
-        method: "email",
-        role: String(data?.user?.role ?? "USER"),
-      });
-      log.info("Signed in", { method: "email" });
-      goAfterAuth();
-    },
-    onError: (error: any) => {
-      captureAuthFailure("email", "login", error);
-      Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: error.message || "Please verify your email and password, then try again.",
-      });
-    },
-  });
-};
-
-export const requestPasswordReset = async ({
-  email,
-}: ResetPasswordLinkParams): Promise<ResetPasswordLinkResponse> => {
-  return api("/api/auth/reset-password", {
-    method: "POST",
-    body: { email: email.trim() },
-  });
-};
-
-export const useForgotPassword = () => {
-  return useMutation({
-    mutationFn: requestPasswordReset,
-    onError: (error: any) => {
-      Toast.show({
-        type: "error",
-        text1: "Reset link failed",
-        text2: error.message || "Something went wrong, please try again.",
       });
     },
   });

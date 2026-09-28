@@ -25,7 +25,7 @@ interface OtpInputProps {
   onResend: () => void;
   isResending?: boolean;
   length?: number;
-  /** 'sms-otp' lets Android offer the SMS code; email codes are typed. */
+  /** 'sms-otp' lets Android offer the SMS code. */
   autoComplete?: 'sms-otp' | 'one-time-code';
 }
 
