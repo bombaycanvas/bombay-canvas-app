@@ -354,54 +354,28 @@ export const useRequest = (
   });
 };
 
-// Unverified emails get `requiresEmailOtp` (a code is emailed) instead of a token.
 export const login = (data: { email: string; password: string }) =>
-  api("/api/auth/login/v2", {
+  api("/api/auth/login", {
     method: "POST",
     body: { email: data.email.trim(), password: data.password },
   });
 
-export const verifyLoginOtp = (data: { email: string; otp: string }) =>
-  api("/api/auth/login/verify-otp", {
-    method: "POST",
-    body: { email: data.email.trim(), otp: data.otp },
-  });
-
-const useCompleteEmailLogin = (redirect?: {
-  screen: string;
-  params?: any;
-}) => {
+export const useLogin = (redirect?: { screen: string; params?: any }) => {
   const goAfterAuth = useAuthRedirect(redirect);
-
-  return async (data: any) => {
-    await useAuthStore.getState().saveToken(data.token);
-    await useAuthStore.getState().setUser(data.user);
-    await syncLanguagesAfterAuth();
-    capture(ProductEvent.SignedIn, {
-      method: "email",
-      role: String(data?.user?.role ?? "USER"),
-    });
-    log.info("Signed in", { method: "email" });
-    goAfterAuth();
-  };
-};
-
-export const useLogin = (
-  redirect: { screen: string; params?: any } | undefined,
-  /** Gets the credentials that were submitted, not the live form values. */
-  onOtpRequired: (credentials: { email: string; password: string }) => void,
-) => {
-  const completeLogin = useCompleteEmailLogin(redirect);
 
   return useMutation({
     mutationFn: login,
-    onSuccess: async (data, variables) => {
-      if (data?.requiresEmailOtp) {
-        capture(ProductEvent.OtpRequested, { method: "email" });
-        onOtpRequired({ ...variables, email: variables.email.trim() });
-      } else if (data?.token) {
-        await completeLogin(data);
-      }
+    onSuccess: async (data) => {
+      if (!data?.token) return;
+      await useAuthStore.getState().saveToken(data.token);
+      await useAuthStore.getState().setUser(data.user);
+      await syncLanguagesAfterAuth();
+      capture(ProductEvent.SignedIn, {
+        method: "email",
+        role: String(data?.user?.role ?? "USER"),
+      });
+      log.info("Signed in", { method: "email" });
+      goAfterAuth();
     },
     onError: (error: any) => {
       captureAuthFailure("email", "login", error);
@@ -409,29 +383,6 @@ export const useLogin = (
         type: "error",
         text1: "Login Failed",
         text2: error.message || "Please verify your email and password, then try again.",
-      });
-    },
-  });
-};
-
-export const useVerifyLoginOtp = (
-  redirect: { screen: string; params?: any } | undefined,
-  onInvalidOtp: () => void,
-) => {
-  const completeLogin = useCompleteEmailLogin(redirect);
-
-  return useMutation({
-    mutationFn: verifyLoginOtp,
-    onSuccess: async (data) => {
-      if (data?.token) await completeLogin(data);
-    },
-    onError: (error: any) => {
-      captureAuthFailure("email", "otp_verify", error);
-      if (isInvalidOtpError(error)) return onInvalidOtp();
-      Toast.show({
-        type: "error",
-        text1: "OTP verification Failed",
-        text2: error.message || "Please enter correct OTP and try again.",
       });
     },
   });

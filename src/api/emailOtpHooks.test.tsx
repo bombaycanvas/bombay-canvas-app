@@ -2,7 +2,7 @@ import React from 'react';
 import renderer, { act } from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api } from '../utils/api';
-import { useLogin, useSendSignupOtp } from './auth';
+import { useSendSignupOtp } from './auth';
 
 jest.mock('../utils/api', () => ({ api: jest.fn() }));
 jest.mock('react-native-toast-message', () => ({
@@ -70,20 +70,5 @@ describe('email OTP hooks hand back what was submitted', () => {
       body: { email: 'first@x.com' },
     });
     expect(onSent).toHaveBeenCalledWith(submitted);
-  });
-
-  it('useLogin passes the submitted credentials when an OTP is required', async () => {
-    mockApi.mockResolvedValue({ requiresEmailOtp: true });
-    const onOtpRequired = jest.fn();
-    const hook = renderHook(() => useLogin(undefined, onOtpRequired));
-
-    await act(async () => {
-      hook().mutate({ email: ' a@x.com ', password: 'pw-at-submit' });
-    });
-
-    expect(onOtpRequired).toHaveBeenCalledWith({
-      email: 'a@x.com',
-      password: 'pw-at-submit',
-    });
   });
 });

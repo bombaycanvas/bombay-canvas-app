@@ -13,32 +13,18 @@ import FastImage from '@d11/react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Toast from 'react-native-toast-message';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { useUserData } from '../api/auth';
 import { PhotoChange, useUpdateProfile } from '../api/profile';
-import { ContactKind, ContactTarget, useSendContactOtp } from '../api/account';
 import { useAuthStore } from '../store/authStore';
-import { useResendTimer } from '../hooks/useResendTimer';
-import ProfileField, {
-  VerifiedBadge,
-  VerifyPill,
-} from '../components/profile/ProfileField';
+import ProfileField from '../components/profile/ProfileField';
 import PhotoSheet from '../components/profile/PhotoSheet';
-import ContactVerifySheet from '../components/profile/ContactVerifySheet';
-import PhoneField from '../components/profile/PhoneField';
-import {
-  isValidPhone,
-  PhoneDraft,
-  phoneDigits,
-  splitPhone,
-  toE164,
-} from '../utils/phone';
 
 const DEFAULT_AVATAR =
   'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
-const RESEND_COOLDOWN_SECONDS = 30;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const formatPhone = (phone: string) =>
+  parsePhoneNumberFromString(phone)?.formatInternational() ?? phone;
 
 const EditProfileScreen = () => {
   const insets = useSafeAreaInsets();
@@ -48,77 +34,16 @@ const EditProfileScreen = () => {
 
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<PhotoChange>(undefined);
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState<PhoneDraft>(splitPhone());
   const [isPhotoSheetOpen, setIsPhotoSheetOpen] = useState(false);
-  const [verifyTarget, setVerifyTarget] = useState<ContactTarget | null>(null);
-  const [sendId, setSendId] = useState(0);
-  const resendTimer = useResendTimer(RESEND_COOLDOWN_SECONDS, !!verifyTarget);
 
-  // Seed the form once the account loads; later refetches keep user edits.
+  // Seed the name once the account loads; later refetches keep user edits.
   const userId = user?.id;
   useEffect(() => {
-    if (!userId) return;
-    setName(user.name ?? '');
-    setEmail(user.email ?? '');
-    setPhone(splitPhone(user.phone));
+    if (userId) setName(user.name ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const updateProfile = useUpdateProfile(() => setPhoto(undefined));
-  const sendOtp = useSendContactOtp(target => {
-    setSendId(id => id + 1);
-    setVerifyTarget(target);
-    resendTimer.restart();
-  });
-
-  const contactValue = (kind: ContactKind) =>
-    kind === 'email' ? email.trim().toLowerCase() : toE164(phone) ?? '';
-  const hasDraft = (kind: ContactKind) =>
-    kind === 'email' ? !!email.trim() : !!phoneDigits(phone);
-
-  const isVerified = (kind: ContactKind) => {
-    const saved = user?.[kind];
-    const verified =
-      kind === 'email' ? user?.emailVerified : user?.phoneVerified;
-    return !!saved && !!verified && contactValue(kind) === saved;
-  };
-
-  const startVerification = (kind: ContactKind) => {
-    const valid =
-      kind === 'email'
-        ? EMAIL_RE.test(contactValue('email'))
-        : isValidPhone(phone);
-    if (!valid) {
-      Toast.show({
-        type: 'error',
-        text1:
-          kind === 'email'
-            ? 'Enter a valid email address'
-            : 'Enter a valid phone number',
-      });
-      return;
-    }
-    sendOtp.mutate({ kind, value: contactValue(kind) });
-  };
-
-  const verificationAccessory = (kind: ContactKind) =>
-    isVerified(kind) ? (
-      <VerifiedBadge />
-    ) : (
-      <VerifyPill
-        onPress={() => startVerification(kind)}
-        disabled={!hasDraft(kind)}
-        loading={sendOtp.isPending && sendOtp.variables?.kind === kind}
-      />
-    );
-
-  const verificationHint = (kind: ContactKind) => {
-    if (isVerified(kind) || !hasDraft(kind)) return undefined;
-    return kind === 'email'
-      ? "Not verified yet. We'll send a 4-digit code to this address."
-      : "Not verified yet. We'll send a 4-digit code by SMS.";
-  };
 
   const trimmedName = name.trim();
   const canSave =
@@ -174,28 +99,16 @@ const EditProfileScreen = () => {
               autoCapitalize="words"
               maxLength={60}
             />
-            <ProfileField
-              icon="mail-outline"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Add email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessory={verificationAccessory('email')}
-              hint={verificationHint('email')}
-            />
-            <PhoneField
-              country={phone.country}
-              onChangeCountry={country =>
-                setPhone(prev => ({ ...prev, country }))
-              }
-              number={phone.number}
-              onChangeNumber={number => setPhone(prev => ({ ...prev, number }))}
-              readOnly={isVerified('phone')}
-              accessory={verificationAccessory('phone')}
-              hint={verificationHint('phone')}
-            />
+            {!!user?.email && (
+              <ProfileField icon="mail-outline" value={user.email} readOnly />
+            )}
+            {!!user?.phone && (
+              <ProfileField
+                icon="call-outline"
+                value={formatPhone(user.phone)}
+                readOnly
+              />
+            )}
           </View>
 
           <TouchableOpacity
@@ -218,14 +131,6 @@ const EditProfileScreen = () => {
         onClose={() => setIsPhotoSheetOpen(false)}
         onPicked={setPhoto}
         onRemove={hasCustomPhoto ? () => setPhoto('remove') : undefined}
-      />
-      <ContactVerifySheet
-        target={verifyTarget}
-        sendId={sendId}
-        onClose={() => setVerifyTarget(null)}
-        resendRemaining={resendTimer.remaining}
-        onResend={() => verifyTarget && sendOtp.mutate(verifyTarget)}
-        isResending={sendOtp.isPending}
       />
     </LinearGradient>
   );

@@ -29,7 +29,6 @@ const SettingsProfileRow = ({
         {user?.email || user?.phone}
       </Text>
     </PostHogMaskView>
-    {!user?.emailVerified && <Text style={styles.badge}>Verify email</Text>}
     <ChevronRight size={18} color="#888" />
   </TouchableOpacity>
 );
@@ -67,10 +66,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
     fontFamily: 'HelveticaNowDisplay-Regular',
-  },
-  badge: {
-    color: '#ff6a00',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Bold',
   },
 });

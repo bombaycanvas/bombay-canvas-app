@@ -1,6 +1,5 @@
 import { api } from '../utils/api';
-import { login, sendSignupOtp, signupWithOtp, verifyLoginOtp } from './auth';
-import { sendContactOtp, verifyContactOtp } from './account';
+import { login, sendSignupOtp, signupWithOtp } from './auth';
 import { updateProfile } from './profile';
 
 jest.mock('../utils/api', () => ({ api: jest.fn() }));
@@ -26,9 +25,9 @@ const mockApi = api as jest.Mock;
 beforeEach(() => mockApi.mockReset());
 
 describe('email auth endpoints (new builds)', () => {
-  it('login goes through /login/v2, not the legacy route', async () => {
+  it('logs in through /login with no code step', async () => {
     await login({ email: ' a@x.com ', password: 'pw' });
-    expect(mockApi).toHaveBeenCalledWith('/api/auth/login/v2', {
+    expect(mockApi).toHaveBeenCalledWith('/api/auth/login', {
       method: 'POST',
       body: { email: 'a@x.com', password: 'pw' },
     });
@@ -55,29 +54,6 @@ describe('email auth endpoints (new builds)', () => {
         password: 'secret123',
         otp: '1234',
       },
-    });
-  });
-
-  it('verifies the login OTP', async () => {
-    await verifyLoginOtp({ email: 'a@x.com', otp: '0000' });
-    expect(mockApi).toHaveBeenCalledWith('/api/auth/login/verify-otp', {
-      method: 'POST',
-      body: { email: 'a@x.com', otp: '0000' },
-    });
-  });
-});
-
-describe('settings verification endpoints', () => {
-  it.each(['email', 'phone'] as const)('%s send + verify', async kind => {
-    await sendContactOtp(kind, 'v');
-    expect(mockApi).toHaveBeenLastCalledWith(`/api/user/${kind}/send-otp`, {
-      method: 'POST',
-      body: { [kind]: 'v' },
-    });
-    await verifyContactOtp(kind, 'v', '1234');
-    expect(mockApi).toHaveBeenLastCalledWith(`/api/user/${kind}/verify`, {
-      method: 'POST',
-      body: { [kind]: 'v', otp: '1234' },
     });
   });
 });

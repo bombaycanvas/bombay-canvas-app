@@ -33,7 +33,6 @@
     "react": "19.1.0",
     "react-hook-form": "^7.62.0",
     "react-native": "0.81.4",
-    "react-native-country-select": "^0.3.9",
     "react-native-device-info": "^15.0.2",
     "react-native-fbsdk-next": "^13.4.3",
     "react-native-fs": "^2.20.0",

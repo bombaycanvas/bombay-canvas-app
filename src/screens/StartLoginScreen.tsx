@@ -35,7 +35,7 @@ import {
   useLogin,
   useRequest,
   useSendSignupOtp,
-  useVerifyLoginOtp,
+  type SignupDetails,
 } from '../api/auth';
 import OtpInput from '../components/OtpInput';
 import OtpVerifyStep, { otpFooterStyles } from '../components/OtpVerifyStep';
@@ -84,13 +84,6 @@ const DEFAULT_RESET_SENT_MESSAGE =
 const RESEND_COOLDOWN_SECONDS = 30;
 const OTP_LENGTH = 4;
 const INCORRECT_CODE = 'Incorrect code. Please try again.';
-
-interface PendingEmailAuth {
-  mode: 'signup' | 'login';
-  email: string;
-  password: string;
-  fullname?: string;
-}
 
 type ResetLinkSentProps = {
   email: string;
@@ -285,9 +278,10 @@ const StartLoginScreen = () => {
   const [isSignup, setIsSignup] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
   const [isResetLinkSent, setIsResetLinkSent] = useState(false);
-  // Form values held while the user enters the emailed code.
-  const [pendingEmailAuth, setPendingEmailAuth] =
-    useState<PendingEmailAuth | null>(null);
+  // Signup form values held while the user enters the emailed code.
+  const [pendingSignup, setPendingSignup] = useState<SignupDetails | null>(
+    null,
+  );
 
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -299,7 +293,6 @@ const StartLoginScreen = () => {
   const verifyOtpMutation = useVerifyOtpMutation(redirect);
   const { mutate: googleLoginMutate } = useGoogleLogin(redirect);
   const { mutate: appleLoginMutate } = useAppleLogin(redirect);
-  const showIncorrectCode = () => setEmailOtpError(INCORRECT_CODE);
   const { mutate: signupMutate, isPending: isSigningUp } = useRequest(
     redirect,
     {
@@ -308,13 +301,12 @@ const StartLoginScreen = () => {
         Keyboard.dismiss();
         setEmailStep('verified');
       },
-      onInvalidOtp: showIncorrectCode,
+      onInvalidOtp: () => setEmailOtpError(INCORRECT_CODE),
     },
   );
-  const verifyLoginOtpMutation = useVerifyLoginOtp(redirect, showIncorrectCode);
 
-  const showEmailOtpStep = (pending: PendingEmailAuth) => {
-    setPendingEmailAuth(pending);
+  const showEmailOtpStep = (details: SignupDetails) => {
+    setPendingSignup(details);
     setOtp('');
     setEmailOtpError(null);
     resendTimer.restart();
@@ -344,12 +336,8 @@ const StartLoginScreen = () => {
     }
   };
 
-  const loginMutation = useLogin(redirect, credentials =>
-    showEmailOtpStep({ mode: 'login', ...credentials }),
-  );
-  const sendSignupOtpMutation = useSendSignupOtp(details =>
-    showEmailOtpStep({ mode: 'signup', ...details }),
-  );
+  const loginMutation = useLogin(redirect);
+  const sendSignupOtpMutation = useSendSignupOtp(showEmailOtpStep);
 
   const posthog = usePostHog()
 
@@ -371,7 +359,7 @@ const StartLoginScreen = () => {
       return;
     }
     setEmailStep('form');
-    setPendingEmailAuth(null);
+    setPendingSignup(null);
     setFlow('phone');
     exitForgotMode();
     Keyboard.dismiss();
@@ -399,40 +387,18 @@ const StartLoginScreen = () => {
   };
 
   const submitEmailOtp = (code: string) => {
-    if (!pendingEmailAuth || code.length !== OTP_LENGTH) return;
-    if (pendingEmailAuth.mode === 'signup') {
-      signupMutate({
-        fullname: pendingEmailAuth.fullname ?? '',
-        email: pendingEmailAuth.email,
-        password: pendingEmailAuth.password,
-        otp: code,
-      });
-    } else {
-      verifyLoginOtpMutation.mutate({ email: pendingEmailAuth.email, otp: code });
-    }
+    if (!pendingSignup || code.length !== OTP_LENGTH) return;
+    signupMutate({ ...pendingSignup, otp: code });
   };
 
-  // Login resends by repeating the password check, which re-issues the code.
   const resendEmailOtp = () => {
-    if (!pendingEmailAuth) return;
-    if (pendingEmailAuth.mode === 'signup') {
-      sendSignupOtpMutation.mutate({
-        email: pendingEmailAuth.email,
-        password: pendingEmailAuth.password,
-        fullname: pendingEmailAuth.fullname ?? '',
-      });
-    } else {
-      loginMutation.mutate({
-        email: pendingEmailAuth.email,
-        password: pendingEmailAuth.password,
-      });
-    }
+    if (pendingSignup) sendSignupOtpMutation.mutate(pendingSignup);
   };
 
   const backToEmailForm = () => {
     setOtp('');
     setEmailOtpError(null);
-    setPendingEmailAuth(null);
+    setPendingSignup(null);
     setEmailStep('form');
   };
 
@@ -769,15 +735,15 @@ const StartLoginScreen = () => {
       </View>
       <OtpVerifyStep
         title="Verify your email"
-        destination={pendingEmailAuth?.email ?? ''}
+        destination={pendingSignup?.email ?? ''}
         value={otp}
         onChange={onEmailOtpChange}
         onSubmit={submitEmailOtp}
-        isSubmitting={isSigningUp || verifyLoginOtpMutation.isPending}
+        isSubmitting={isSigningUp}
         error={emailOtpError}
         resendRemaining={resendTimer.remaining}
         onResend={resendEmailOtp}
-        isResending={sendSignupOtpMutation.isPending || loginMutation.isPending}
+        isResending={sendSignupOtpMutation.isPending}
         autoComplete="one-time-code"
         footerLeft={
           <Text style={otpFooterStyles.text}>
@@ -792,7 +758,7 @@ const StartLoginScreen = () => {
   );
 
   const renderEmailVerified = () => {
-    const firstName = pendingEmailAuth?.fullname?.trim().split(/\s+/)[0];
+    const firstName = pendingSignup?.fullname.trim().split(/\s+/)[0];
     return (
       <View style={styles.verifiedWrapper}>
         <View style={styles.verifiedIcon}>
