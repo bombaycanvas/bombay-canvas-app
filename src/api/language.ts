@@ -9,17 +9,17 @@ export interface Language {
   nativeLabel: string | null;
 }
 
+// Throws on failure so React Query keeps it as an error and refetches, rather
+// than caching an empty list as a successful answer.
 export const fetchLanguages = async (): Promise<Language[]> => {
-  try {
-    const res = await api('/api/languages', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return res?.languages ?? [];
-  } catch (error) {
-    console.error('Failed to fetch languages:', error);
-    return [];
+  const res = await api('/api/languages', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!Array.isArray(res?.languages)) {
+    throw new Error('Invalid languages response');
   }
+  return res.languages;
 };
 
 export const useLanguages = () =>

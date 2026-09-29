@@ -1,18 +1,15 @@
-import React, { useState, useRef, useEffect, Fragment } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   Image,
   ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
-  Animated,
 } from 'react-native';
 import Video from 'react-native-video';
 import LinearGradient from 'react-native-linear-gradient';
@@ -31,21 +28,15 @@ import {
   useGoogleLogin,
   useSendOtpMutation,
   useVerifyOtpMutation,
-  useLogin,
-  useRequest,
 } from '../api/auth';
+import OtpInput from '../components/OtpInput';
+import { useResendTimer } from '../hooks/useResendTimer';
 import { type CountryCode } from 'libphonenumber-js';
 import metadata from 'libphonenumber-js/metadata.min.json';
 import { signInWithApple, signInWithGoogle } from '../utils/authService';
 import { AppleButton } from '@invertase/react-native-apple-authentication';
-import { useForm, Controller } from 'react-hook-form';
-import EyeIcon from '../assets/EyeIcon';
-import EyeSlashIcon from '../assets/EyeSlashIcon';
 import handleOpenURL from '../services/handleOpenUrl';
-import { usePostHog } from 'posthog-react-native';
 import { PostHogMaskView } from '../utils/analytics';
-
-const { height } = Dimensions.get('window');
 
 const renderCustomFlag = (country: any) => {
   const cca2 = country?.cca2;
@@ -63,6 +54,9 @@ const renderCustomFlag = (country: any) => {
   );
 };
 
+const RESEND_COOLDOWN_SECONDS = 30;
+const OTP_LENGTH = 4;
+
 const StartLoginScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -72,32 +66,16 @@ const StartLoginScreen = () => {
   const { data } = useGetCoverVideo();
   const videoUrl = useVideoCache(data?.CoverUrlVideo?.url);
   console.log('data', data);
-  const [flow, setFlow] = useState<'phone' | 'otp' | 'methods'>('phone');
+  const [flow, setFlow] = useState<'phone' | 'otp'>('phone');
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [phoneValue, setPhoneValue] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const [timer, setTimer] = useState(30);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [otp, setOtp] = useState('');
 
-  const otpInputs = useRef<Array<TextInput | null>>([]);
-  const slideAnim = useRef(new Animated.Value(height)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const resendTimer = useResendTimer(RESEND_COOLDOWN_SECONDS, flow === 'otp');
 
   const verifyOtpMutation = useVerifyOtpMutation(redirect);
   const { mutate: googleLoginMutate } = useGoogleLogin(redirect);
   const { mutate: appleLoginMutate } = useAppleLogin(redirect);
-  const { mutate: loginMutate } = useLogin(redirect);
-  const { mutate: signupMutate } = useRequest(redirect);
-
-  const posthog = usePostHog()
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
 
   const handleSkip = async () => {
     await setHasSkipped(true);
@@ -107,21 +85,10 @@ const StartLoginScreen = () => {
     });
   };
 
-  const onEmailSubmit = (data: any) => {
-
-    if (isSignup) {
-        posthog.capture('signup', { method: 'email' });
-      signupMutate(data);
-    } else {
-      loginMutate(data);
-    }
-  };
-
   const sendOtpMutation = useSendOtpMutation(response => {
     setFlow('otp');
-    setOtp(['', '', '', '']);
-    setActiveIndex(0);
-    setTimer(30);
+    setOtp('');
+    resendTimer.restart();
     Toast.show({
       type: 'success',
       text1: 'OTP Sent',
@@ -129,9 +96,8 @@ const StartLoginScreen = () => {
     });
 
     if (response?.otp) {
-      const otpDigits = response.otp.split('');
       setTimeout(() => {
-        setOtp(otpDigits);
+        setOtp(response.otp);
       }, 500);
 
       const countryCode = (selectedCountry?.cca2 || 'IN') as CountryCode;
@@ -148,48 +114,6 @@ const StartLoginScreen = () => {
       }, 1500);
     }
   });
-
-  useEffect(() => {
-    let interval: any;
-    if (flow === 'otp' && timer > 0) {
-      interval = setInterval(() => {
-        setTimer(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [flow, timer]);
-
-  useEffect(() => {
-    if (flow === 'methods') {
-      Keyboard.dismiss();
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          damping: 20,
-          stiffness: 90,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: height,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [flow, fadeAnim, slideAnim]);
 
   const getCountryCallingCode = (countryCode: string = 'IN'): string => {
     const country =
@@ -224,7 +148,6 @@ const StartLoginScreen = () => {
       phone: fullPhoneNumber,
     });
   };
-
 
   const handlePhoneInputChange = (value: string) => {
     const digitsOnly = value.replace(/\D/g, '');
@@ -370,21 +293,6 @@ const StartLoginScreen = () => {
         <Text style={styles.googleButtonText}>Login using Google</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => {
-          Keyboard.dismiss();
-          setTimeout(() => {
-            setFlow('methods');
-          }, 50);
-        }}
-        style={styles.otherMethodsLink}
-      >
-        <Text style={styles.otherMethodsText}>
-          Or login using another method
-        </Text>
-      </TouchableOpacity>
-
       <View style={styles.footerWrapper}>
         <Text style={styles.footerText}>
           By continuing, you accept our{' '}
@@ -424,303 +332,29 @@ const StartLoginScreen = () => {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
-              setOtp(['', '', '', '']);
-              setActiveIndex(0);
+              setOtp('');
               setFlow('phone');
             }}
           >
             <Ionicons name="arrow-back" size={25} color="#fff" />
           </TouchableOpacity>
         </View>
-        <TextInput
-          ref={ref => {
-            otpInputs.current[0] = ref;
+        <OtpInput
+          value={otp}
+          onChange={setOtp}
+          onSubmit={code => {
+            if (code.length !== OTP_LENGTH) return;
+            verifyOtpMutation.mutate({ phone: getFullPhoneNumber(), otp: code });
           }}
-          value={otp.join('')}
-          onChangeText={text => {
-            const cleaned = text.replace(/\D/g, '').slice(0, 4);
-            console.log('OTP:', cleaned);
-            const otpArray = cleaned.split('');
-            while (otpArray.length < 4) otpArray.push('');
-            setOtp(otpArray);
-            if (cleaned.length < 4) {
-              setActiveIndex(cleaned.length);
-            } else {
-              setActiveIndex(3);
-            }
-            if (cleaned.length === 4) {
-              verifyOtpMutation.mutate({
-                phone: getFullPhoneNumber(),
-                otp: cleaned,
-              });
-            }
-          }}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          maxLength={4}
-          autoFocus
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            opacity: 0,
-            left: -1000,
-          }}
-          pointerEvents="none"
+          isSubmitting={verifyOtpMutation.isPending}
+          sentTo={`${selectedCountry?.callingCode ?? ''} ${phoneValue}`}
+          resendRemaining={resendTimer.remaining}
+          onResend={() => sendOtpMutation.mutate({ phone: getFullPhoneNumber() })}
+          isResending={sendOtpMutation.isPending}
         />
-        <View style={styles.otpPillWrapper}>
-          {/* Masks the digit Text nodes, not the input: the real <TextInput> is
-              offscreen at opacity 0, so masking it would protect nothing. */}
-          <PostHogMaskView style={styles.otpCirclesWrapper}>
-            {[0, 1, 2, 3].map((_, index) => {
-              const isActive = index === activeIndex;
-
-              return (
-                <TouchableOpacity
-                  key={index}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    otpInputs.current[0]?.focus();
-                    setActiveIndex(index);
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.otpCircle,
-                      isActive && styles.activeOtpCircle,
-                    ]}
-                  >
-                    <Text style={styles.otpText}>{otp[index] || ''}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </PostHogMaskView>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.otpSentPill}
-            onPress={() => {
-              const fullOtp = otp.join('');
-              if (fullOtp.length === 4) {
-                verifyOtpMutation.mutate({
-                  phone: getFullPhoneNumber(),
-                  otp: fullOtp,
-                });
-              }
-            }}
-            disabled={verifyOtpMutation.isPending || otp.join('').length !== 4}
-          >
-            {verifyOtpMutation.isPending ? (
-              <ActivityIndicator size="small" color="rgba(255, 106, 0, 1)" />
-            ) : (
-              <Text style={styles.otpSentPillText}>Submit</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.otpBottomInfo}>
-          <PostHogMaskView>
-            <Text style={styles.otpSentToText}>
-              OTP sent to {selectedCountry?.callingCode} {phoneValue}
-            </Text>
-          </PostHogMaskView>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            disabled={timer > 0 || sendOtpMutation.isPending}
-            onPress={() => {
-              const fullPhoneNumber = getFullPhoneNumber();
-              sendOtpMutation.mutate({ phone: fullPhoneNumber });
-            }}
-          >
-            <Text
-              style={[styles.timerText, timer === 0 && styles.resendActive]}
-            >
-              {timer > 0
-                ? `Resend OTP in 00:${timer < 10 ? `0${timer}` : timer}`
-                : 'Resend OTP'}
-            </Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   };
-
-  const renderOtherMethods = () => (
-    <View
-      style={[StyleSheet.absoluteFill, { zIndex: 999 }]}
-      pointerEvents={flow === 'methods' ? 'auto' : 'none'}
-    >
-      <TouchableWithoutFeedback
-        onPress={() => {
-          setFlow('phone');
-          Keyboard.dismiss();
-        }}
-      >
-        <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]} />
-      </TouchableWithoutFeedback>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.methodsSheetKAV}
-      >
-        <Animated.View
-          style={[
-            styles.methodsSheet,
-            {
-              // paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 10 : 20),
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sheetHandle} />
-
-          <View>
-            {isSignup && (
-              <Controller
-                control={control}
-                name="fullname"
-                rules={{ required: 'Fullname is required' }}
-                render={({ field: { onChange, value } }) => (
-                  <>
-                    <TextInput
-                      style={styles.emailInput}
-                      placeholder="Full Name"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={value}
-                      onChangeText={onChange}
-                      autoCapitalize="words"
-                    />
-                    {errors.fullname && (
-                      <Text style={styles.errorText}>
-                        {errors.fullname.message as string}
-                      </Text>
-                    )}
-                  </>
-                )}
-              />
-            )}
-
-            <Controller
-              control={control}
-              name="email"
-              rules={{
-                required: 'Email is required',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'Invalid email address',
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <PostHogMaskView>
-                    <TextInput
-                      style={styles.emailInput}
-                      placeholder="Email"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      value={value}
-                      onChangeText={onChange}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
-                  </PostHogMaskView>
-                  {errors.email?.message && (
-                    <Text style={styles.errorText}>
-                      {errors.email.message as string}
-                    </Text>
-                  )}
-                </>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="password"
-              rules={{
-                required: 'Password is required',
-                minLength: {
-                  value: 8,
-                  message: 'Password must be at least 8 characters',
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <PostHogMaskView style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.emailInput}
-                    placeholder="Password"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    secureTextEntry={!showPassword}
-                    value={value}
-                    onChangeText={onChange}
-                  />
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.eyeIcon}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
-                  </TouchableOpacity>
-                </PostHogMaskView>
-              )}
-            />
-            {errors.password && (
-              <Text style={styles.errorText}>
-                {errors.password?.message as string}
-              </Text>
-            )}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.emailLoginBtn}
-              onPress={handleSubmit(onEmailSubmit)}
-            >
-              <Text style={styles.emailLoginBtnText}>
-                {isSignup ? 'Sign Up' : 'Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.toggleMethodsLink}
-          >
-            <Text style={styles.toggleMethodsText}>
-              {isSignup ? (
-                <Fragment>
-                  Already have an account?{' '}
-                  <Text
-                    onPress={() => setIsSignup(!isSignup)}
-                    style={styles.link}
-                  >
-                    Login
-                  </Text>
-                </Fragment>
-              ) : (
-                <Fragment>
-                  Don't have an account?{' '}
-                  <Text
-                    onPress={() => setIsSignup(!isSignup)}
-                    style={styles.link}
-                  >
-                    Sign Up
-                  </Text>
-                </Fragment>
-              )}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.cancelLink}
-            onPress={() => setFlow('phone')}
-          >
-            <Text style={styles.cancelLinkText}>Cancel</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </View>
-  );
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -776,9 +410,8 @@ const StartLoginScreen = () => {
             <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
 
-          {(flow === 'phone' || flow === 'methods') && renderPhoneInput()}
+          {flow === 'phone' && renderPhoneInput()}
           {flow === 'otp' && renderOtpInput()}
-          {renderOtherMethods()}
         </KeyboardAvoidingView>
       </View>
     </TouchableWithoutFeedback>
@@ -906,17 +539,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,106,0,0.5)',
   },
-  otherMethodsLink: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  otherMethodsText: {
-    color: '#fff',
-    fontSize: 15,
-    textDecorationLine: 'underline',
-    opacity: 0.85,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-  },
   footerWrapper: {
     marginTop: 20,
     alignItems: 'center',
@@ -935,95 +557,6 @@ const styles = StyleSheet.create({
   },
   backWrapper: {
     marginBottom: 15,
-  },
-  otpPillWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 35,
-    gap: 10,
-  },
-  otpCirclesWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 5,
-  },
-  otpCircle: {
-    width: 40,
-    height: 40,
-    aspectRatio: 1,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    color: '#fff',
-    fontSize: 18,
-    textAlign: 'center',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otpSentPill: {
-    backgroundColor: 'rgba(255, 106, 0, 0.1)',
-    borderRadius: 30,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 106, 0, 0.8)',
-  },
-  otpSentPillText: {
-    color: 'rgba(255, 106, 0, 1)',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-  },
-  otpBottomInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  otpSentToText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-  },
-  timerText: {
-    color: 'rgba(255, 106, 0, 1)',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-  },
-  resendActive: {
-    textDecorationLine: 'underline',
-  },
-  methodsSheetKAV: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  methodsSheet: {
-    backgroundColor: '#1C1C1E',
-    borderTopLeftRadius: 35,
-    borderTopRightRadius: 35,
-    padding: 25,
-    // position: 'absolute',
-    // bottom: 0,
-    // left: 0,
-    // right: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  sheetHandle: {
-    width: 35,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 30,
   },
   googleButton: {
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -1044,137 +577,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#fff',
   },
-  socialButton: {
-    backgroundColor: '#2C2B2F',
-    borderRadius: 10,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 15,
-  },
   appleButton: {
     width: '100%',
     height: 50,
     marginTop: 10,
-  },
-  socialButtonText: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-    fontSize: 17,
-    color: '#fff',
-  },
-  cancelLink: {
-    backgroundColor: 'rgba(255, 106, 0, 0.1)',
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.5)',
-  },
-  cancelLinkText: {
-    color: 'rgba(255,106,0,1)',
-    fontSize: 17,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  emailInput: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    color: '#fff',
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  passwordContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: 16,
-    top: '26%',
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 12,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    marginTop: -10,
-    marginBottom: 10,
-    marginLeft: 5,
-  },
-  emailLoginBtn: {
-    backgroundColor: 'rgba(255,106,0,1)',
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.5)',
-    marginBottom: 20,
-  },
-  emailLoginBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-  },
-  termsWrapper: {
-    marginBottom: 15,
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  termsText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    flex: 1,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-  },
-  termsLink: {
-    color: '#ef8a4c',
-    textDecorationLine: 'underline',
-  },
-  toggleMethodsLink: {
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 5,
-  },
-  toggleMethodsText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    opacity: 0.8,
-  },
-  link: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    fontWeight: '700',
-    color: 'rgb(255,106,0)',
-    textDecorationLine: 'underline',
-    marginTop: 20,
-    textAlign: 'center',
   },
   skipButton: {
     position: 'absolute',
@@ -1188,19 +594,5 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     opacity: 0.4,
   },
-  activeOtpCircle: {
-    borderColor: 'rgba(255,106,0,1)',
-    borderWidth: 2,
-    shadowColor: 'rgba(255,106,0,0.8)',
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
 
-  otpText: {
-    color: '#fff',
-    fontSize: 20,
-    textAlign: 'center',
-    fontFamily: 'HelveticaNowDisplay-Bold',
-  },
 });

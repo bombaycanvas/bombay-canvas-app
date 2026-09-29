@@ -8,7 +8,6 @@ import { syncLocalLanguagePreferences } from "./language";
 import {
   authFailureReason,
   capture,
-  identifyUser,
   log,
   ProductEvent,
   type AuthMethod,
@@ -96,38 +95,6 @@ export const sendOtpRequest = async (data: any) => {
     return resp;
   } catch (error) {
     throw error;
-  }
-};
-
-export const requestOtp = async (data: any) => {
-  try {
-    const response = await api("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.email,
-        name: data.fullname,
-        password: data.password,
-      }),
-    });
-
-    const resp = await response;
-    return resp;
-  } catch (error) {
-    if (error instanceof Error) {
-      Toast.show({
-        type: "error",
-        text1: "Signup Failed",
-        text2: `${error.message || "Please check your details and try again."}`,
-      });
-    } else {
-      Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: `${error || "Please verify your email and password, then try again"
-          }`,
-      });
-    }
   }
 };
 
@@ -258,116 +225,6 @@ export const useSendOtpMutation = (onSuccessCallback?: (data: any) => void) => {
         type: "error",
         text1: "OTP Failed",
         text2: error.message || "Failed to send OTP",
-      });
-    },
-  });
-};
-
-export const useRequest = (redirect?: { screen: string; params?: any }) => {
-  const navigation = useNavigation();
-
-  return useMutation({
-    mutationFn: async (data) => {
-      const response = await requestOtp(data);
-      return response;
-    },
-    onSuccess: async (data) => {
-      if (data.token) {
-        await useAuthStore.getState().saveToken(data.token);
-        await syncLanguagesAfterAuth();
-
-        // Signup does not receive its user through setUser here. The language
-        // sync refreshes userData after the token is available, which also
-        // supplies the authoritative onboarding timestamp for routing.
-        if (data?.user?.id) {
-          identifyUser(String(data.user.id), {
-            email: data.user.email ?? null,
-            name: data.user.name ?? null,
-          });
-        }
-
-        // The ONLY unambiguous registration in the app: /api/auth/signup creates
-        // accounts and nothing else.
-        capture(ProductEvent.SignedUp, {
-          method: "email",
-          role: String(data?.user?.role ?? "USER"),
-        });
-        log.info("Account created", { method: "email" });
-
-        if (redirect) {
-          handleAuthRedirect(navigation, redirect);
-        } else {
-          (navigation as any).reset({
-            index: 0,
-            routes: [{ name: postAuthRoute() }],
-          });
-        }
-      }
-    },
-    onError: (error) => {
-      captureAuthFailure("email", "signup", error);
-      Toast.show({
-        type: "error",
-        text1: "Signup Failed",
-        text2: `${error.message || "Please check your details and try again."}`,
-      });
-    },
-  });
-};
-
-export const login = async (data: any) => {
-  try {
-    const response = await api("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.email,
-        password: data.password,
-      }),
-    });
-
-    const resp = await response;
-    return resp;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const useLogin = (redirect?: { screen: string; params?: any }) => {
-  const navigation = useNavigation();
-
-  return useMutation({
-    mutationFn: async (data) => {
-      const response = await login(data);
-      return response;
-    },
-    onSuccess: async (data) => {
-      if (data?.token) {
-        await useAuthStore.getState().saveToken(data.token);
-        await useAuthStore.getState().setUser(data.user);
-        await syncLanguagesAfterAuth();
-        capture(ProductEvent.SignedIn, {
-          method: "email",
-          role: String(data?.user?.role ?? "USER"),
-        });
-        log.info("Signed in", { method: "email" });
-
-        if (redirect) {
-          handleAuthRedirect(navigation, redirect);
-        } else {
-          (navigation as any).reset({
-            index: 0,
-            routes: [{ name: postAuthRoute() }],
-          });
-        }
-      }
-    },
-    onError: (error: any) => {
-      captureAuthFailure("email", "login", error);
-      Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: error.message || "Please verify your email and password, then try again.",
       });
     },
   });

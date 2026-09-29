@@ -1,0 +1,91 @@
+import { api } from '../utils/api';
+import { updateProfile } from './profile';
+
+jest.mock('../utils/api', () => ({ api: jest.fn() }));
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: { show: jest.fn() },
+}));
+jest.mock('../store/authStore', () => ({
+  useAuthStore: { getState: jest.fn() },
+}));
+
+const mockApi = api as jest.Mock;
+
+beforeEach(() => mockApi.mockReset());
+
+describe('updateProfile', () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('updates the name only, without touching complete-profile', async () => {
+    await updateProfile({ name: ' Asha ' });
+    expect(mockApi).toHaveBeenCalledTimes(1);
+    expect(mockApi).toHaveBeenCalledWith('/api/user/profile', {
+      method: 'POST',
+      body: { data: { name: 'Asha', avatarUrl: undefined } },
+    });
+  });
+
+  it('uploads the avatar with the signed headers, then saves its public URL', async () => {
+    mockApi.mockResolvedValueOnce({
+      uploadUrl: 'https://gcs/put',
+      publicUrl: 'https://cdn/uploads/avatar.jpg',
+      requiredHeaders: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'x' },
+    });
+    const blob = { size: 1 };
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ blob: () => Promise.resolve(blob) })
+      .mockResolvedValueOnce({ ok: true });
+    globalThis.fetch = fetchMock as any;
+
+    await updateProfile({
+      name: 'Asha',
+      photo: { path: 'file:///tmp/a.jpg', mime: 'image/jpeg' },
+    });
+
+    expect(mockApi).toHaveBeenNthCalledWith(1, '/api/sign-url', {
+      method: 'POST',
+      body: { fileName: 'avatar.jpg', contentType: 'image/jpeg' },
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith('https://gcs/put', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'x' },
+      body: blob,
+    });
+    expect(mockApi).toHaveBeenLastCalledWith('/api/user/profile', {
+      method: 'POST',
+      body: {
+        data: { name: 'Asha', avatarUrl: 'https://cdn/uploads/avatar.jpg' },
+      },
+    });
+  });
+
+  it('sends avatarUrl: null to reset to the default photo', async () => {
+    await updateProfile({ name: 'Asha', photo: 'remove' });
+    expect(mockApi).toHaveBeenCalledTimes(1);
+    expect(mockApi).toHaveBeenCalledWith('/api/user/profile', {
+      method: 'POST',
+      body: { data: { name: 'Asha', avatarUrl: null } },
+    });
+  });
+
+  it('does not save the profile when the upload fails', async () => {
+    mockApi.mockResolvedValueOnce({ uploadUrl: 'u', publicUrl: 'p' });
+    globalThis.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ blob: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ ok: false, status: 403 }) as any;
+
+    await expect(
+      updateProfile({
+        name: 'Asha',
+        photo: { path: 'file:///a.jpg', mime: 'image/jpeg' },
+      }),
+    ).rejects.toThrow('Image upload failed (403)');
+    expect(mockApi).toHaveBeenCalledTimes(1);
+  });
+});

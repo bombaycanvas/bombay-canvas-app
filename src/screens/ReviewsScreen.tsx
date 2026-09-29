@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Trash2, Star, Plus, Edit } from 'lucide-react-native';
+import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useAuthStore } from '../store/authStore';
 import { ReviewModal } from '../components/ReviewModal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { WatchRequiredModal } from '../components/WatchRequiredModal';
+import { ReviewItem } from '../components/ReviewItem';
 import { useReviewManager } from '../hooks/useReviewManager';
 
 type RootStackParamList = {
@@ -119,53 +120,16 @@ const ReviewsScreen = () => {
             )}
           </View>
         ) : (
-          displayReviews.map((review: any) => {
-            const isOwnReview = myReview && review.id === myReview.id;
-            return (
-              <View key={review.id} style={styles.reviewItem}>
-                <View style={styles.reviewUserRow}>
-                  <View style={styles.reviewUserLeft}>
-                    <Text style={styles.reviewUserName}>
-                      {isOwnReview ? `${user?.name || 'You'} (You)` : (review.user?.name || 'Anonymous')}
-                    </Text>
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          size={16}
-                          color={star <= review.rating ? '#f5b301' : 'rgba(255,255,255,0.5)'}
-                          fill={star <= review.rating ? '#f5b301' : 'transparent'}
-                          style={{ marginRight: 2 }}
-                        />
-                      ))}
-                    </View>
-                  </View>
-
-                  {isOwnReview && (
-                    <View style={styles.ownReviewActions}>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => handleEditReview(review)}
-                        style={styles.reviewActionButton}
-                      >
-                        <Edit color="rgba(255,255,255,0.6)" size={20} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={handleDeleteReview}
-                        style={styles.reviewActionButton}
-                      >
-                        <Trash2 color="#ff3b30" size={20} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-                {review.text ? (
-                  <Text style={styles.reviewText}>{review.text}</Text>
-                ) : null}
-              </View>
-            );
-          })
+          displayReviews.map((review: any) => (
+            <ReviewItem
+              key={review.id}
+              review={review}
+              isOwnReview={!!myReview && review.id === myReview.id}
+              currentUserName={user?.name}
+              onEdit={handleEditReview}
+              onDelete={handleDeleteReview}
+            />
+          ))
         )}
       </ScrollView>
       <ReviewModal
@@ -275,46 +239,5 @@ const styles = StyleSheet.create({
     fontFamily: 'HelveticaNowDisplay-Bold',
     color: '#fff',
     fontSize: 14,
-  },
-  reviewItem: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,106,0,0.4)',
-    backgroundColor: 'rgba(255,106,0,0.1)',
-  },
-  reviewUserRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  reviewUserLeft: {
-    flexDirection: 'column',
-  },
-  reviewUserName: {
-    fontFamily: 'HelveticaNowDisplay-Bold',
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  starsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ownReviewActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  reviewActionButton: {
-    padding: 4,
-  },
-  reviewText: {
-    fontFamily: 'HelveticaNowDisplay-Regular',
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 15,
-    lineHeight: 20,
   },
 });

@@ -12,7 +12,7 @@ import { useKeyboardHandler } from '../hooks/useKeyboardHandler';
 import HomeScreen from '../screens/HomeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import LoginScreen from '../screens/LoginScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import VideoScreen from '../screens/VideoScreen';
 import CreatorScreen from '../screens/CreatorScreen';
@@ -41,7 +41,7 @@ export type RootStackParamList = {
   StartLogin: undefined;
   CompleteProfile: undefined;
   LanguagePreference: undefined;
-  Signup: { fromSignup?: boolean };
+  EditProfile: undefined;
   SeriesDetail: {
     id: string | number;
     posterUrl?: string;
@@ -162,9 +162,15 @@ const AppStack = () => {
       <Stack.Screen name="LanguagePreference" component={OnboardingScreen} />
 
       <Stack.Screen
-        name="Signup"
-        component={LoginScreen}
-        initialParams={{ fromSignup: true }}
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile',
+          headerStyle: { backgroundColor: '#202020' },
+          headerTintColor: '#fff',
+          headerBackTitle: ' ',
+        }}
       />
       <Stack.Screen
         name="SeriesDetail"

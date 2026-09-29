@@ -106,6 +106,8 @@
 		<string>_googlecast._tcp</string>
 		<string>_CC1AD845._tcp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to take your profile photo.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app uses the local network to discover Cast-enabled devices on your WiFi network.</string>
 	<key>NSMicrophoneUsageDescription</key>

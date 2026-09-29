@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,13 @@ const OnboardingScreen = () => {
   const insets = useSafeAreaInsets();
   const { token, user, preferredLanguages, setPreferredLanguages, setUser } =
     useAuthStore();
-  const { data: languages = [], isLoading } = useLanguages();
+  const {
+    data: languages = [],
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useLanguages();
   const { mutateAsync: savePreferences } = useUpdateLanguagePreferences();
 
   // Seeded from the store so reaching this from Settings edits the existing
@@ -80,22 +86,6 @@ const OnboardingScreen = () => {
     leave();
   };
 
-  useEffect(() => {
-  if (isLoading || languages.length > 0) return;
-
-  Toast.show({
-    type: 'error',
-    text1: "Couldn't load languages",
-    text2: 'You can set them later in Settings.',
-  });
-
-  if (isEditing) {
-    leave(); // just goBack() — don't clobber existing preferences
-  } else {
-    finish([]); // first run: [] is a real, valid answer
-  }
-}, [isLoading, languages.length, isEditing]);
-
   return (
     <LinearGradient colors={['#1a1a1a', '#000']} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 13 }]}>
@@ -125,6 +115,24 @@ const OnboardingScreen = () => {
 
       {isLoading ? (
         <ActivityIndicator color="#ff6a00" style={styles.loader} />
+      ) : isError ? (
+        // Never save [] on a failed load: that would mark the account as
+        // "chose no languages" when it was never really asked.
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>Couldn't load languages</Text>
+          <TouchableOpacity
+            style={styles.retry}
+            onPress={() => refetch()}
+            disabled={isFetching}
+            activeOpacity={0.85}
+          >
+            {isFetching ? (
+              <ActivityIndicator color="#ff6a00" />
+            ) : (
+              <Text style={styles.retryText}>Try again</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.chips}
@@ -192,6 +200,18 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
   },
   loader: { marginTop: 40 },
+  errorBox: { alignItems: 'center', paddingTop: 40, gap: 14 },
+  errorText: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
+  retry: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,106,0,0.8)',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  retryText: { color: '#ff6a00', fontSize: 14, fontWeight: '700' },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',

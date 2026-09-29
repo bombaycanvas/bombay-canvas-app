@@ -10,7 +10,9 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { useDeleteUserAccount } from '../api/auth';
+import { useDeleteUserAccount, useUserData } from '../api/auth';
+import { useAuthStore } from '../store/authStore';
+import SettingsProfileRow from '../components/profile/SettingsProfileRow';
 import {
   useMySubscription,
   useSubscriptionHistory,
@@ -30,6 +32,9 @@ const SettingsScreen = () => {
   const [isDeleteAccountModal, setIsDeleteAccountModal] = useState(false);
   const [isCancelSubModal, setIsCancelSubModal] = useState(false);
   const [isBillingExpanded, setIsBillingExpanded] = useState(false);
+
+  const { data: userInfo } = useUserData(useAuthStore.getState().token);
+  const account = userInfo?.userData;
 
   const { mutate: deleteAccount, isPending } = useDeleteUserAccount();
   const { data: subscription, refetch } = useMySubscription();
@@ -124,6 +129,12 @@ const SettingsScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
+        {account && (
+          <SettingsProfileRow
+            user={account}
+            onPress={() => navigation.navigate('EditProfile')}
+          />
+        )}
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.row}

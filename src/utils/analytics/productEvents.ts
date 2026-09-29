@@ -30,8 +30,6 @@ export const ProductEvent = {
   OtpRequested: 'otp_requested',
   /** Credentials were accepted and a session began. Carries `method`. */
   SignedIn: 'signed_in',
-  /** A NEW account was created. See AuthMethod for why this is email-only. */
-  SignedUp: 'signed_up',
   /** An auth attempt was rejected. Carries `method` and `stage`. */
   AuthFailed: 'auth_failed',
 
@@ -55,20 +53,17 @@ export type PaymentRailName = 'razorpay' | 'apple';
 /**
  * How the user authenticated.
  *
- * WHY `signed_up` IS ONLY EVER REPORTED FOR 'email'. Google, Apple and phone all
- * create the account on first use, and their endpoints answer `{ token, user }`
- * with NO `isNewUser` flag — the backend documents this explicitly in
- * `auth.controller.ts` (`fireCompleteRegistration`) as the reason it fires
- * Meta's CompleteRegistration server-side instead. Guessing on the client would
- * count every returning Google login as a fresh registration and inflate signups
- * permanently. Only `/api/auth/signup` is unambiguous, so only it reports
- * `signed_up`; everything else reports `signed_in` and lets PostHog's own
- * first-seen date carry the "new person" question.
+ * There is no `signed_up` event: Google, Apple and phone all create the account
+ * on first use and answer `{ token, user }` with NO `isNewUser` flag (the
+ * backend fires Meta's CompleteRegistration server-side instead; see
+ * `fireCompleteRegistration`). Guessing here would count every returning login
+ * as a registration, so everything reports `signed_in` and PostHog's own
+ * first-seen date answers "new person".
  */
-export type AuthMethod = 'email' | 'google' | 'apple' | 'phone_otp';
+export type AuthMethod = 'google' | 'apple' | 'phone_otp';
 
 /** Which step of an auth flow failed — the two phone steps fail very differently. */
-export type AuthStage = 'otp_request' | 'otp_verify' | 'login' | 'signup';
+export type AuthStage = 'otp_request' | 'otp_verify' | 'login';
 
 /**
  * Reduce a thrown auth error to a short, safe reason string.
