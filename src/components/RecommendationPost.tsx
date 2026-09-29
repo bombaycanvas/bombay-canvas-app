@@ -104,7 +104,10 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
 
   const toggleDescription = () => setIsDescriptionExpanded(prev => !prev);
 
-  const handleProgress =({ currentTime, seekableDuration }: OnProgressData) => {
+  const handleProgress = ({
+    currentTime,
+    seekableDuration,
+  }: OnProgressData) => {
     if (seekableDuration > 0) {
       setProgress(Math.min(1, currentTime / seekableDuration));
     }
@@ -277,7 +280,12 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
               onPress={() => onEpisodesPress(item)}
             >
               <EpisodesIcon size={Platform.OS === 'ios' ? 35 : 40} />
-              <Text style={styles.actionText} numberOfLines={1}>
+              <Text
+                style={styles.actionText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 Episodes
               </Text>
             </TouchableOpacity>
@@ -292,7 +300,12 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
                   size={Platform.OS === 'ios' ? 30 : 33}
                   color="#ffffff"
                 />
-                <Text style={styles.actionText} numberOfLines={1}>
+                <Text
+                  style={styles.actionText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
                   {item.ratingCount > 0
                     ? formatCount(item.ratingCount)
                     : 'Comments'}
@@ -306,7 +319,12 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
               onPress={handleSharePress}
             >
               <ShareIcon />
-              <Text style={styles.actionText} numberOfLines={1}>
+              <Text
+                style={styles.actionText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 Share
               </Text>
             </TouchableOpacity>
@@ -415,7 +433,7 @@ const styles = StyleSheet.create({
   rightActionBtn: {
     alignItems: 'center',
     marginBottom: 20,
-    width: 60,
+    width: 72,
   },
   lastActionBtn: {
     marginBottom: 0,
