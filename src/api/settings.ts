@@ -35,9 +35,9 @@ export const useFlag = (key: string, fallback: boolean = false) => {
 // Fallbacks for the first render before /api/settings resolves; the live
 // values are the backend `media.*` settings.
 export const FALLBACK_AVATAR_URL =
-  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
+  'https://cdncanvas.stream/uploads/1758545484110-aaa.png';
 export const FALLBACK_COVER_URL =
-  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1757661776404-Card Image.png';
+  'https://cdncanvas.stream/uploads/1757661776404-Card%20Image.png';
 
 export const useDefaultAvatar = (): string =>
   useSetting('media.defaultAvatarUrl', FALLBACK_AVATAR_URL);
