@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FlatGrid } from 'react-native-super-grid';
 import { RootStackParamList } from '../types/navigation';
+import { useDefaultAvatar } from '../api/settings';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 type Series = {
@@ -89,13 +90,11 @@ const CreatorCard = React.memo(
           >
             <Image
               source={{
-                uri: creatorAvatar || 'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
+                uri: creatorAvatar,
               }}
               style={styles.avatar}
             />
-            <Text style={styles.name}>
-              {capitalizeWords(creatorName)}
-            </Text>
+            <Text style={styles.name}>{capitalizeWords(creatorName)}</Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </View>
@@ -110,6 +109,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
   isLoading,
 }) => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
+  const defaultAvatar = useDefaultAvatar();
 
   if (isLoading) {
     return (
@@ -141,7 +141,7 @@ const CreatorGrids: React.FC<CreatorGridsProps> = ({
           item={item}
           navigation={navigation}
           creatorName={creatorName}
-          creatorAvatar={creatorAvatar}
+          creatorAvatar={creatorAvatar || defaultAvatar}
         />
       )}
     />

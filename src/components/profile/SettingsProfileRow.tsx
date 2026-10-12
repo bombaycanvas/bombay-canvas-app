@@ -3,9 +3,7 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { ChevronRight } from 'lucide-react-native';
 import { PostHogMaskView } from '../../utils/analytics';
-
-const DEFAULT_AVATAR =
-  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
+import { useDefaultAvatar } from '../../api/settings';
 
 /** Top row of Settings: opens the Profile screen. */
 const SettingsProfileRow = ({
@@ -14,24 +12,27 @@ const SettingsProfileRow = ({
 }: {
   user: any;
   onPress: () => void;
-}) => (
-  <TouchableOpacity activeOpacity={0.9} style={styles.row} onPress={onPress}>
-    <FastImage
-      source={{ uri: user?.profiles?.[0]?.avatarUrl || DEFAULT_AVATAR }}
-      style={styles.avatar}
-      resizeMode={FastImage.resizeMode.cover}
-    />
-    <PostHogMaskView style={styles.text}>
-      <Text style={styles.name} numberOfLines={1}>
-        {user?.name}
-      </Text>
-      <Text style={styles.contact} numberOfLines={1}>
-        {user?.email || user?.phone}
-      </Text>
-    </PostHogMaskView>
-    <ChevronRight size={18} color="#888" />
-  </TouchableOpacity>
-);
+}) => {
+  const defaultAvatar = useDefaultAvatar();
+  return (
+    <TouchableOpacity activeOpacity={0.9} style={styles.row} onPress={onPress}>
+      <FastImage
+        source={{ uri: user?.profiles?.[0]?.avatarUrl || defaultAvatar }}
+        style={styles.avatar}
+        resizeMode={FastImage.resizeMode.cover}
+      />
+      <PostHogMaskView style={styles.text}>
+        <Text style={styles.name} numberOfLines={1}>
+          {user?.name}
+        </Text>
+        <Text style={styles.contact} numberOfLines={1}>
+          {user?.email || user?.phone}
+        </Text>
+      </PostHogMaskView>
+      <ChevronRight size={18} color="#888" />
+    </TouchableOpacity>
+  );
+};
 
 export default SettingsProfileRow;
 

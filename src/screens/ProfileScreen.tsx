@@ -14,6 +14,7 @@ import { useMoviesDataByCreator } from '../api/video';
 import { useUserData } from '../api/auth';
 import FastImage from '@d11/react-native-fast-image';
 import CanvasLogo from '../images/MainLogo.png';
+import { useDefaultAvatar, useDefaultCover } from '../api/settings';
 import { capitalizeWords } from '../utils/capitalizeWords';
 
 const ProfileScreen = () => {
@@ -27,6 +28,9 @@ const ProfileScreen = () => {
   const { data: userData, isLoading } = useMoviesDataByCreator(
     userProfile?.userData?.id,
   );
+  const defaultAvatar = useDefaultAvatar();
+  const defaultCover = useDefaultCover();
+
   const isCreator =
     userProfile?.userData?.role === 'CREATOR' ||
     userProfile?.userData?.role === 'ADMIN';
@@ -58,8 +62,7 @@ const ProfileScreen = () => {
           <ImageBackground
             source={{
               uri:
-                userProfile?.userData?.profiles[0]?.posterUrl ||
-                'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1757661776404-Card Image.png',
+                userProfile?.userData?.profiles[0]?.posterUrl || defaultCover,
             }}
             style={styles.coverPhoto}
           >
@@ -69,7 +72,7 @@ const ProfileScreen = () => {
               source={{
                 uri:
                   userProfile?.userData?.profiles[0]?.avatarUrl ||
-                  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png',
+                  defaultAvatar,
                 priority: FastImage.priority.high,
                 cache: FastImage.cacheControl.immutable,
               }}
