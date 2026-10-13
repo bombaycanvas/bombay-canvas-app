@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useVideoStore } from '../store/videoStore';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, Platform } from 'react-native';
+import { initConnection, getStorefront } from 'react-native-iap';
 import { useUpcomingSeriesData } from '../api/video';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +22,7 @@ import { classifyVerifyFailure } from '../services/iap/verifyFailure';
 import { useAppleCatalogue } from '../hooks/useAppleCatalogue';
 import { useAppleOwnershipConflict } from '../hooks/useAppleIapSync';
 import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../utils/paymentRail';
-import { track } from '../utils/analytics';
+import { track, log } from '../utils/analytics';
 
 import SubscriptionHero from '../components/subscription/SubscriptionHero';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
@@ -98,6 +99,21 @@ export default function SubscriptionScreen() {
   useEffect(() => {
     if (preselect) setSelectedPlan(preselect);
   }, [preselect]);
+
+  // TEMP: verify Play Store country lookup on Android.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    initConnection()
+      .then(() => getStorefront())
+      .then(country => {
+        console.log('[pricing] Play Store country:', country);
+        log.info('Play Store country resolved', { country });
+      })
+      .catch(error => {
+        console.warn('[pricing] Play Store country lookup failed', error);
+        log.warn('Play Store country lookup failed', { error: String(error) });
+      });
+  }, []);
   const { data: mySubscription } = useMySubscription();
   const activePlan = isSubscriptionActive(mySubscription)
     ? mySubscription!.planCode
