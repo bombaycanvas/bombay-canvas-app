@@ -19,15 +19,14 @@ import { PhotoChange, useUpdateProfile } from '../api/profile';
 import { useAuthStore } from '../store/authStore';
 import ProfileField from '../components/profile/ProfileField';
 import PhotoSheet from '../components/profile/PhotoSheet';
-
-const DEFAULT_AVATAR =
-  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
+import { useDefaultAvatar } from '../api/settings';
 
 const formatPhone = (phone: string) =>
   parsePhoneNumberFromString(phone)?.formatInternational() ?? phone;
 
 const EditProfileScreen = () => {
   const insets = useSafeAreaInsets();
+  const DEFAULT_AVATAR = useDefaultAvatar();
   const { data } = useUserData(useAuthStore.getState().token);
   const user = data?.userData;
   const savedAvatar: string | undefined = user?.profiles?.[0]?.avatarUrl;

@@ -17,13 +17,10 @@ import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { imgUrl } from '../api/video';
-import { useFlag } from '../api/settings';
+import { useFlag, useDefaultAvatar } from '../api/settings';
 import { capitalizeWords } from '../utils/capitalizeWords';
 import EpisodesIcon from '../assets/EpisodesIcon';
 import ShareIcon from '../assets/ShareIcon';
-
-const FALLBACK_AVATAR =
-  'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
 
 const COLLAPSED_DESCRIPTION_LINES = 2;
 // Expanded text scrolls past this share of the reel so the overlay stays on screen
@@ -66,6 +63,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
   onCommentsPress,
 }) => {
   const showComments = useFlag('engagement.showReviews', true);
+  const defaultAvatar = useDefaultAvatar();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -237,7 +235,7 @@ const RecommendationPost: React.FC<RecommendationPostProps> = ({
               >
                 <FastImage
                   source={{
-                    uri: avatarUri ? imgUrl(avatarUri, 100) : FALLBACK_AVATAR,
+                    uri: avatarUri ? imgUrl(avatarUri, 100) : defaultAvatar,
                   }}
                   style={styles.avatar}
                 />

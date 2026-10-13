@@ -4,7 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from '@d11/react-native-fast-image';
 import { Clapperboard, Play, Star } from 'lucide-react-native';
 import { capitalizeWords } from '../utils/capitalizeWords';
-import { useFlag } from '../api/settings';
+import { useFlag, useDefaultAvatar } from '../api/settings';
 
 const { height } = Dimensions.get('window');
 
@@ -53,6 +53,7 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
   const statShows = useFlag('creator.statShows', true);
   const statViews = useFlag('creator.statViews', true);
   const statRating = useFlag('creator.statRating', true);
+  const defaultAvatar = useDefaultAvatar();
 
   const creator = data?.creator;
   const uploaderName = creator?.name ?? '';
@@ -61,25 +62,25 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
   const imageSource = bgImage
     ? { uri: bgImage, priority: FastImage.priority.high }
     : require('../assets/creatorCoverImage.png');
-  const avatarImage =
-    creator?.profile?.avatarUrl ||
-    'https://storage.googleapis.com/bombay_canvas_buckett/uploads/1758545484110-aaa.png';
+  const avatarImage = creator?.profile?.avatarUrl || defaultAvatar;
 
   const showsVal =
-    creator?.stats?.manualShows !== null && creator?.stats?.manualShows !== undefined
+    creator?.stats?.manualShows !== null &&
+    creator?.stats?.manualShows !== undefined
       ? creator.stats.manualShows
-      : (creator?.showsCount ?? data?.series?.length ?? 0);
+      : creator?.showsCount ?? data?.series?.length ?? 0;
 
   const viewsVal =
-    creator?.stats?.totalViews !== null && creator?.stats?.totalViews !== undefined
+    creator?.stats?.totalViews !== null &&
+    creator?.stats?.totalViews !== undefined
       ? creator.stats.totalViews
-      : (creator?.totalViews ?? 0);
-
+      : creator?.totalViews ?? 0;
 
   const ratingVal =
-    creator?.stats?.manualRating !== null && creator?.stats?.manualRating !== undefined
+    creator?.stats?.manualRating !== null &&
+    creator?.stats?.manualRating !== undefined
       ? creator.stats.manualRating
-      : (creator?.avgRating ?? 0);
+      : creator?.avgRating ?? 0;
 
   return (
     <View style={styles.container}>
@@ -115,7 +116,11 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
           <View style={styles.statsContainer}>
             {statShows ? (
               <View style={styles.statCard}>
-                <Clapperboard color="#ff6a00" size={18} style={styles.statIcon} />
+                <Clapperboard
+                  color="#ff6a00"
+                  size={18}
+                  style={styles.statIcon}
+                />
                 <Text style={styles.statValue}>{formatNumber(showsVal)}</Text>
                 <Text style={styles.statLabel}>Shows</Text>
               </View>
@@ -133,7 +138,9 @@ const CreatorLanding: React.FC<CreatorLandingProps> = ({ data }) => {
               <View style={styles.statCard}>
                 <Star color="#ff6a00" size={18} style={styles.statIcon} />
                 <Text style={styles.statValue}>
-                  {ratingVal !== null && ratingVal !== undefined ? Number(ratingVal).toFixed(1) : '0.0'}
+                  {ratingVal !== null && ratingVal !== undefined
+                    ? Number(ratingVal).toFixed(1)
+                    : '0.0'}
                 </Text>
                 <Text style={styles.statLabel}>Average Rating</Text>
               </View>
