@@ -48,7 +48,8 @@ export {
  * cannot stop the other from reporting.
  *
  * @param eventName standard Meta event name, e.g. "InitiateCheckout"
- * @param params event parameters (value in RUPEES, currency "INR")
+ * @param params event parameters (`value` in MAJOR units of `currency`, e.g.
+ *   499 with "INR" or 19.99 with "USD")
  * @param eventId dedup key shared with the server-side event
  */
 export const track = (

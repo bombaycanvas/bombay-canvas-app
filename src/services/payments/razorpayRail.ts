@@ -7,6 +7,7 @@ import {
 } from '../../api/subscription';
 import { IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
 import { isCheckoutDismissal } from './razorpayError';
+import { formatIndianMobile } from './razorpayPrefill';
 import type {
   CancelOutcome,
   CancelParams,
@@ -48,14 +49,6 @@ const requireRazorpayRail = () => {
   if (!IS_RAZORPAY_RAIL) {
     throw new Error('Razorpay checkout is not available on this platform');
   }
-};
-
-// Razorpay's prefill wants the bare national number, not the E.164 form the
-// profile stores.
-const formatIndianMobile = (mobile?: string) => {
-  if (!mobile) return undefined;
-  const digitsOnly = mobile.replace(/\D/g, '');
-  return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
 };
 
 // null means the user closed the sheet without paying. That is a normal

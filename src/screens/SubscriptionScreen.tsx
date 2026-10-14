@@ -54,6 +54,8 @@ export default function SubscriptionScreen() {
   const loading = phase !== 'idle';
 
   const { data: subscriptionPlans } = useSubscriptionPlans();
+  // Every plan in one response shares a currency; undefined until it lands.
+  const plansCurrency = subscriptionPlans?.plans[0]?.currency;
   const {
     data: appleCatalogue,
     isLoading: appleCatalogueLoading,
@@ -409,8 +411,11 @@ export default function SubscriptionScreen() {
         <SubscriptionTrustBadges />
 
         {/* Card and UPI marks. They describe the Razorpay checkout and nothing
-            about an App Store purchase, so they must not appear on iOS. */}
-        {IS_RAZORPAY_RAIL && <SubscriptionPaymentFooter />}
+            about an App Store purchase, so they must not appear on iOS — and
+            UPI is India-only, so not for another currency either. */}
+        {IS_RAZORPAY_RAIL && plansCurrency === 'INR' && (
+          <SubscriptionPaymentFooter />
+        )}
       </ScrollView>
 
       <Toast topOffset={insets.top + 10} position="top" />

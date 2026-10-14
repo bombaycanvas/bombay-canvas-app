@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { getAppDataHeader } from './analytics/appData';
 import { log } from './analytics/log';
+import { peekStoreCountry } from '../services/storeCountry';
 
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
 
@@ -66,6 +67,7 @@ export const api = async (endpoint: string, config: any = {}) => {
     body && typeof body === 'object' && typeof body.append === 'function';
 
   const appDataHeader = getAppDataHeader();
+  const storeCountry = peekStoreCountry();
 
   const requestConfig: RequestInit = {
     method: config.method ?? 'GET',
@@ -77,6 +79,9 @@ export const api = async (endpoint: string, config: any = {}) => {
       Authorization: accessToken ? `Bearer ${accessToken}` : '',
       'X-Client-Platform': CLIENT_PLATFORM,
       'X-Client-App-Version': CLIENT_APP_VERSION,
+      // This build renders prices in whatever currency the API returns.
+      'X-Client-Multi-Currency': '1',
+      ...(storeCountry ? { 'X-Client-Store-Country': storeCountry } : {}),
       ...(appDataHeader ? { 'X-Client-App-Data': appDataHeader } : {}),
       ...headers,
     },

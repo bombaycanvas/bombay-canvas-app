@@ -26,6 +26,7 @@ jest.mock('../utils/api', () => ({
   ApiError: class extends Error {},
 }));
 jest.mock('react-native-toast-message', () => ({ show: jest.fn() }));
+jest.mock('../hooks/useStoreCountry', () => ({ useStoreCountry: () => null }));
 
 import { useMySubscription } from './subscription';
 

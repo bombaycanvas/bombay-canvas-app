@@ -74,6 +74,35 @@ const PLANS_WITH_BOTH_TRIALS: Plan[] = [
   },
 ];
 
+// What a US store account is quoted: USD, and only the new trial.
+const US_PLANS: Plan[] = [
+  {
+    code: 'TRIAL_NEW',
+    name: '3-Day Trial',
+    description: '',
+    period: 'yearly',
+    price: 9999,
+    currency: 'USD',
+    trial: { days: 3, durationMinutes: 3 * 24 * 60, upfrontAmount: 100 },
+  },
+  {
+    code: 'MONTHLY',
+    name: 'Monthly',
+    description: '',
+    period: 'monthly',
+    price: 1999,
+    currency: 'USD',
+  },
+  {
+    code: 'ANNUAL',
+    name: 'Annual',
+    description: '',
+    period: 'yearly',
+    price: 5999,
+    currency: 'USD',
+  },
+];
+
 // GET /plans quotes what a trial converts to even when it is no longer offering
 // one, which is the only way the paywall can price a trial the payload has
 // already dropped. Paise, matching Plan.price.
@@ -181,10 +210,19 @@ describe('buildPaywallOffers on the Razorpay rail', () => {
     });
     expect(offers.trial?.price.amount).toBe('1');
     expect(offers.trial?.title).toBe('3-Day Trial');
-    // The DB row IS the charged price here, so there is never an unpriced card
-    // on this rail — not even with the plans call still in flight.
+    // The DB row IS the charged price here, so once the plans call has landed
+    // there is never an unpriced card on this rail.
     expect(offers.pricesUnavailable).toBe(false);
-    expect(buildOffersOn('android', {}).pricesUnavailable).toBe(false);
+  });
+
+  // Before the plans call lands there is no price to quote, and a hardcoded
+  // rupee fallback would show ₹99 to a buyer about to be charged in dollars.
+  it('shows the placeholder, not a fallback, until the plans call lands', () => {
+    const offers = buildOffersOn('android', {});
+
+    expect(offers.pricesUnavailable).toBe(true);
+    expect(offers.monthly.amount).toBeNull();
+    expect(offers.annual.amount).toBeNull();
   });
 
   it('drops the trial card when no trial plan is offered', () => {
@@ -237,6 +275,28 @@ describe('buildPaywallOffers on the Razorpay rail', () => {
     expect(offers.trial?.price.amount).toBe('5');
     expect(offers.trial?.buttonLabel).toBe('Start for ₹5 →');
     expect(offers.trial?.footnote).toContain('7 days full access');
+  });
+
+  // A US buyer is quoted and charged in dollars: every figure comes off the
+  // plans' own currency, cents and all.
+  it('prices a USD plan set in dollars', () => {
+    const offers = buildOffersOn('android', { plans: US_PLANS });
+
+    expect(offers.monthly).toEqual({
+      currency: '$',
+      amount: '19.99',
+      period: '/month',
+    });
+    expect(offers.annual).toEqual({
+      currency: '$',
+      amount: '59.99',
+      period: '/year',
+    });
+    expect(offers.annualPerMonthLabel).toBe('Only $5.00/month');
+    expect(offers.annualStrikePrice).toBe('$99.99');
+    expect(offers.trial?.buttonLabel).toBe('Start for $1 →');
+    expect(offers.trial?.footnote).toContain('then $99.99/year');
+    expect(offers.trial?.footnote).not.toContain('₹');
   });
 });
 

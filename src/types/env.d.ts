@@ -10,4 +10,5 @@ declare module '@env' {
   export const POSTHOG_LOGS_ENABLED: string;
   export const POSTHOG_SESSION_REPLAY_ENABLED: string;
   export const POSTHOG_ERRORS_ENABLED: string;
+  export const DEV_STORE_COUNTRY: string | undefined;
 }

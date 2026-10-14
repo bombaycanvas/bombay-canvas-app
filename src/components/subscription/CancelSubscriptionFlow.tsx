@@ -50,6 +50,11 @@ import type { PurchasePhase } from './SubscriptionActivatingOverlay';
 import { capture, ProductEvent, track } from '../../utils/analytics';
 import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
 import {
+  currencyExponent,
+  formatMinorUnits,
+  minorToMajorUnits,
+} from '../../utils/money';
+import {
   CancelReasonOption,
   getCancelReasons,
   OTHER_TEXT_MAX,
@@ -317,9 +322,26 @@ function ReasonStep({
   );
 }
 
+// A yearly price per month: whole units, as the rest of the flow quotes, except
+// under 10 units, where dropping the cents would misstate it ($8.33, not $8).
+const perMonth = (yearlyMinor: number, currency: string): string => {
+  const unit = 10 ** currencyExponent(currency);
+  const monthly = yearlyMinor / 12;
+  return formatMinorUnits(
+    monthly >= 10 * unit
+      ? Math.round(monthly / unit) * unit
+      : Math.round(monthly),
+    currency,
+  );
+};
+
 interface DownsellStepProps {
   plans: Plan[];
   currentAmount: number;
+  /** ISO-4217 code of `currentAmount` and of every plan in `plans`. */
+  currency: string;
+  /** The formatted activation fee this subscription paid, or null. */
+  activationFee: string | null;
   selected: PlanCode | null;
   onSelect: (code: PlanCode) => void;
   /** Tapping the CTA on the already-selected card moves to the confirm step. */
@@ -338,12 +360,13 @@ interface DownsellStepProps {
 function DownsellStep({
   plans,
   currentAmount,
+  currency,
+  activationFee,
   selected,
   onSelect,
   onProceed,
 }: DownsellStepProps) {
-  const currentRupees = Math.round(currentAmount / 100);
-  const currentPerMonth = Math.round(currentRupees / 12);
+  const money = (minor: number) => formatMinorUnits(minor, currency);
 
   // The offer is the YEARLY plan and only ever the yearly plan: `currentAmount`
   // is a yearly price (both trial codes bill annually), so it is the one card
@@ -352,8 +375,7 @@ function DownsellStep({
   // twelve of those months cost MORE than the trial they would be pitched
   // against, so it carries no comparison at all.
   const offerPlan = plans.find(plan => plan.period === 'yearly') ?? null;
-  const offerRupees = offerPlan ? Math.round(offerPlan.price / 100) : 0;
-  const savingRupees = Math.max(0, currentRupees - offerRupees);
+  const saving = offerPlan ? Math.max(0, currentAmount - offerPlan.price) : 0;
 
   return (
     <View>
@@ -361,19 +383,18 @@ function DownsellStep({
         eyebrow="Before you go"
         title={
           offerPlan
-            ? `A year of Canvas for ₹${offerRupees}`
+            ? `A year of Canvas for ${money(offerPlan.price)}`
             : 'Keep Canvas for less'
         }
         subtitle={
           offerPlan
-            ? `One-time offer, only on this screen. Same catalogue, ₹${savingRupees} off your current yearly price.`
+            ? `One-time offer, only on this screen. Same catalogue, ${money(saving)} off your current yearly price.`
             : 'You picked the trial because the catalogue looked worth it. It still is — just at a price that suits you better.'
         }
       />
 
       <View style={styles.downsellList}>
         {plans.map(plan => {
-          const price = Math.round(plan.price / 100);
           const isOffer = plan.code === offerPlan?.code;
           // Emphasis follows SELECTION, not the plan itself. Annual arrives
           // pre-selected (see `defaultDownsellCode`) so it is primary on entry,
@@ -402,29 +423,31 @@ function DownsellStep({
                     <Text style={styles.compareLabel}>CURRENT</Text>
                     <View style={styles.downsellPriceRow}>
                       <Text style={styles.comparePriceWas}>
-                        ₹{currentRupees}
+                        {money(currentAmount)}
                       </Text>
                       <Text style={styles.comparePeriodWas}>/year</Text>
                     </View>
                     <Text style={styles.comparePerMonthWas}>
-                      ₹{currentPerMonth}/month
+                      {perMonth(currentAmount, currency)}/month
                     </Text>
                   </View>
 
                   <View style={styles.compareColumn}>
                     <Text style={styles.compareLabelOffer}>YOUR PRICE</Text>
                     <View style={styles.downsellPriceRow}>
-                      <Text style={styles.downsellPrice}>₹{price}</Text>
+                      <Text style={styles.downsellPrice}>
+                        {money(plan.price)}
+                      </Text>
                       <Text style={styles.downsellPeriod}>/year</Text>
                     </View>
                     <Text style={styles.downsellPerMonth}>
-                      ₹{Math.round(price / 12)}/month
+                      {perMonth(plan.price, currency)}/month
                     </Text>
                   </View>
                 </View>
               ) : (
                 <View style={styles.downsellPriceRow}>
-                  <Text style={styles.downsellPrice}>₹{price}</Text>
+                  <Text style={styles.downsellPrice}>{money(plan.price)}</Text>
                   <Text style={styles.downsellPeriod}>
                     /{plan.period === 'yearly' ? 'year' : 'month'}
                   </Text>
@@ -461,7 +484,9 @@ function DownsellStep({
 
       <Text style={styles.smallPrint}>
         Switching cancels your trial and starts the plan you pick straight away.
-        The ₹1 activation fee is not refunded.
+        {activationFee
+          ? ` The ${activationFee} activation fee is not refunded.`
+          : ''}
       </Text>
     </View>
   );
@@ -551,6 +576,10 @@ interface DownsellConfirmStepProps {
   plan: Plan;
   chargeDate: string;
   currentAmount: number;
+  /** ISO-4217 code of `currentAmount` and `plan.price`. */
+  currency: string;
+  /** The formatted activation fee this subscription paid, or null. */
+  activationFee: string | null;
 }
 
 /**
@@ -571,8 +600,9 @@ function DownsellConfirmStep({
   plan,
   chargeDate,
   currentAmount,
+  currency,
+  activationFee,
 }: DownsellConfirmStepProps) {
-  const price = Math.round(plan.price / 100);
   const period = plan.period === 'yearly' ? 'year' : 'month';
 
   return (
@@ -592,14 +622,14 @@ function DownsellConfirmStep({
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>You pay</Text>
           <Text style={[styles.summaryValue, styles.dateHighlight]}>
-            ₹{price}/{period}
+            {formatMinorUnits(plan.price, currency)}/{period}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Instead of</Text>
           <Text style={styles.summaryValue}>
-            ₹{Math.round(currentAmount / 100)}/year
+            {formatMinorUnits(currentAmount, currency)}/year
           </Text>
         </View>
       </View>
@@ -611,9 +641,12 @@ function DownsellConfirmStep({
         that outcome unsurprising rather than a support ticket.
       */}
       <Text style={styles.smallPrint}>
-        Your ₹1 trial is cancelled first, then payment opens. If you don't
-        complete the payment your trial stays cancelled, and you keep access
-        until {chargeDate}. The ₹1 activation fee is non-refundable.{' '}
+        Your trial is cancelled first, then payment opens. If you don't complete
+        the payment your trial stays cancelled, and you keep access until{' '}
+        {chargeDate}.
+        {activationFee
+          ? ` The ${activationFee} activation fee is non-refundable.`
+          : ''}{' '}
         <Text style={styles.link} onPress={openRefundPolicy}>
           Refund Policy
         </Text>
@@ -624,14 +657,18 @@ function DownsellConfirmStep({
 
 interface ConfirmStepProps {
   chargeDate: string;
-  nextChargeAmount: number;
+  /** Already formatted in the subscription's currency. */
+  nextChargeAmount: string;
   planLabel: string;
+  /** The formatted activation fee this subscription paid, or null. */
+  activationFee: string | null;
 }
 
 function ConfirmStep({
   chargeDate,
   nextChargeAmount,
   planLabel,
+  activationFee,
 }: ConfirmStepProps) {
   return (
     <View>
@@ -650,7 +687,7 @@ function ConfirmStep({
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Charge that stops</Text>
-          <Text style={styles.summaryValue}>₹{nextChargeAmount}</Text>
+          <Text style={styles.summaryValue}>{nextChargeAmount}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryRow}>
@@ -662,8 +699,11 @@ function ConfirmStep({
       </View>
 
       <Text style={styles.smallPrint}>
-        Payments already made (including the ₹1 activation fee) are
-        non-refundable.{' '}
+        Payments already made (including{' '}
+        {activationFee
+          ? `the ${activationFee} activation fee`
+          : 'any activation fee'}
+        ) are non-refundable.{' '}
         <Text style={styles.link} onPress={openRefundPolicy}>
           Refund Policy
         </Text>
@@ -826,9 +866,16 @@ export default function CancelSubscriptionFlow({
     ],
   );
 
+  const currency = subscription.currency ?? 'INR';
+  // The fee this subscription actually paid to open its trial, if any.
+  const activationFee =
+    subscription.upfrontAmount != null && subscription.upfrontAmount > 0
+      ? formatMinorUnits(subscription.upfrontAmount, currency)
+      : null;
+
   const reasons = useMemo(
-    () => getCancelReasons(subscription.planCode, isInTrial),
-    [subscription.planCode, isInTrial],
+    () => getCancelReasons(subscription.planCode, isInTrial, activationFee),
+    [subscription.planCode, isInTrial, activationFee],
   );
   const chargeDate = formatChargeDate(subscription.currentPeriodEnd);
 
@@ -865,10 +912,20 @@ export default function CancelSubscriptionFlow({
     if (!IS_RAZORPAY_RAIL || isAppleManaged) return [];
     if (!isInTrial) return [];
     const offered = plansData?.plans ?? [];
+    // A saving is only a saving within one currency.
     return DOWNSELL_CODES.map(code =>
       offered.find(p => p.code === code),
-    ).filter((p): p is Plan => !!p && p.price < subscription.amountSnapshot);
-  }, [plansData, isAppleManaged, isInTrial, subscription.amountSnapshot]);
+    ).filter(
+      (p): p is Plan =>
+        !!p && p.currency === currency && p.price < subscription.amountSnapshot,
+    );
+  }, [
+    plansData,
+    isAppleManaged,
+    isInTrial,
+    currency,
+    subscription.amountSnapshot,
+  ]);
 
   // Annual is the default pick: the higher-value save, and the only option that
   // holds the subscriber for a full year.
@@ -927,8 +984,8 @@ export default function CancelSubscriptionFlow({
   // what the mandate actually charges, and it stays right for a subscriber on a
   // price that is no longer offered.
   const nextChargeAmount = useMemo(
-    () => Math.round(subscription.amountSnapshot / 100),
-    [subscription.amountSnapshot],
+    () => formatMinorUnits(subscription.amountSnapshot, currency),
+    [subscription.amountSnapshot, currency],
   );
 
   const canContinue =
@@ -1111,7 +1168,13 @@ export default function CancelSubscriptionFlow({
           ...cancelContext,
           from_plan: subscription.planCode,
           to_plan: plan.code,
-          to_plan_price_inr: plan.price / 100,
+          to_plan_price: minorToMajorUnits(plan.price, plan.currency),
+          to_plan_currency: plan.currency,
+          // Kept for existing rupee dashboards; omitted for any other currency.
+          to_plan_price_inr:
+            plan.currency === 'INR'
+              ? minorToMajorUnits(plan.price, plan.currency)
+              : undefined,
         });
 
         // The cancel is done and the sheet has nothing left to say: everything
@@ -1659,6 +1722,8 @@ export default function CancelSubscriptionFlow({
                 <DownsellStep
                   plans={downsellPlans}
                   currentAmount={subscription.amountSnapshot}
+                  currency={currency}
+                  activationFee={activationFee}
                   selected={selectedDownsell}
                   onSelect={setPickedDownsell}
                   onProceed={() => goToStep('downsellConfirm')}
@@ -1670,6 +1735,8 @@ export default function CancelSubscriptionFlow({
                   plan={selectedDownsellPlan}
                   chargeDate={chargeDate}
                   currentAmount={subscription.amountSnapshot}
+                  currency={currency}
+                  activationFee={activationFee}
                 />
               )}
 
@@ -1684,6 +1751,7 @@ export default function CancelSubscriptionFlow({
                     chargeDate={chargeDate}
                     nextChargeAmount={nextChargeAmount}
                     planLabel={currentPlanLabel}
+                    activationFee={activationFee}
                   />
                 ))}
             </ScrollView>

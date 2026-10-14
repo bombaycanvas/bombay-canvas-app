@@ -1,4 +1,9 @@
-import { currencyExponent, formatMinorUnits } from './money';
+import {
+  currencyExponent,
+  formatMinorUnits,
+  minorToMajorUnits,
+  splitMinorUnits,
+} from './money';
 
 // The whole reason this helper exists: BillingHistoryList and the details card
 // both divided minor units by 100, which is only correct for the ~30 of Apple's
@@ -114,6 +119,90 @@ describe('formatMinorUnits', () => {
     expect(requested.every(locale => locale === undefined)).toBe(true);
   });
 
+  // en-IN spells the dollar "US$" on Android, though not under Node's ICU, so
+  // the request itself is asserted: every price asks for the narrow symbol.
+  it('asks for the narrow symbol, so a dollar reads "$" in any locale', () => {
+    const requested: (Intl.NumberFormatOptions | undefined)[] = [];
+    Intl.NumberFormat = function RecordingNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      requested.push(options);
+      return new RealNumberFormat(locales ?? 'en-US', options);
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      formatMinorUnits(1999, 'USD');
+    } finally {
+      pinLocale('en-US');
+    }
+
+    expect(
+      requested.some(options => options?.currencyDisplay === 'narrowSymbol'),
+    ).toBe(true);
+  });
+
+  // An engine without narrowSymbol must still print a price, not the
+  // "USD 19.99" last resort.
+  it('falls back to the default symbol when narrowSymbol is rejected', () => {
+    Intl.NumberFormat = function NoNarrowSymbolNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      if (options?.currencyDisplay === 'narrowSymbol') {
+        throw new RangeError('narrowSymbol unsupported');
+      }
+      return new RealNumberFormat(locales ?? 'en-US', options);
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      expect(formatMinorUnits(1999, 'USD')).toBe('$19.99');
+    } finally {
+      pinLocale('en-US');
+    }
+  });
+
+  // What an en-IN Android device actually does: Hermes ignores narrowSymbol and
+  // prints the locale's "US$". The dollar must still read "$".
+  describe('on an engine that ignores narrowSymbol, as Hermes does', () => {
+    beforeEach(() => {
+      Intl.NumberFormat = function HermesLikeNumberFormat(
+        locales?: Intl.LocalesArgument,
+        options?: Intl.NumberFormatOptions,
+      ) {
+        const real = new RealNumberFormat(locales ?? 'en-US', options);
+        const usd = options?.currency === 'USD';
+        return {
+          format: (value: number) =>
+            usd ? real.format(value).replace('$', 'US$') : real.format(value),
+          formatToParts: (value: number) =>
+            real
+              .formatToParts(value)
+              .map(part =>
+                usd && part.type === 'currency'
+                  ? { ...part, value: 'US$' }
+                  : part,
+              ),
+          resolvedOptions: () => real.resolvedOptions(),
+        };
+      } as unknown as typeof Intl.NumberFormat;
+    });
+
+    afterEach(() => pinLocale('en-US'));
+
+    it('still writes the dollar as "$"', () => {
+      expect(formatMinorUnits(1999, 'USD')).toBe('$19.99');
+      expect(splitMinorUnits(1999, 'USD')).toEqual({
+        symbol: '$',
+        amount: '19.99',
+      });
+    });
+
+    it('leaves the rupee alone', () => {
+      expect(formatMinorUnits(49900, 'INR')).toBe('₹499');
+    });
+  });
+
   // Intl currency data is not guaranteed on every engine build we ship to, and
   // a paywall that throws is worse than one that reads "USD 5.99".
   describe('when the engine has no usable Intl', () => {
@@ -142,5 +231,48 @@ describe('formatMinorUnits', () => {
       expect(() => formatMinorUnits(0, 'JPY')).not.toThrow();
       expect(currencyExponent('JPY')).toBe(2);
     });
+  });
+});
+
+describe('minorToMajorUnits', () => {
+  it('divides by the currency’s own exponent, not by a hundred', () => {
+    expect(minorToMajorUnits(49900, 'INR')).toBe(499);
+    expect(minorToMajorUnits(1999, 'USD')).toBe(19.99);
+    expect(minorToMajorUnits(1200, 'JPY')).toBe(1200);
+  });
+});
+
+describe('splitMinorUnits', () => {
+  it('splits rupees the way the Razorpay cards draw them', () => {
+    expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: '₹', amount: '499' });
+  });
+
+  it('keeps the cents on a dollar price', () => {
+    expect(splitMinorUnits(1999, 'USD')).toEqual({ symbol: '$', amount: '19.99' });
+  });
+
+  // An engine without formatToParts still formats; the card then shows the
+  // whole string in one style rather than a price with no symbol.
+  it('hands back the whole string when the symbol cannot be named', () => {
+    const previous = Intl.NumberFormat;
+    Intl.NumberFormat = function NoPartsNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      const real = new previous(locales, options);
+      return {
+        format: (value: number) => real.format(value),
+        resolvedOptions: () => real.resolvedOptions(),
+        formatToParts: () => {
+          throw new Error('formatToParts unsupported');
+        },
+      };
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: null, amount: '₹499' });
+    } finally {
+      Intl.NumberFormat = previous;
+    }
   });
 });

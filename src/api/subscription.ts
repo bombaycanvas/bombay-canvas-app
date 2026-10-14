@@ -7,6 +7,7 @@ import {
 import { api, ApiError } from '../utils/api';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../store/authStore';
+import { useStoreCountry } from '../hooks/useStoreCountry';
 
 // Server-side conflicts that all mean the same thing to the client: our cached
 // view of the account is behind the server's. The attempt is genuinely refused,
@@ -98,19 +99,22 @@ export interface Subscription {
     | 'COMPLETED'
     | 'EXPIRED';
   /**
-   * The recurring price frozen when this subscription was created, in PAISE —
-   * always INR, because it is the accounting record of the plan that was sold.
-   * A subscriber keeps the price they signed up at even after the plan is
-   * re-priced, so never re-derive it from a plan lookup.
+   * The recurring price frozen when this subscription was created, in minor
+   * units of `currency`. A subscriber keeps the price they signed up at even
+   * after the plan is re-priced, so never re-derive it from a plan lookup.
    *
    * It is NOT what an App Store buyer is charged. Apple prices every storefront
-   * itself, so a Californian on a $59.99 subscription still has 49900 here.
+   * itself, so a Californian on a $59.99 subscription still has 49900 INR here.
    * Anything user-facing must go through `displayAmount` first.
    */
   amountSnapshot: number;
+  /** ISO-4217 code of `amountSnapshot`. Absent on a server that predates it → INR. */
+  currency?: string;
+  /** Razorpay pricing region the subscription was sold in ("IN", "US"). */
+  pricingRegion?: string;
   /**
    * Minor units of `displayCurrency` — what the storefront actually charges.
-   * Apple rail only; null on Razorpay, where `amountSnapshot` + INR is correct,
+   * Apple rail only; null on Razorpay, where `amountSnapshot` + `currency` is correct,
    * and null on a server that predates the field.
    */
   displayAmount?: number | null;
@@ -151,7 +155,7 @@ export interface SubscriptionPlansResponse {
   plans: Plan[];
   trialEligible: boolean;
   /**
-   * PAISE the trial converts to — the post-trial charge — quoted whether or not
+   * Minor units of the plans' currency the trial converts to — the post-trial charge — quoted whether or not
    * this caller may still start one.
    *
    * It is the only copy of that price once the trial is consumed, because the
@@ -167,6 +171,8 @@ export interface SubscriptionPlansResponse {
   // null while anonymous. Apple needs a real UUID here to tie a purchase back to
   // this account, so the purchase path must gate on it rather than assume one.
   appleAppAccountToken?: string | null;
+  /** Region the plans were quoted in ("IN", "US"). Null on an older server. */
+  pricingRegion?: string | null;
 }
 
 export const getSubscriptionPlans =
@@ -184,6 +190,7 @@ export const getSubscriptionPlans =
         trialEligible: response?.data?.trialEligible ?? false,
         trialConversionAmount: response?.data?.trialConversionAmount ?? null,
         appleAppAccountToken: response?.data?.appleAppAccountToken ?? null,
+        pricingRegion: response?.data?.pricingRegion ?? null,
       };
     } catch (error) {
       console.error('Fetch Plans Error:', error);
@@ -191,7 +198,22 @@ export const getSubscriptionPlans =
     }
   };
 
-export const createSubscription = async (planCode: PlanCode) => {
+export interface CreateSubscriptionResponse {
+  subscriptionId: string;
+  razorpaySubscriptionId: string;
+  shortUrl: string | null;
+  status: Subscription['status'];
+  /** Minor units of `currency`. */
+  amount: number;
+  /** Absent on a server that predates regional pricing → INR. */
+  currency?: string;
+  razorpayKeyId: string;
+  checkoutDescription?: string;
+}
+
+export const createSubscription = async (
+  planCode: PlanCode,
+): Promise<CreateSubscriptionResponse> => {
   try {
     const response = await api('/api/monetize/subscription/create', {
       method: 'POST',
@@ -287,8 +309,11 @@ export const cancelSubscription = async (
 export const useSubscriptionPlans = () => {
   const user = useAuthStore(state => state.user);
   const token = useAuthStore(state => state.token);
+  // Part of the key so a store country that arrives or changes after the first
+  // fetch re-quotes in the right currency.
+  const storeCountry = useStoreCountry();
   return useQuery({
-    queryKey: ['subscriptionPlans', user?.id || 'anonymous'],
+    queryKey: ['subscriptionPlans', user?.id || 'anonymous', storeCountry],
     queryFn: getSubscriptionPlans,
     enabled: !token || !!user?.id, // don't run on the ambiguous token-but-no-user window
     staleTime: 0,

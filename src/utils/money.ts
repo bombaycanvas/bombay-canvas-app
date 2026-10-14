@@ -28,6 +28,56 @@ export const currencyExponent = (currency: string): number => {
   }
 };
 
+// "$", not "US$": the symbol comes from the device locale, and en-IN spells the
+// dollar "US$". A user only ever sees their own currency, so the narrow symbol
+// is unambiguous to them — and it matches the backend's plan copy. An engine
+// that rejects narrowSymbol gets the locale's default symbol instead.
+export const currencyFormatter = (
+  currency: string,
+  options: Intl.NumberFormatOptions = {},
+): Intl.NumberFormat => {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'narrowSymbol',
+      ...options,
+    });
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      ...options,
+    });
+  }
+};
+
+// Hermes ignores currencyDisplay: 'narrowSymbol', so an en-IN Android device
+// still spells the dollar "US$". The currencies we price in get their narrow
+// symbol here, replacing whatever the locale wrote in its place.
+const NARROW_SYMBOLS: Record<string, { symbol: string; localized: RegExp }> = {
+  USD: { symbol: '$', localized: /[A-Za-z.]*\s?\$/ },
+};
+
+/** Intl's formatted price with the currency's narrow symbol enforced. */
+export const formatCurrencyAmount = (
+  major: number,
+  currency: string,
+  options: Intl.NumberFormatOptions = {},
+): string => {
+  const formatted = currencyFormatter(currency, options).format(major);
+  const narrow = NARROW_SYMBOLS[currency];
+  return narrow
+    ? formatted.replace(narrow.localized, narrow.symbol)
+    : formatted;
+};
+
+/** Minor units as major units: 49900 INR -> 499, 1999 USD -> 19.99, 1200 JPY -> 1200. */
+export const minorToMajorUnits = (
+  minorUnits: number,
+  currency: string,
+): number => minorUnits / 10 ** currencyExponent(currency);
+
 /**
  * Render `minorUnits` of `currency` for display — 49900 INR -> "₹499",
  * 599 USD -> "$5.99", 1200 JPY -> "¥1,200". Falls back to "USD 5.99" (code,
@@ -52,16 +102,40 @@ export const formatMinorUnits = (
   // every place it has: 599 USD stays "$5.99", 5990 KWD stays "KD 5.990".
   const isWholeUnits = minorUnits % unit === 0;
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
+    return formatCurrencyAmount(
+      major,
       currency,
       // Both bounds, never one: the minimum defaults to the currency's exponent
       // and Intl throws when it exceeds the maximum.
-      ...(isWholeUnits
-        ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
-        : {}),
-    }).format(major);
+      isWholeUnits ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {},
+    );
   } catch {
     return `${currency} ${major}`;
   }
+};
+
+/**
+ * `formatMinorUnits` split for cards that draw the symbol apart from the figure:
+ * 49900 INR -> { symbol: "₹", amount: "499" }, 1999 USD -> { symbol: "$",
+ * amount: "19.99" }. When the engine cannot name the symbol, `symbol` is null
+ * and `amount` carries the whole formatted string, so the price stays correct.
+ */
+export const splitMinorUnits = (
+  minorUnits: number,
+  currency: string,
+): { symbol: string | null; amount: string } => {
+  const formatted = formatMinorUnits(minorUnits, currency);
+  try {
+    const symbol =
+      NARROW_SYMBOLS[currency]?.symbol ??
+      currencyFormatter(currency)
+        .formatToParts(0)
+        .find(part => part.type === 'currency')?.value;
+    if (symbol && formatted.includes(symbol)) {
+      return { symbol, amount: formatted.replace(symbol, '').trim() };
+    }
+  } catch {
+    // Fall through to the unsplit string.
+  }
+  return { symbol: null, amount: formatted };
 };
