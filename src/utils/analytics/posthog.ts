@@ -1,13 +1,14 @@
 import PostHog from 'posthog-react-native';
 import DeviceInfo from 'react-native-device-info';
-import { POSTHOG_API_KEY, POSTHOG_API_HOST } from '@env';
 import { redactLogRecord } from './logRedaction';
 import { EVENTS_ENABLED, LOGS_ENABLED, SESSION_REPLAY_ENABLED } from './flags';
 
 // PostHog (product analytics) provider.
 
-const apiKey = (POSTHOG_API_KEY || '').trim();
-const host = (POSTHOG_API_HOST || '').trim() || 'https://us.i.posthog.com';
+const apiKey = (process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '').trim();
+const host =
+  (process.env.EXPO_PUBLIC_POSTHOG_API_HOST || '').trim() ||
+  'https://us.i.posthog.com';
 
 export const posthog = new PostHog(apiKey, {
   host,

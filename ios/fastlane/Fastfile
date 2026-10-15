@@ -40,14 +40,14 @@ def set_build_number(build)
   project.save
 end
 
-# react-native-dotenv inlines .env at compile time, so a stale Metro cache or an
+# Expo inlines EXPO_PUBLIC_* from .env at compile time, so a stale Metro cache or an
 # uncommented dev URL ships silently. Fail the lane instead.
 DEV_BACKEND = /ngrok|localhost|127\.0\.0\.1|192\.168\.|10\.0\.2\.2|:5050/
 
 def expected_backend_url
   env = File.read(ENV_FILE)
-  line = env.lines.find { |l| l =~ /^\s*NEXT_PUBLIC_BASE_URL\s*=/ }
-  UI.user_error!("No active NEXT_PUBLIC_BASE_URL in .env") if line.nil?
+  line = env.lines.find { |l| l =~ /^\s*EXPO_PUBLIC_BASE_URL\s*=/ }
+  UI.user_error!("No active EXPO_PUBLIC_BASE_URL in .env") if line.nil?
   line.split("=", 2).last.strip.delete('"').delete("'")
 end
 

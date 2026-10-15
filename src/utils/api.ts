@@ -1,4 +1,3 @@
-import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { Platform } from 'react-native';
@@ -45,7 +44,7 @@ const removeToken = async (key: string) => {
 };
 
 export const getApiUrl = (endpoint: string): string => {
-  let apiUrl = NEXT_PUBLIC_BASE_URL || '';
+  let apiUrl = process.env.EXPO_PUBLIC_BASE_URL || '';
   if (Platform.OS === 'ios' && apiUrl.includes('10.0.2.2')) {
     apiUrl = apiUrl.replace('10.0.2.2', 'localhost');
   }

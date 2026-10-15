@@ -1,4 +1,29 @@
 {
   "name": "bombaycanvas",
-  "displayName": "bombaycanvas"
+  "displayName": "bombaycanvas",
+  "expo": {
+    "name": "Canvas",
+    "slug": "bombay-canvas",
+    "owner": "tech.bombaycanvas",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4b2cc79d-0217-48e2-ba20-0884a5754df9"
+    },
+    "ios": {
+      "bundleIdentifier": "com.bombaycanvas.app1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.bombaycanvas"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4b2cc79d-0217-48e2-ba20-0884a5754df9"
+      }
+    }
+  }
 }

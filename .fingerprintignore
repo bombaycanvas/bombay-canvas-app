@@ -1,0 +1,10 @@
+# Paths excluded from the expo-updates runtime fingerprint. Anything here must
+# not affect native compatibility, and must differ between machines — otherwise
+# the runtime version computed locally (eas update) won't match EAS Build.
+
+# react-native-video writes its Gradle output here instead of build/.
+node_modules/react-native-video/android/buildOutput_*/**/*
+
+# Signing keys are gitignored, so EAS never receives them.
+android/**/*.keystore
+android/**/*.jks
