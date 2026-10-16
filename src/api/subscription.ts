@@ -7,7 +7,10 @@ import {
 import { api, ApiError } from '../utils/api';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../store/authStore';
-import { useStoreCountry } from '../hooks/useStoreCountry';
+import {
+  useStoreCountry,
+  useStoreCountrySettled,
+} from '../hooks/useStoreCountry';
 
 // Server-side conflicts that all mean the same thing to the client: our cached
 // view of the account is behind the server's. The attempt is genuinely refused,
@@ -19,6 +22,9 @@ const STALE_STATE_ERROR_CODES = [
   'TRIAL_ALREADY_ACTIVATED',
   'TRIAL_ACTIVATION_IN_PROGRESS',
   'TRIAL_NOT_ELIGIBLE',
+  // Raised by the Razorpay rail, not the server: /create priced the plan in a
+  // different currency than the card the user saw. Refetched plans fix it.
+  'PRICES_CHANGED',
 ];
 
 /** True when the caller should refresh subscription state rather than offer a retry. */
@@ -312,10 +318,14 @@ export const useSubscriptionPlans = () => {
   // Part of the key so a store country that arrives or changes after the first
   // fetch re-quotes in the right currency.
   const storeCountry = useStoreCountry();
+  // Wait (briefly) for the store country, so a fresh install's first quote
+  // isn't IP-priced and then corrected under the user's finger.
+  const storeCountrySettled = useStoreCountrySettled();
   return useQuery({
     queryKey: ['subscriptionPlans', user?.id || 'anonymous', storeCountry],
     queryFn: getSubscriptionPlans,
-    enabled: !token || !!user?.id, // don't run on the ambiguous token-but-no-user window
+    // Don't run on the ambiguous token-but-no-user window.
+    enabled: (!token || !!user?.id) && storeCountrySettled,
     staleTime: 0,
     refetchOnMount: true,
   });

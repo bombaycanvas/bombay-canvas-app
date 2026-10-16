@@ -103,6 +103,7 @@ export const useSubscriptionCheckout = () => {
           email: user?.email,
           mobile: user?.mobile || user?.phone || user?.contact,
         },
+        expectedCurrency: plan?.currency,
       });
 
       // Nothing was charged and nothing is coming: don't report a conversion and

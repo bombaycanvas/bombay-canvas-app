@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RazorpayCheckout from 'react-native-razorpay';
 import Toast from 'react-native-toast-message';
 import { log } from '../utils/analytics/log';
+import { formatIndianMobile } from '../services/payments/razorpayPrefill';
 
 export const imgUrl = (
   path: string | undefined,
@@ -361,12 +362,6 @@ export const verifyRazorpayOrder = async (payload: any) => {
 export const openRazorpayCheckout = async (orderData: any) => {
   const user = useAuthStore.getState().user;
 
-  const formatIndianMobile = (mobile?: string) => {
-    if (!mobile) return undefined;
-    const digitsOnly = mobile.replace(/\D/g, '');
-    return digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
-  };
-
   const mobile = formatIndianMobile(
     user?.mobile || user?.phone || user?.contact,
   );
@@ -376,9 +371,19 @@ export const openRazorpayCheckout = async (orderData: any) => {
   const orderId = data?.orderId || data?.id;
   const amount = data?.finalAmount ?? data?.amount;
   const currency = data?.currency || 'INR';
-  // const key = data?.key || data?.razorpayKey;
-  const key = data?.key || data?.razorpayKey || 'rzp_test_123';
+  const key = data?.key || data?.razorpayKey;
   const purchaseId = data?.purchaseId;
+
+  // Never a placeholder key: Razorpay would open and then fail confusingly.
+  if (!key) {
+    log.error('Razorpay key missing from series order', { order_id: orderId });
+    Toast.show({
+      type: 'error',
+      text1: 'Payment Error',
+      text2: 'Payments are unavailable right now. Please try again later.',
+    });
+    throw new Error('Razorpay key missing from order');
+  }
 
   if (!amount || !orderId) {
     Toast.show({

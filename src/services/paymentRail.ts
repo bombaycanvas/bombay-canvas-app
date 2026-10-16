@@ -26,6 +26,11 @@ export interface StartPurchaseParams {
   profile?: PurchaseProfile | null;
   /** Apple's per-user UUID from GET /plans. Ignored by Razorpay. */
   appleAppAccountToken?: string | null;
+  /**
+   * The currency of the card the user tapped. Razorpay refuses to open a
+   * checkout in any other one; Apple prices in the store and ignores it.
+   */
+  expectedCurrency?: string | null;
 }
 
 // `dedupKey` is the id the backend will report the same conversion under, so the

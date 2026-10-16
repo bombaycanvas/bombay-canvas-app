@@ -6,6 +6,7 @@ import {
   verifySubscription,
 } from '../../api/subscription';
 import { IS_RAZORPAY_RAIL } from '../../utils/paymentRail';
+import type { ApiError } from '../../utils/api';
 import { isCheckoutDismissal } from './razorpayError';
 import { formatIndianMobile } from './razorpayPrefill';
 import type {
@@ -90,6 +91,7 @@ const readDedupKey = (
 const startPurchase = async ({
   planCode,
   profile,
+  expectedCurrency,
 }: StartPurchaseParams): Promise<PurchaseOutcome> => {
   requireRazorpayRail();
 
@@ -98,10 +100,30 @@ const startPurchase = async ({
     throw new Error('Failed to create subscription on server');
   }
 
+  // The region is resolved again at create; if it moved since the cards were
+  // fetched (the store country arrived, a VPN or network switch), don't open a
+  // sheet in a currency the user wasn't shown. The unpaid subscription expires
+  // on its own and doesn't block a retry.
+  if (expectedCurrency && (createRes.currency ?? 'INR') !== expectedCurrency) {
+    const err: ApiError = new Error(
+      'Prices have been updated for your region. Please review and try again.',
+    );
+    err.code = 'PRICES_CHANGED';
+    throw err;
+  }
+
   const { razorpaySubscriptionId, razorpayKeyId } = createRes;
 
+  // Never a placeholder key: Razorpay would open and then fail confusingly.
+  if (!razorpayKeyId) {
+    log.error('Razorpay key missing from /create', { plan_code: planCode });
+    throw new Error(
+      'Payments are unavailable right now. Please try again later.',
+    );
+  }
+
   const paymentData = await openCheckout({
-    key: razorpayKeyId || 'rzp_test_123',
+    key: razorpayKeyId,
     subscription_id: razorpaySubscriptionId,
     name: 'Bombay Canvas',
     description: `${PLAN_DESCRIPTIONS[planCode]} Premium Subscription`,

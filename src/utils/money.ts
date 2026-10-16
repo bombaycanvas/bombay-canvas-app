@@ -28,10 +28,12 @@ export const currencyExponent = (currency: string): number => {
   }
 };
 
-// "$", not "US$": the symbol comes from the device locale, and en-IN spells the
-// dollar "US$". A user only ever sees their own currency, so the narrow symbol
-// is unambiguous to them — and it matches the backend's plan copy. An engine
-// that rejects narrowSymbol gets the locale's default symbol instead.
+/**
+ * A currency formatter in the device locale, with Latin digits wherever the
+ * engine allows: a Marathi or Bengali device would otherwise print "₹४९९"
+ * beside the backend's "₹499" copy. An engine that rejects the option gets the
+ * device default rather than the bare "INR 499" last resort.
+ */
 export const currencyFormatter = (
   currency: string,
   options: Intl.NumberFormatOptions = {},
@@ -40,10 +42,11 @@ export const currencyFormatter = (
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
-      currencyDisplay: 'narrowSymbol',
+      numberingSystem: 'latn',
       ...options,
     });
   } catch {
+    // No try: a genuinely bad currency code throws to the caller's fallback.
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
@@ -52,24 +55,50 @@ export const currencyFormatter = (
   }
 };
 
-// Hermes ignores currencyDisplay: 'narrowSymbol', so an en-IN Android device
-// still spells the dollar "US$". The currencies we price in get their narrow
-// symbol here, replacing whatever the locale wrote in its place.
-const NARROW_SYMBOLS: Record<string, { symbol: string; localized: RegExp }> = {
-  USD: { symbol: '$', localized: /[A-Za-z.]*\s?\$/ },
+// A dollar is only a bare "$" to someone whose store account is in the US. The
+// locale's own symbol is kept everywhere else, because it is what disambiguates
+// it: en-IN and en-CA write "US$19.99", fr-CA "19,99 $ US", so a Canadian or
+// Australian can't read the price as their own dollar. Unknown country: the
+// locale decides (en-US already writes "$").
+const HOME_SYMBOLS: Record<string, { countries: string[]; symbol: string }> = {
+  USD: { countries: ['US', 'USA'], symbol: '$' },
 };
 
-/** Intl's formatted price with the currency's narrow symbol enforced. */
+let displayCountry: string | null = null;
+
+/** The store-account country prices are shown to. Fed by services/storeCountry. */
+export const setDisplayCountry = (country: string | null): void => {
+  displayCountry = country?.trim().toUpperCase() || null;
+};
+
+const homeSymbol = (currency: string): string | null => {
+  const home = HOME_SYMBOLS[currency];
+  return home && displayCountry && home.countries.includes(displayCountry)
+    ? home.symbol
+    : null;
+};
+
+/** Intl's formatted price, with a currency's bare local symbol for a buyer in its home country. */
 export const formatCurrencyAmount = (
   major: number,
   currency: string,
   options: Intl.NumberFormatOptions = {},
 ): string => {
-  const formatted = currencyFormatter(currency, options).format(major);
-  const narrow = NARROW_SYMBOLS[currency];
-  return narrow
-    ? formatted.replace(narrow.localized, narrow.symbol)
-    : formatted;
+  const formatter = currencyFormatter(currency, options);
+  const symbol = homeSymbol(currency);
+  if (symbol) {
+    // Only the symbol part is swapped, so the locale's own number format and
+    // spacing survive.
+    try {
+      return formatter
+        .formatToParts(major)
+        .map(part => (part.type === 'currency' ? symbol : part.value))
+        .join('');
+    } catch {
+      // An engine without formatToParts keeps the locale's symbol.
+    }
+  }
+  return formatter.format(major);
 };
 
 /** Minor units as major units: 49900 INR -> 499, 1999 USD -> 19.99, 1200 JPY -> 1200. */
@@ -127,7 +156,7 @@ export const splitMinorUnits = (
   const formatted = formatMinorUnits(minorUnits, currency);
   try {
     const symbol =
-      NARROW_SYMBOLS[currency]?.symbol ??
+      homeSymbol(currency) ??
       currencyFormatter(currency)
         .formatToParts(0)
         .find(part => part.type === 'currency')?.value;

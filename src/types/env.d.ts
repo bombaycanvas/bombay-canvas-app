@@ -11,4 +11,6 @@ declare module '@env' {
   export const POSTHOG_SESSION_REPLAY_ENABLED: string;
   export const POSTHOG_ERRORS_ENABLED: string;
   export const DEV_STORE_COUNTRY: string | undefined;
+  /** The app's numeric App Store id, for "update the app" links on iOS. */
+  export const APPLE_APP_STORE_ID: string | undefined;
 }

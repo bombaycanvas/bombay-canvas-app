@@ -2,6 +2,7 @@ import {
   currencyExponent,
   formatMinorUnits,
   minorToMajorUnits,
+  setDisplayCountry,
   splitMinorUnits,
 } from './money';
 
@@ -119,38 +120,15 @@ describe('formatMinorUnits', () => {
     expect(requested.every(locale => locale === undefined)).toBe(true);
   });
 
-  // en-IN spells the dollar "US$" on Android, though not under Node's ICU, so
-  // the request itself is asserted: every price asks for the narrow symbol.
-  it('asks for the narrow symbol, so a dollar reads "$" in any locale', () => {
-    const requested: (Intl.NumberFormatOptions | undefined)[] = [];
-    Intl.NumberFormat = function RecordingNumberFormat(
-      locales?: Intl.LocalesArgument,
-      options?: Intl.NumberFormatOptions,
-    ) {
-      requested.push(options);
-      return new RealNumberFormat(locales ?? 'en-US', options);
-    } as unknown as typeof Intl.NumberFormat;
-
-    try {
-      formatMinorUnits(1999, 'USD');
-    } finally {
-      pinLocale('en-US');
-    }
-
-    expect(
-      requested.some(options => options?.currencyDisplay === 'narrowSymbol'),
-    ).toBe(true);
-  });
-
-  // An engine without narrowSymbol must still print a price, not the
+  // An engine without numberingSystem must still print a price, not the
   // "USD 19.99" last resort.
-  it('falls back to the default symbol when narrowSymbol is rejected', () => {
-    Intl.NumberFormat = function NoNarrowSymbolNumberFormat(
+  it('falls back to the device default when Latin digits are rejected', () => {
+    Intl.NumberFormat = function NoNumberingSystemNumberFormat(
       locales?: Intl.LocalesArgument,
       options?: Intl.NumberFormatOptions,
     ) {
-      if (options?.currencyDisplay === 'narrowSymbol') {
-        throw new RangeError('narrowSymbol unsupported');
+      if (options?.numberingSystem) {
+        throw new RangeError('numberingSystem unsupported');
       }
       return new RealNumberFormat(locales ?? 'en-US', options);
     } as unknown as typeof Intl.NumberFormat;
@@ -162,11 +140,13 @@ describe('formatMinorUnits', () => {
     }
   });
 
-  // What an en-IN Android device actually does: Hermes ignores narrowSymbol and
-  // prints the locale's "US$". The dollar must still read "$".
-  describe('on an engine that ignores narrowSymbol, as Hermes does', () => {
+  // A dollar is a bare "$" only to a US store account. Everyone else priced in
+  // USD (Canada, Australia, …) keeps the locale's "US$", so the price can't be
+  // read as their own dollar. Simulated as an en-IN Android device, whose
+  // locale writes "US$" (Node's en-US would hide the difference).
+  describe('a dollar price on a device whose locale writes "US$"', () => {
     beforeEach(() => {
-      Intl.NumberFormat = function HermesLikeNumberFormat(
+      Intl.NumberFormat = function EnInLikeNumberFormat(
         locales?: Intl.LocalesArgument,
         options?: Intl.NumberFormatOptions,
       ) {
@@ -188,9 +168,14 @@ describe('formatMinorUnits', () => {
       } as unknown as typeof Intl.NumberFormat;
     });
 
-    afterEach(() => pinLocale('en-US'));
+    afterEach(() => {
+      setDisplayCountry(null);
+      pinLocale('en-US');
+    });
 
-    it('still writes the dollar as "$"', () => {
+    it('writes "$" for a US store account', () => {
+      setDisplayCountry('US');
+
       expect(formatMinorUnits(1999, 'USD')).toBe('$19.99');
       expect(splitMinorUnits(1999, 'USD')).toEqual({
         symbol: '$',
@@ -198,9 +183,39 @@ describe('formatMinorUnits', () => {
       });
     });
 
+    it('keeps "US$" for any other store account', () => {
+      setDisplayCountry('AU');
+
+      expect(formatMinorUnits(1999, 'USD')).toBe('US$19.99');
+      expect(splitMinorUnits(1999, 'USD')).toEqual({
+        symbol: 'US$',
+        amount: '19.99',
+      });
+    });
+
+    it('lets the locale decide when the country is unknown', () => {
+      expect(formatMinorUnits(1999, 'USD')).toBe('US$19.99');
+    });
+
     it('leaves the rupee alone', () => {
+      setDisplayCountry('US');
+
       expect(formatMinorUnits(49900, 'INR')).toBe('₹499');
     });
+  });
+
+  // Only the symbol is swapped, so a locale that writes it after the number
+  // keeps its own shape.
+  it('keeps the fr-CA shape, with or without the US swap', () => {
+    pinLocale('fr-CA');
+    try {
+      expect(formatMinorUnits(1999, 'USD')).toMatch(/^19,99\s\$\sUS$/);
+      setDisplayCountry('US');
+      expect(formatMinorUnits(1999, 'USD')).toMatch(/^19,99\s\$$/);
+    } finally {
+      setDisplayCountry(null);
+      pinLocale('en-US');
+    }
   });
 
   // Intl currency data is not guaranteed on every engine build we ship to, and
@@ -274,5 +289,18 @@ describe('splitMinorUnits', () => {
     } finally {
       Intl.NumberFormat = previous;
     }
+  });
+});
+
+// Marathi and Bengali format numbers in their own scripts by default. Prices
+// must stay in Latin digits, matching the backend's plan copy beside them.
+describe('in a locale with its own digits', () => {
+  afterEach(() => pinLocale('en-US'));
+
+  it.each(['mr-IN', 'bn-IN'])('writes %s prices in Latin digits', locale => {
+    pinLocale(locale);
+
+    expect(formatMinorUnits(49900, 'INR')).toBe('₹499');
+    expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: '₹', amount: '499' });
   });
 });

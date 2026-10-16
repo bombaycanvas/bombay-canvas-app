@@ -298,6 +298,31 @@ describe('buildPaywallOffers on the Razorpay rail', () => {
     expect(offers.trial?.footnote).toContain('then $99.99/year');
     expect(offers.trial?.footnote).not.toContain('₹');
   });
+
+  // Some engines throw when only a maximum is set below the currency's own
+  // exponent. The per-month line must not silently vanish on them.
+  it('keeps the per-month line on an engine strict about fraction bounds', () => {
+    const pinned = Intl.NumberFormat;
+    Intl.NumberFormat = function StrictNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      if (
+        options?.maximumFractionDigits !== undefined &&
+        options?.minimumFractionDigits === undefined
+      ) {
+        throw new RangeError('minimumFractionDigits exceeds maximum');
+      }
+      return new pinned(locales, options);
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      const offers = buildOffersOn('android', { plans: PLANS });
+      expect(offers.annualPerMonthLabel).toBe('Only ₹42/month');
+    } finally {
+      Intl.NumberFormat = pinned;
+    }
+  });
 });
 
 // The annual card's job on a trial paywall is to undercut the trial sitting

@@ -203,9 +203,13 @@ const readSavingsPercent = (monthly: number, annual: number): number | null =>
 // units therefore keeps its decimals — except an exact zero, where there is no
 // figure left to lose and "₹0.00" is only noise on the trial card.
 const formatCurrency = (amount: number, currency: string): string | null => {
+  // Both bounds, never one: the minimum defaults to the currency's exponent,
+  // and some engines throw when it exceeds the maximum.
+  const digits = amount > 0 && amount < 10 ? 2 : 0;
   try {
     return formatCurrencyAmount(amount, currency, {
-      maximumFractionDigits: amount > 0 && amount < 10 ? 2 : 0,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
     });
   } catch {
     return null;
