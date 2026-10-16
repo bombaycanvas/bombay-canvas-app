@@ -28,6 +28,7 @@ import RecommendationScreen from '../screens/RecommendationScreen';
 import ReviewsScreen from '../screens/ReviewsScreen';
 import { linking } from './linking';
 import { routeDeferredDeepLink } from '../utils/deferredDeepLink';
+import { needsLanguageStep } from '../utils/postAuthRoute';
 
 export type MainTabsParamList = {
   Home: undefined;
@@ -115,14 +116,10 @@ const MainTabs = () => {
 };
 
 const AppStack = () => {
-  const { token, isLoading, hasSkipped, preferredLanguages, user } =
-    useAuthStore();
+  const authState = useAuthStore();
+  const { token, isLoading, hasSkipped } = authState;
 
-  // Signed in: the server timestamp decides, matching postAuthRoute. Guests have
-  // no server record, so their device list is the only signal.
-  const needsLanguageStep = token
-    ? user?.languageOnboardedAt == null
-    : hasSkipped && preferredLanguages === null;
+  const needsLanguage = (!!token || hasSkipped) && needsLanguageStep(authState);
 
   if (isLoading) {
     return (
@@ -142,7 +139,7 @@ const AppStack = () => {
   return (
     <Stack.Navigator
       initialRouteName={
-        needsLanguageStep
+        needsLanguage
           ? 'LanguagePreference'
           : token
             ? 'MainTabs'
