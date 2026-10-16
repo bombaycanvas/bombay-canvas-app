@@ -1,0 +1,9 @@
+# LF in every checkout, on every OS. The expo-updates runtime version is a
+# fingerprint of these files, so Windows (CRLF) and macOS/EAS (LF) checkouts
+# would otherwise produce different runtime versions and OTA updates would not
+# match builds. gradlew must be LF to run on macOS/Linux anyway.
+* text=auto eol=lf
+
+# Windows-only scripts.
+*.bat text eol=crlf
+*.cmd text eol=crlf
