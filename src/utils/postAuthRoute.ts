@@ -1,15 +1,22 @@
 import { useAuthStore } from '../store/authStore';
 
-// Asked until at least one language is picked; a skip doesn't count. Signed-in
-// users' lists are synced from the server before any post-auth routing.
+// A guest's [] is an explicit skip, while null means they have never answered.
+// After sign-in, the account's completion stamp is authoritative; guest answers
+// are synced to accounts that have never been asked before post-auth routing.
 export const needsLanguageStep = ({
+  token,
+  user,
   preferredLanguages,
-}: Pick<ReturnType<typeof useAuthStore.getState>, 'preferredLanguages'>) =>
-  !preferredLanguages?.length;
+}: Pick<
+  ReturnType<typeof useAuthStore.getState>,
+  'token' | 'user' | 'preferredLanguages'
+>) => (token ? user?.languageOnboardedAt == null : preferredLanguages === null);
 
 /**
  * Where to land after a successful auth or a guest skip. Read at call time (not
  * via a hook) so the reset sites in api/auth.ts and the screens stay one-liners.
  */
 export const postAuthRoute = (): 'MainTabs' | 'LanguagePreference' =>
-  needsLanguageStep(useAuthStore.getState()) ? 'LanguagePreference' : 'MainTabs';
+  needsLanguageStep(useAuthStore.getState())
+    ? 'LanguagePreference'
+    : 'MainTabs';

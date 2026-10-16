@@ -87,7 +87,13 @@ const OnboardingScreen = () => {
   };
 
   return (
-    <LinearGradient colors={['#1a1a1a', '#000']} style={styles.container}>
+    <View style={styles.container}>
+      {/* Keep dynamic children out of the legacy gradient view on iOS. */}
+      <LinearGradient
+        colors={['#1a1a1a', '#000']}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={[styles.header, { paddingTop: insets.top + 13 }]}>
         <Image
           source={require('../images/MainLogo.png')}
@@ -175,12 +181,12 @@ const OnboardingScreen = () => {
           )}
         </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#000' },
   header: {
     paddingHorizontal: 25,
     flexDirection: 'row',
