@@ -10,6 +10,8 @@ import { getCancelReasons } from './cancelFlowConfig';
 // being handed the paid list — losing the one reason that explains most trial
 // churn.
 const codesOf = (options: { code: string }[]) => options.map(o => o.code);
+const justTryingLabel = (options: { code: string; label: string }[]) =>
+  options.find(o => o.code === 'JUST_TRYING')?.label ?? '';
 
 describe('getCancelReasons', () => {
   it('gives an Apple trial the trial list, despite its yearly plan code', () => {
@@ -23,14 +25,23 @@ describe('getCancelReasons', () => {
   // offer is free or a price tier — so quoting the fee would make the option
   // unpickable for exactly the people it exists to catch.
   it('never quotes the ₹1 fee to a rail that cannot charge it', () => {
-    const apple = getCancelReasons('ANNUAL_POST_TRIAL', true);
-    const razorpay = getCancelReasons('TRIAL_NEW', true);
+    const apple = getCancelReasons('ANNUAL_POST_TRIAL', true, '₹1');
+    const razorpay = getCancelReasons('TRIAL_NEW', true, '₹1');
 
-    const label = (options: { code: string; label: string }[]) =>
-      options.find(o => o.code === 'JUST_TRYING')?.label ?? '';
+    expect(justTryingLabel(apple)).not.toContain('₹1');
+    expect(justTryingLabel(razorpay)).toContain('₹1');
+  });
 
-    expect(label(apple)).not.toContain('₹1');
-    expect(label(razorpay)).toContain('₹1');
+  it('quotes the fee in the subscription’s own currency', () => {
+    expect(justTryingLabel(getCancelReasons('TRIAL_NEW', true, '$1'))).toBe(
+      'I only wanted to try it for $1',
+    );
+  });
+
+  it('names no fee when the subscription has none to state', () => {
+    expect(justTryingLabel(getCancelReasons('TRIAL_NEW', true))).toBe(
+      'I only wanted to try it out',
+    );
   });
 
   // Unchanged Razorpay behaviour: a CONVERTED trial keeps its trial code with

@@ -1,4 +1,10 @@
-import { currencyExponent, formatMinorUnits } from './money';
+import {
+  currencyExponent,
+  formatMinorUnits,
+  minorToMajorUnits,
+  setDisplayCountry,
+  splitMinorUnits,
+} from './money';
 
 // The whole reason this helper exists: BillingHistoryList and the details card
 // both divided minor units by 100, which is only correct for the ~30 of Apple's
@@ -114,6 +120,104 @@ describe('formatMinorUnits', () => {
     expect(requested.every(locale => locale === undefined)).toBe(true);
   });
 
+  // An engine without numberingSystem must still print a price, not the
+  // "USD 19.99" last resort.
+  it('falls back to the device default when Latin digits are rejected', () => {
+    Intl.NumberFormat = function NoNumberingSystemNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      if (options?.numberingSystem) {
+        throw new RangeError('numberingSystem unsupported');
+      }
+      return new RealNumberFormat(locales ?? 'en-US', options);
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      expect(formatMinorUnits(1999, 'USD')).toBe('$19.99');
+    } finally {
+      pinLocale('en-US');
+    }
+  });
+
+  // A dollar is a bare "$" only to a US store account. Everyone else priced in
+  // USD (Canada, Australia, …) keeps the locale's "US$", so the price can't be
+  // read as their own dollar. Simulated as an en-IN Android device, whose
+  // locale writes "US$" (Node's en-US would hide the difference).
+  describe('a dollar price on a device whose locale writes "US$"', () => {
+    beforeEach(() => {
+      Intl.NumberFormat = function EnInLikeNumberFormat(
+        locales?: Intl.LocalesArgument,
+        options?: Intl.NumberFormatOptions,
+      ) {
+        const real = new RealNumberFormat(locales ?? 'en-US', options);
+        const usd = options?.currency === 'USD';
+        return {
+          format: (value: number) =>
+            usd ? real.format(value).replace('$', 'US$') : real.format(value),
+          formatToParts: (value: number) =>
+            real
+              .formatToParts(value)
+              .map(part =>
+                usd && part.type === 'currency'
+                  ? { ...part, value: 'US$' }
+                  : part,
+              ),
+          resolvedOptions: () => real.resolvedOptions(),
+        };
+      } as unknown as typeof Intl.NumberFormat;
+    });
+
+    afterEach(() => {
+      setDisplayCountry(null);
+      pinLocale('en-US');
+    });
+
+    it('writes "$" for a US store account', () => {
+      setDisplayCountry('US');
+
+      expect(formatMinorUnits(1999, 'USD')).toBe('$19.99');
+      expect(splitMinorUnits(1999, 'USD')).toEqual({
+        symbol: '$',
+        amount: '19.99',
+      });
+    });
+
+    it('keeps "US$" for any other store account', () => {
+      setDisplayCountry('AU');
+
+      expect(formatMinorUnits(1999, 'USD')).toBe('US$19.99');
+      expect(splitMinorUnits(1999, 'USD')).toEqual({
+        symbol: 'US$',
+        amount: '19.99',
+      });
+    });
+
+    it('lets the locale decide when the country is unknown', () => {
+      expect(formatMinorUnits(1999, 'USD')).toBe('US$19.99');
+    });
+
+    it('leaves the rupee alone', () => {
+      setDisplayCountry('US');
+
+      expect(formatMinorUnits(49900, 'INR')).toBe('₹499');
+    });
+  });
+
+  // Only the symbol is swapped, so a locale that writes it after the number
+  // keeps its own shape.
+  it('keeps the fr-CA shape, with or without the US swap', () => {
+    pinLocale('fr-CA');
+    try {
+      expect(formatMinorUnits(1999, 'USD')).toMatch(/^19,99\s\$\sUS$/);
+      setDisplayCountry('US');
+      expect(formatMinorUnits(1999, 'USD')).toMatch(/^19,99\s\$$/);
+    } finally {
+      setDisplayCountry(null);
+      pinLocale('en-US');
+    }
+  });
+
   // Intl currency data is not guaranteed on every engine build we ship to, and
   // a paywall that throws is worse than one that reads "USD 5.99".
   describe('when the engine has no usable Intl', () => {
@@ -142,5 +246,61 @@ describe('formatMinorUnits', () => {
       expect(() => formatMinorUnits(0, 'JPY')).not.toThrow();
       expect(currencyExponent('JPY')).toBe(2);
     });
+  });
+});
+
+describe('minorToMajorUnits', () => {
+  it('divides by the currency’s own exponent, not by a hundred', () => {
+    expect(minorToMajorUnits(49900, 'INR')).toBe(499);
+    expect(minorToMajorUnits(1999, 'USD')).toBe(19.99);
+    expect(minorToMajorUnits(1200, 'JPY')).toBe(1200);
+  });
+});
+
+describe('splitMinorUnits', () => {
+  it('splits rupees the way the Razorpay cards draw them', () => {
+    expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: '₹', amount: '499' });
+  });
+
+  it('keeps the cents on a dollar price', () => {
+    expect(splitMinorUnits(1999, 'USD')).toEqual({ symbol: '$', amount: '19.99' });
+  });
+
+  // An engine without formatToParts still formats; the card then shows the
+  // whole string in one style rather than a price with no symbol.
+  it('hands back the whole string when the symbol cannot be named', () => {
+    const previous = Intl.NumberFormat;
+    Intl.NumberFormat = function NoPartsNumberFormat(
+      locales?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions,
+    ) {
+      const real = new previous(locales, options);
+      return {
+        format: (value: number) => real.format(value),
+        resolvedOptions: () => real.resolvedOptions(),
+        formatToParts: () => {
+          throw new Error('formatToParts unsupported');
+        },
+      };
+    } as unknown as typeof Intl.NumberFormat;
+
+    try {
+      expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: null, amount: '₹499' });
+    } finally {
+      Intl.NumberFormat = previous;
+    }
+  });
+});
+
+// Marathi and Bengali format numbers in their own scripts by default. Prices
+// must stay in Latin digits, matching the backend's plan copy beside them.
+describe('in a locale with its own digits', () => {
+  afterEach(() => pinLocale('en-US'));
+
+  it.each(['mr-IN', 'bn-IN'])('writes %s prices in Latin digits', locale => {
+    pinLocale(locale);
+
+    expect(formatMinorUnits(49900, 'INR')).toBe('₹499');
+    expect(splitMinorUnits(49900, 'INR')).toEqual({ symbol: '₹', amount: '499' });
   });
 });

@@ -12,6 +12,7 @@ import type { PurchaseOutcome } from '../services/paymentRail';
 import type { PurchasePhase } from '../components/subscription/SubscriptionActivatingOverlay';
 import { useAuthStore } from '../store/authStore';
 import { log, track } from '../utils/analytics';
+import { minorToMajorUnits } from '../utils/money';
 
 /**
  * "Buy a plan, then wait until it is really active."
@@ -60,16 +61,17 @@ export const useSubscriptionCheckout = () => {
       // because a caller that renders no progress of its own needs neither.
       onPhase?: (phase: PurchasePhase) => void,
     ): Promise<CheckoutResult> => {
-      // Meta wants the major currency unit. Read it from the plan the caller
-      // rendered — never a hardcoded fallback, which is how a reported value
-      // ends up disagreeing with what Razorpay actually charged. A trial reports
-      // no value at all: the ₹1 mandate authorisation is not what it is worth,
-      // and the real price rides along as predicted_ltv from the backend.
-      const planValue = isTrialCode(planCode)
-        ? undefined
-        : plan
-        ? plan.price / 100
+      // Meta wants the major unit of the currency the plan is charged in. Read
+      // it from the plan the caller rendered — never a hardcoded fallback, which
+      // is how a reported value ends up disagreeing with what Razorpay actually
+      // charged. A trial reports no value at all: the mandate authorisation is
+      // not what it is worth, and the real price rides along as predicted_ltv
+      // from the backend.
+      const currency = plan?.currency ?? 'INR';
+      const planPrice = plan
+        ? minorToMajorUnits(plan.price, currency)
         : undefined;
+      const planValue = isTrialCode(planCode) ? undefined : planPrice;
 
       // plan_code and rail ride on every money event: "which plan" and "which
       // store" are the two breakdowns every revenue question starts from, and
@@ -80,13 +82,17 @@ export const useSubscriptionCheckout = () => {
         is_trial: isTrialCode(planCode),
         // The real price even on a trial, where `value` is deliberately absent
         // because the mandate authorisation is not what the plan is worth.
-        plan_price_inr: plan ? plan.price / 100 : 0,
+        plan_price: planPrice ?? 0,
+        plan_currency: currency,
+        // Kept for existing rupee dashboards; omitted rather than filled with
+        // another currency's figure.
+        plan_price_inr: currency === 'INR' ? planPrice ?? 0 : undefined,
       };
 
       track('InitiateCheckout', {
         ...money,
         value: planValue,
-        currency: 'INR',
+        currency,
       });
 
       onPhase?.('checkout');
@@ -97,6 +103,7 @@ export const useSubscriptionCheckout = () => {
           email: user?.email,
           mobile: user?.mobile || user?.phone || user?.contact,
         },
+        expectedCurrency: plan?.currency,
       });
 
       // Nothing was charged and nothing is coming: don't report a conversion and
@@ -119,7 +126,7 @@ export const useSubscriptionCheckout = () => {
           // the same conversion under.
           track(
             'Subscribe',
-            { ...money, value: planValue, currency: 'INR' },
+            { ...money, value: planValue, currency },
             outcome.dedupKey,
           );
         }

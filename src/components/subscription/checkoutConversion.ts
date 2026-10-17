@@ -3,6 +3,7 @@ import type { Plan, PlanCode } from '../../api/planCodes';
 import { APPLE_SKU_BY_PLAN_CODE } from '../../config/iap';
 import type { ApplePlanCode } from '../../config/iap';
 import type { AppleProduct } from '../../services/iap/appleIap';
+import { minorToMajorUnits } from '../../utils/money';
 
 /** What a checkout is worth, in the currency the storefront would charge it in. */
 export interface ConversionValue {
@@ -22,15 +23,15 @@ export interface ConversionValue {
 
 export interface ConversionValueInput {
   planCode: PlanCode;
-  /** GET /plans, whose `price` is PAISE — the Razorpay rail's charged amount. */
+  /** GET /plans, whose `price` is minor units of its own `currency` — the Razorpay rail's charged amount. */
   plans?: Plan[] | null;
   /** The App Store catalogue's products. Absent or null off the Apple rail. */
   appleProducts?: AppleProduct[] | null;
   isAppleRail: boolean;
 }
 
-// The rail Razorpay bills on, and the only currency our own tables record a
-// price in. It is also the last resort for an Apple checkout whose storefront
+// The fallback when no plan has loaded, which only ever happens alongside an
+// undefined value. It is also the last resort for an Apple checkout whose storefront
 // currency is unknown — which only ever happens alongside an undefined value,
 // so it labels an event that carries no amount to mislabel.
 const HOME_CURRENCY = 'INR';
@@ -83,11 +84,15 @@ export const resolveConversionValue = ({
     return { value: product?.price ?? undefined, currency };
   }
 
-  if (isTrialCode(planCode)) return { currency: HOME_CURRENCY };
-
+  // Every plan in one GET /plans response is priced in the same currency, so
+  // any of them answers "which currency is this user charged in".
   const plan = plans?.find(candidate => candidate.code === planCode);
+  const currency = plan?.currency ?? plans?.[0]?.currency ?? HOME_CURRENCY;
+
+  if (isTrialCode(planCode)) return { currency };
+
   return {
-    value: plan ? plan.price / 100 : undefined,
-    currency: HOME_CURRENCY,
+    value: plan ? minorToMajorUnits(plan.price, currency) : undefined,
+    currency,
   };
 };

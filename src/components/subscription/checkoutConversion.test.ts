@@ -34,6 +34,13 @@ const PLANS: Plan[] = [
   },
 ];
 
+// What a US store account is quoted on Razorpay: minor units of USD.
+const US_PLANS: Plan[] = PLANS.map(plan => ({
+  ...plan,
+  currency: 'USD',
+  price: { MONTHLY: 1999, ANNUAL: 5999 }[plan.code as string] ?? 9999,
+}));
+
 // StoreKit quotes `price` in major units already — 59.99 dollars, not 5999
 // cents and not the 59990000 milliunits the server-side payload carries.
 const US_PRODUCTS: AppleProduct[] = [
@@ -200,5 +207,23 @@ describe('resolveConversionValue on the Razorpay rail', () => {
           .value,
       ).toBeUndefined();
     }
+  });
+
+  // A US buyer on Razorpay is charged in dollars, so that is what Meta is told.
+  it('reports a USD plan in dollars, cents and all', () => {
+    expect(
+      resolveConversionValue({
+        planCode: 'ANNUAL',
+        plans: US_PLANS,
+        isAppleRail: false,
+      }),
+    ).toEqual({ value: 59.99, currency: 'USD' });
+    expect(
+      resolveConversionValue({
+        planCode: 'TRIAL_NEW',
+        plans: US_PLANS,
+        isAppleRail: false,
+      }),
+    ).toEqual({ currency: 'USD' });
   });
 });

@@ -12,6 +12,8 @@ import {
   posthog,
 } from './src/utils/analytics';
 import { useAppleIapSync } from './src/hooks/useAppleIapSync';
+import { getStoreCountry } from './src/services/storeCountry';
+import AppUpdatePrompt from './src/components/AppUpdatePrompt';
 import { PostHogProvider } from 'posthog-react-native';
 
 // At module scope, not in an effect: an error thrown during the very first
@@ -33,6 +35,9 @@ export default function App() {
     initMetaSdk().catch(err =>
       console.warn('[analytics] Meta SDK init failed', err),
     );
+
+    // Warm the store country before the paywall asks for /plans.
+    getStoreCountry();
   }, []);
 
   return (
@@ -67,6 +72,7 @@ export default function App() {
     >
       <QueryClientProvider client={queryClient}>
         <AppleIapSync />
+        <AppUpdatePrompt />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <MainApp />

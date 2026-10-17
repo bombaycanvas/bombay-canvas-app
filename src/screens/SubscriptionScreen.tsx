@@ -19,6 +19,7 @@ import {
 import { getPaymentRail } from '../services/paymentRail';
 import { classifyVerifyFailure } from '../services/iap/verifyFailure';
 import { useAppleCatalogue } from '../hooks/useAppleCatalogue';
+import { useStoreCountry } from '../hooks/useStoreCountry';
 import { useAppleOwnershipConflict } from '../hooks/useAppleIapSync';
 import { IS_APPLE_RAIL, IS_RAZORPAY_RAIL } from '../utils/paymentRail';
 import { track } from '../utils/analytics';
@@ -27,6 +28,7 @@ import SubscriptionHero from '../components/subscription/SubscriptionHero';
 import SubscriptionPlans from '../components/subscription/SubscriptionPlans';
 import RestorePurchasesButton from '../components/subscription/RestorePurchasesButton';
 import AppleOwnershipConflictNotice from '../components/subscription/AppleOwnershipConflictNotice';
+import PlansUnavailableNotice from '../components/subscription/PlansUnavailableNotice';
 import {
   buildPaywallOffers,
   preselectedPlan,
@@ -52,12 +54,28 @@ export default function SubscriptionScreen() {
   const [phase, setPhase] = useState<PurchasePhase>('idle');
   const loading = phase !== 'idle';
 
-  const { data: subscriptionPlans } = useSubscriptionPlans();
+  const plansQuery = useSubscriptionPlans();
+  const subscriptionPlans = plansQuery.data;
+  // Every plan in one response shares a currency; undefined until it lands.
+  const plansCurrency = subscriptionPlans?.plans[0]?.currency;
+  const storeCountry = useStoreCountry();
+  const catalogueQuery = useAppleCatalogue();
   const {
     data: appleCatalogue,
     isLoading: appleCatalogueLoading,
     isError: appleCatalogueError,
-  } = useAppleCatalogue();
+  } = catalogueQuery;
+
+  // The query whose answer prices this rail's cards. Failed with nothing to
+  // show, the cards are unpriced and inert, so the screen offers a retry.
+  const pricesQuery = IS_APPLE_RAIL ? catalogueQuery : plansQuery;
+  const pricesFailed = pricesQuery.isError && !pricesQuery.data;
+
+  // Card and UPI marks describe a rupee checkout. Before the plans land, the
+  // store country is the best guess, so an Indian user isn't shown a gap.
+  const showPaymentFooter = plansCurrency
+    ? plansCurrency === 'INR'
+    : storeCountry === 'IN';
 
   // Written by the silent restore on launch and on every login, so the paywall
   // knows before the user taps anything that the App Store would charge for a
@@ -204,6 +222,9 @@ export default function SubscriptionScreen() {
           mobile: user?.mobile || user?.phone || user?.contact,
         },
         appleAppAccountToken: subscriptionPlans?.appleAppAccountToken,
+        expectedCurrency:
+          subscriptionPlans?.plans.find(p => p.code === planCode)?.currency ??
+          plansCurrency,
       });
 
       // Backing out of the App Store sheet is a normal outcome, not a failure —
@@ -331,6 +352,9 @@ export default function SubscriptionScreen() {
       // The Apple rail already told the user why, and showed copy that names
       // what to do about it. A second, vaguer "Subscription Failed" on top of
       // it would only bury the actionable one.
+      // The app-wide update prompt is already up and says what to do.
+      if (error?.code === 'APP_UPDATE_REQUIRED') return;
+
       if (classifyVerifyFailure(error).kind === 'terminal') {
         invalidateEntitlementQueries(queryClient);
         return;
@@ -340,7 +364,10 @@ export default function SubscriptionScreen() {
         invalidateEntitlementQueries(queryClient);
         Toast.show({
           type: 'info',
-          text1: 'Check Your Subscription',
+          text1:
+            error?.code === 'PRICES_CHANGED'
+              ? 'Prices Updated'
+              : 'Check Your Subscription',
           text2,
           visibilityTime: 6000,
         });
@@ -382,6 +409,13 @@ export default function SubscriptionScreen() {
           purchaseBlockedLabel={ownershipConflict ? 'Unavailable' : null}
         />
 
+        {pricesFailed && (
+          <PlansUnavailableNotice
+            onRetry={() => pricesQuery.refetch()}
+            retrying={pricesQuery.isFetching}
+          />
+        )}
+
         {/* Above the restore button, because restoring is one of the two ways
             out the notice names and the user should not have to hunt for it. */}
         {ownershipConflict && <AppleOwnershipConflictNotice />}
@@ -393,8 +427,9 @@ export default function SubscriptionScreen() {
         <SubscriptionTrustBadges />
 
         {/* Card and UPI marks. They describe the Razorpay checkout and nothing
-            about an App Store purchase, so they must not appear on iOS. */}
-        {IS_RAZORPAY_RAIL && <SubscriptionPaymentFooter />}
+            about an App Store purchase, so they must not appear on iOS — and
+            UPI is India-only, so not for another currency either. */}
+        {IS_RAZORPAY_RAIL && showPaymentFooter && <SubscriptionPaymentFooter />}
       </ScrollView>
 
       <Toast topOffset={insets.top + 10} position="top" />

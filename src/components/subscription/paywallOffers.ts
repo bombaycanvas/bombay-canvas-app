@@ -11,6 +11,12 @@ import type {
   AppleProduct,
 } from '../../services/iap/appleIap';
 import { IS_APPLE_RAIL } from '../../utils/paymentRail';
+import {
+  formatCurrencyAmount,
+  formatMinorUnits,
+  minorToMajorUnits,
+  splitMinorUnits,
+} from '../../utils/money';
 
 /** A price split the way the card renders it: small symbol, large amount, small period. */
 export interface PriceDisplay {
@@ -20,7 +26,8 @@ export interface PriceDisplay {
    * null when no figure this rail would actually charge could be obtained. The
    * card then draws a placeholder in its place; it never falls back to a price
    * from somewhere else, because on the Apple rail the DB's rupee figure is not
-   * what the storefront bills a US or Japanese buyer. Only ever null on Apple.
+   * what the storefront bills a US or Japanese buyer. Null on Apple when the
+   * store gave no price, and on Razorpay until the plans call lands.
    */
   amount: string | null;
   period: string;
@@ -93,9 +100,9 @@ export interface PaywallOffers {
   /**
    * True when a rail-correct price could not be obtained. The cards must render
    * a placeholder rather than any figure, and the buy action for an unpriced
-   * card is inert: the App Store would charge an amount the user was never
-   * shown. Only ever true on Apple, where the price lives in the store and not
-   * in our database.
+   * card is inert: the store would charge an amount the user was never shown.
+   * True on Apple when the store gave no price, and on Razorpay until the plans
+   * call lands.
    */
   pricesUnavailable: boolean;
   /** null when the per-month equivalent cannot be stated in the storefront's currency. */
@@ -156,7 +163,8 @@ export interface PaywallOffersInput {
    */
   trialEligible?: boolean;
   /**
-   * `trialConversionAmount` off GET /plans, in PAISE: what a trial converts to,
+   * `trialConversionAmount` off GET /plans, in minor units of the plans'
+   * currency: what a trial converts to,
    * quoted even after the trial plan itself has left the offered set. It is the
    * only source for the price the trial-ended paywall strikes.
    *
@@ -166,18 +174,18 @@ export interface PaywallOffersInput {
   trialConversionAmount?: number | null;
 }
 
-const RUPEE = '₹';
-const FALLBACK_MONTHLY_RUPEES = 99;
-const FALLBACK_ANNUAL_RUPEES = 499;
-
-const readPlanRupees = (plan: Plan | undefined, fallback: number): number =>
-  plan ? plan.price / 100 : fallback;
-
 // A plan card is dropped only when the plans call has actually landed with a set
 // that excludes it. An absent or empty list means "not loaded yet", not "not
 // offered" — hiding both cards there would leave a paywall with nothing to buy.
 const isOffered = (plans: Plan[] | undefined, code: PlanCode): boolean =>
   !plans?.length || plans.some(plan => plan.code === code);
+
+/** A plan's price split the way the card draws it; the placeholder until plans load. */
+const toPlanPrice = (plan: Plan | undefined, period: string): PriceDisplay => {
+  if (!plan) return { currency: null, amount: null, period };
+  const { symbol, amount } = splitMinorUnits(plan.price, plan.currency);
+  return { currency: symbol, amount, period };
+};
 
 /** How far `to` undercuts `from`, as a percentage. Both cover the same period. */
 const readDiscountPercent = (from: number, to: number): number | null =>
@@ -195,12 +203,14 @@ const readSavingsPercent = (monthly: number, annual: number): number | null =>
 // units therefore keeps its decimals — except an exact zero, where there is no
 // figure left to lose and "₹0.00" is only noise on the trial card.
 const formatCurrency = (amount: number, currency: string): string | null => {
+  // Both bounds, never one: the minimum defaults to the currency's exponent,
+  // and some engines throw when it exceeds the maximum.
+  const digits = amount > 0 && amount < 10 ? 2 : 0;
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: amount > 0 && amount < 10 ? 2 : 0,
-    }).format(amount);
+    return formatCurrencyAmount(amount, currency, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
   } catch {
     return null;
   }
@@ -243,14 +253,11 @@ const buildRazorpayOffers = ({
   // live trial codes at different post-trial prices (TRIAL converts at ₹499,
   // TRIAL_NEW at ₹899) and the backend hands each client the set it may sell.
   const trialPlan = pickTrialPlan(plans);
-  const monthlyRupees = readPlanRupees(
-    plans?.find(plan => plan.code === 'MONTHLY'),
-    FALLBACK_MONTHLY_RUPEES,
-  );
-  const annualRupees = readPlanRupees(
-    plans?.find(plan => plan.code === 'ANNUAL'),
-    FALLBACK_ANNUAL_RUPEES,
-  );
+  const monthlyPlan = plans?.find(plan => plan.code === 'MONTHLY');
+  const annualPlan = plans?.find(plan => plan.code === 'ANNUAL');
+  // Minor units of the plans' own currency; formatted only at the end.
+  const monthlyAmount = monthlyPlan?.price ?? null;
+  const annualAmount = annualPlan?.price ?? null;
 
   const offered = {
     monthly: isOffered(plans, 'MONTHLY'),
@@ -270,10 +277,8 @@ const buildRazorpayOffers = ({
   // What the trial converts at, once its plan is gone from the payload. Null
   // means the server did not state one — an older build of the API — and the
   // card then strikes nothing rather than inventing a figure.
-  const serverConversionRupees =
-    typeof trialConversionAmount === 'number'
-      ? trialConversionAmount / 100
-      : null;
+  const serverConversionAmount =
+    typeof trialConversionAmount === 'number' ? trialConversionAmount : null;
 
   // The trial converts at MORE than the annual plan costs outright — TRIAL_NEW
   // lands on ₹899 against a ₹499 ANNUAL. That gap, not the monthly plan, is the
@@ -293,39 +298,41 @@ const buildRazorpayOffers = ({
   // Never negative: a trial converting at or below the annual price (today's
   // ₹499 TRIAL) leaves nothing to strike, and the card falls back to the
   // twelve-monthly-payments comparison.
-  const trialConversionRupees = trialPlan
-    ? trialPlan.price / 100
+  const trialConversionMinor = trialPlan
+    ? trialPlan.price
     : trialConsumed
-    ? serverConversionRupees
+    ? serverConversionAmount
     : null;
-  const annualStrikeRupees =
-    trialConversionRupees !== null && trialConversionRupees > annualRupees
-      ? trialConversionRupees
+  const annualStrikeAmount =
+    trialConversionMinor !== null &&
+    annualAmount !== null &&
+    trialConversionMinor > annualAmount
+      ? trialConversionMinor
       : null;
 
   return {
-    // The DB row IS the charged price on this rail, and readPlanRupees always
-    // resolves to a number, so there is no unpriced state to represent here.
-    pricesUnavailable: false,
-    monthly: { currency: RUPEE, amount: `${monthlyRupees}`, period: '/month' },
-    annual: { currency: RUPEE, amount: `${annualRupees}`, period: '/year' },
-    annualPerMonthLabel: offered.annual
-      ? `Only ${RUPEE}${Math.round(annualRupees / 12)}/month`
-      : null,
+    // Unpriced only until the plans call lands: the DB row IS the charged price
+    // on this rail, but a hardcoded fallback would quote rupees to a US buyer.
+    pricesUnavailable: !plans?.length,
+    monthly: toPlanPrice(monthlyPlan, '/month'),
+    annual: toPlanPrice(annualPlan, '/year'),
+    annualPerMonthLabel:
+      offered.annual && annualPlan ? readRazorpayPerMonthLabel(annualPlan) : null,
     annualStrikePrice:
-      offered.annual && annualStrikeRupees !== null
-        ? `${RUPEE}${annualStrikeRupees}`
+      offered.annual && annualPlan && annualStrikeAmount !== null
+        ? formatMinorUnits(annualStrikeAmount, annualPlan.currency)
         : null,
     // A discount is a comparison against something the user can also see; with
     // neither the struck price nor the monthly card there is nothing left to be
     // cheaper than.
-    savingsPercent: !offered.annual
-      ? null
-      : annualStrikeRupees !== null
-      ? readDiscountPercent(annualStrikeRupees, annualRupees)
-      : offered.monthly
-      ? readSavingsPercent(monthlyRupees, annualRupees)
-      : null,
+    savingsPercent:
+      !offered.annual || annualAmount === null
+        ? null
+        : annualStrikeAmount !== null
+        ? readDiscountPercent(annualStrikeAmount, annualAmount)
+        : offered.monthly && monthlyAmount !== null
+        ? readSavingsPercent(monthlyAmount, annualAmount)
+        : null,
     trial: trialPlan ? buildRazorpayTrialCard(trialPlan) : null,
     offered,
     trialConsumedNotice: trialConsumed
@@ -347,17 +354,34 @@ const buildRazorpayOffers = ({
 // No fallback copy: without a trial plan there is no card, because every number
 // on it would be invented.
 const buildRazorpayTrialCard = (trialPlan: Plan): TrialOffer => {
-  const upfrontRupees = (trialPlan.trial?.upfrontAmount ?? 100) / 100;
-  const postTrialRupees = trialPlan.price / 100;
+  const { currency } = trialPlan;
+  const upfront = trialPlan.trial?.upfrontAmount ?? 100;
+  const upfrontPrice = splitMinorUnits(upfront, currency);
+  const upfrontLabel = formatMinorUnits(upfront, currency);
+  const postTrialLabel = formatMinorUnits(trialPlan.price, currency);
   const days = trialPlan.trial?.days ?? 3;
 
   return {
     planCode: trialPlan.code,
     title: trialPlan.name || `${days}-Day Trial`,
-    price: { currency: RUPEE, amount: `${upfrontRupees}`, period: ' today' },
-    buttonLabel: `Start for ${RUPEE}${upfrontRupees} →`,
-    footnote: `${days} days full access, then ${RUPEE}${postTrialRupees}/year. Cancel anytime. The ${RUPEE}${upfrontRupees} activation fee is non-refundable.`,
+    price: {
+      currency: upfrontPrice.symbol,
+      amount: upfrontPrice.amount,
+      period: ' today',
+    },
+    buttonLabel: `Start for ${upfrontLabel} →`,
+    footnote: `${days} days full access, then ${postTrialLabel}/year. Cancel anytime. The ${upfrontLabel} activation fee is non-refundable.`,
   };
+};
+
+// Whole units for a rupee-sized figure, decimals under 10 units — the same rule
+// the Apple per-month line follows, via formatCurrency.
+const readRazorpayPerMonthLabel = (annualPlan: Plan): string | null => {
+  const perMonth = formatCurrency(
+    minorToMajorUnits(annualPlan.price, annualPlan.currency) / 12,
+    annualPlan.currency,
+  );
+  return perMonth ? `Only ${perMonth}/month` : null;
 };
 
 const readPerMonthLabel = (

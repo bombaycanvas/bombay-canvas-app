@@ -13,19 +13,20 @@ export interface CancelReasonOption {
 export const OTHER_TEXT_MAX = 200;
 export const OTHER_TEXT_MIN = 3;
 
-// `paidUpfront` is the only thing that differs between the rails: Razorpay takes
-// ₹1 to authorise the mandate, while an App Store introductory offer is free or
-// a price tier and never ₹1. Quoting a fee an Apple user was never charged makes
-// the option unpickable for the very people it is meant to catch. The reason
-// CODES are identical either way, so the backend contract is untouched.
-const trialReasons = (paidUpfront: boolean): CancelReasonOption[] => [
+// `upfrontLabel` is the only thing that differs between the rails: Razorpay
+// takes an activation fee (₹1, $1) to authorise the mandate, while an App Store
+// introductory offer is free or a price tier. Quoting a fee an Apple user was
+// never charged makes the option unpickable for the very people it is meant to
+// catch. The reason CODES are identical either way, so the backend contract is
+// untouched.
+const trialReasons = (upfrontLabel: string | null): CancelReasonOption[] => [
   { code: 'UNAWARE_OF_CHARGE', label: "I didn't realise I'd be charged after the trial" },
   { code: 'TOO_EXPENSIVE', label: 'The yearly price is too much' },
   { code: 'NOT_ENOUGH_CONTENT', label: 'Not enough content I want to watch' },
   {
     code: 'JUST_TRYING',
-    label: paidUpfront
-      ? 'I only wanted to try it for ₹1'
+    label: upfrontLabel
+      ? `I only wanted to try it for ${upfrontLabel}`
       : 'I only wanted to try it out',
   },
   { code: 'TECHNICAL_ISSUES', label: 'Playback or app problems' },
@@ -59,7 +60,9 @@ const PAID_REASONS: CancelReasonOption[] = [
 export const getCancelReasons = (
   planCode: PlanCode,
   inTrial: boolean,
+  /** The formatted activation fee ("₹1", "$1"), or null when there is none. */
+  upfrontLabel: string | null = null,
 ): CancelReasonOption[] =>
   inTrial || isTrialCode(planCode)
-    ? trialReasons(isTrialCode(planCode))
+    ? trialReasons(isTrialCode(planCode) ? upfrontLabel : null)
     : PAID_REASONS;

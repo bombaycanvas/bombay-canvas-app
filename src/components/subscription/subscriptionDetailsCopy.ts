@@ -37,6 +37,7 @@ export type SubscriptionPriceFacts = Pick<
   Subscription,
   | 'planCode'
   | 'amountSnapshot'
+  | 'currency'
   | 'isTrial'
   | 'upfrontAmount'
   | 'displayAmount'
@@ -54,8 +55,10 @@ const PRICE_PLACEHOLDER = '—';
  * The money this subscriber is actually charged, as minor units plus the
  * currency they are charged in — or null when this row cannot say.
  *
- * `amountSnapshot` is an INR accounting figure. It is the right answer on
- * Razorpay, where the mandate really is in rupees, and the wrong one for an App
+ * `amountSnapshot` is in the subscription's own `currency` — the region it was
+ * sold in on Razorpay, and INR for the Apple rail and every pre-regional row.
+ * It is the right answer on Razorpay, where the mandate really is in that
+ * currency, and the wrong one for an App
  * Store buyer in Ohio, whose card is charged in dollars against a row that still
  * says 49900. The display pair is written only by the Apple rail and only from
  * a transaction Apple itself signed, so its presence is what marks a row whose
@@ -81,7 +84,7 @@ const readPrice = (sub: SubscriptionPriceFacts): [number, string] | null => {
     sub.provider === 'APPLE' ||
     (sub.displayAmount != null && !!sub.displayCurrency);
 
-  return isStorefrontRow ? null : [sub.amountSnapshot, 'INR'];
+  return isStorefrontRow ? null : [sub.amountSnapshot, sub.currency ?? 'INR'];
 };
 
 /**

@@ -29,6 +29,85 @@ export const currencyExponent = (currency: string): number => {
 };
 
 /**
+ * A currency formatter in the device locale, with Latin digits wherever the
+ * engine allows: a Marathi or Bengali device would otherwise print "₹४९९"
+ * beside the backend's "₹499" copy. An engine that rejects the option gets the
+ * device default rather than the bare "INR 499" last resort.
+ */
+export const currencyFormatter = (
+  currency: string,
+  options: Intl.NumberFormatOptions = {},
+): Intl.NumberFormat => {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      numberingSystem: 'latn',
+      ...options,
+    });
+  } catch {
+    // No try: a genuinely bad currency code throws to the caller's fallback.
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      ...options,
+    });
+  }
+};
+
+// A dollar is only a bare "$" to someone whose store account is in the US. The
+// locale's own symbol is kept everywhere else, because it is what disambiguates
+// it: en-IN and en-CA write "US$19.99", fr-CA "19,99 $ US", so a Canadian or
+// Australian can't read the price as their own dollar. Unknown country: the
+// locale decides (en-US already writes "$").
+const HOME_SYMBOLS: Record<string, { countries: string[]; symbol: string }> = {
+  USD: { countries: ['US', 'USA'], symbol: '$' },
+};
+
+let displayCountry: string | null = null;
+
+/** The store-account country prices are shown to. Fed by services/storeCountry. */
+export const setDisplayCountry = (country: string | null): void => {
+  displayCountry = country?.trim().toUpperCase() || null;
+};
+
+const homeSymbol = (currency: string): string | null => {
+  const home = HOME_SYMBOLS[currency];
+  return home && displayCountry && home.countries.includes(displayCountry)
+    ? home.symbol
+    : null;
+};
+
+/** Intl's formatted price, with a currency's bare local symbol for a buyer in its home country. */
+export const formatCurrencyAmount = (
+  major: number,
+  currency: string,
+  options: Intl.NumberFormatOptions = {},
+): string => {
+  const formatter = currencyFormatter(currency, options);
+  const symbol = homeSymbol(currency);
+  if (symbol) {
+    // Only the symbol part is swapped, so the locale's own number format and
+    // spacing survive.
+    try {
+      return formatter
+        .formatToParts(major)
+        .map(part => (part.type === 'currency' ? symbol : part.value))
+        .join('');
+    } catch {
+      // An engine without formatToParts keeps the locale's symbol.
+    }
+  }
+  return formatter.format(major);
+};
+
+/** Minor units as major units: 49900 INR -> 499, 1999 USD -> 19.99, 1200 JPY -> 1200. */
+export const minorToMajorUnits = (
+  minorUnits: number,
+  currency: string,
+): number => minorUnits / 10 ** currencyExponent(currency);
+
+/**
  * Render `minorUnits` of `currency` for display — 49900 INR -> "₹499",
  * 599 USD -> "$5.99", 1200 JPY -> "¥1,200". Falls back to "USD 5.99" (code,
  * space, number) when the engine cannot format the pair, never to a bare
@@ -52,16 +131,40 @@ export const formatMinorUnits = (
   // every place it has: 599 USD stays "$5.99", 5990 KWD stays "KD 5.990".
   const isWholeUnits = minorUnits % unit === 0;
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
+    return formatCurrencyAmount(
+      major,
       currency,
       // Both bounds, never one: the minimum defaults to the currency's exponent
       // and Intl throws when it exceeds the maximum.
-      ...(isWholeUnits
-        ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
-        : {}),
-    }).format(major);
+      isWholeUnits ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {},
+    );
   } catch {
     return `${currency} ${major}`;
   }
+};
+
+/**
+ * `formatMinorUnits` split for cards that draw the symbol apart from the figure:
+ * 49900 INR -> { symbol: "₹", amount: "499" }, 1999 USD -> { symbol: "$",
+ * amount: "19.99" }. When the engine cannot name the symbol, `symbol` is null
+ * and `amount` carries the whole formatted string, so the price stays correct.
+ */
+export const splitMinorUnits = (
+  minorUnits: number,
+  currency: string,
+): { symbol: string | null; amount: string } => {
+  const formatted = formatMinorUnits(minorUnits, currency);
+  try {
+    const symbol =
+      homeSymbol(currency) ??
+      currencyFormatter(currency)
+        .formatToParts(0)
+        .find(part => part.type === 'currency')?.value;
+    if (symbol && formatted.includes(symbol)) {
+      return { symbol, amount: formatted.replace(symbol, '').trim() };
+    }
+  } catch {
+    // Fall through to the unsplit string.
+  }
+  return { symbol: null, amount: formatted };
 };

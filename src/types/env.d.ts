@@ -13,6 +13,10 @@ declare namespace NodeJS {
     EXPO_PUBLIC_POSTHOG_LOGS_ENABLED?: string;
     EXPO_PUBLIC_POSTHOG_SESSION_REPLAY_ENABLED?: string;
     EXPO_PUBLIC_POSTHOG_ERRORS_ENABLED?: string;
+    /** Dev builds only: pretend the Play Store country is this ISO code. */
+    EXPO_PUBLIC_DEV_STORE_COUNTRY?: string;
+    /** The app's numeric App Store id, for "update the app" links on iOS. */
+    EXPO_PUBLIC_APPLE_APP_STORE_ID?: string;
   }
 }
 
