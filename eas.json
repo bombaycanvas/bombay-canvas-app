@@ -16,7 +16,17 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "environment": "preview"
+      "environment": "preview",
+      "android": {
+        "buildType": "apk",
+        "withoutCredentials": true
+      },
+      "env": {
+        "ORG_GRADLE_PROJECT_MYAPP_UPLOAD_STORE_FILE": "debug.keystore",
+        "ORG_GRADLE_PROJECT_MYAPP_UPLOAD_STORE_PASSWORD": "android",
+        "ORG_GRADLE_PROJECT_MYAPP_UPLOAD_KEY_ALIAS": "androiddebugkey",
+        "ORG_GRADLE_PROJECT_MYAPP_UPLOAD_KEY_PASSWORD": "android"
+      }
     },
     "production": {
       "channel": "production",
