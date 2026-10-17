@@ -1,10 +1,12 @@
 import { NEXT_PUBLIC_BASE_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
+import { useUpdatePromptStore } from '../store/updatePromptStore';
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { getAppDataHeader } from './analytics/appData';
 import { log } from './analytics/log';
+import { peekStoreCountry } from '../services/storeCountry';
 
 export const CLIENT_PLATFORM = Platform.OS === 'ios' ? 'ios' : 'android';
 
@@ -66,6 +68,7 @@ export const api = async (endpoint: string, config: any = {}) => {
     body && typeof body === 'object' && typeof body.append === 'function';
 
   const appDataHeader = getAppDataHeader();
+  const storeCountry = peekStoreCountry();
 
   const requestConfig: RequestInit = {
     method: config.method ?? 'GET',
@@ -77,6 +80,9 @@ export const api = async (endpoint: string, config: any = {}) => {
       Authorization: accessToken ? `Bearer ${accessToken}` : '',
       'X-Client-Platform': CLIENT_PLATFORM,
       'X-Client-App-Version': CLIENT_APP_VERSION,
+      // This build renders prices in whatever currency the API returns.
+      'X-Client-Multi-Currency': '1',
+      ...(storeCountry ? { 'X-Client-Store-Country': storeCountry } : {}),
       ...(appDataHeader ? { 'X-Client-App-Data': appDataHeader } : {}),
       ...headers,
     },
@@ -147,6 +153,13 @@ export const api = async (endpoint: string, config: any = {}) => {
             ? errorData.code
             : undefined;
       apiError.status = response.status;
+
+      // The server can't serve this build what it asked for. Every endpoint
+      // gets the same answer — an update prompt — so no screen has to know the
+      // code; the caller still sees the error and fails as it would anyway.
+      if (apiError.code === 'APP_UPDATE_REQUIRED') {
+        useUpdatePromptStore.getState().show();
+      }
 
       log.error('API request failed', {
         endpoint,

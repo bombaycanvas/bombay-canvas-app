@@ -8,8 +8,9 @@ const persister = createAsyncStoragePersister({
 });
 
 // Queries whose answer belongs to the device rather than to the Canvas account,
-// and so must never be restored from a previous run.
-const NEVER_PERSIST = ['appleCatalogue'];
+// and so must never be restored from a previous run. Plans are priced by the
+// store country, which can change between runs; they refetch on mount anyway.
+const NEVER_PERSIST = ['appleCatalogue', 'subscriptionPlans'];
 
 persistQueryClient({
     queryClient,
@@ -18,7 +19,7 @@ persistQueryClient({
     // Bump whenever what may be persisted changes. Without it the blob already
     // on a device is still restored on the next launch, so the very prices this
     // stopped saving come back once more before they age out.
-    buster: 'v3-series-language',
+    buster: 'v4-regional-plans',
     dehydrateOptions: {
         // The App Store catalogue carries the charged price and the intro-offer
         // eligibility, both owned by the Apple ID signed into the device and both

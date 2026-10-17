@@ -74,6 +74,19 @@ describe('planCopy on the Razorpay rail', () => {
     expect(copy).toBe('Trial ₹1 then ₹899/yr');
   });
 
+  // A US subscriber's row carries USD, and both its figures are dollars.
+  it('prices a USD subscription in its own currency', () => {
+    const copy = planCopy({
+      planCode: 'TRIAL_NEW',
+      amountSnapshot: 9999,
+      currency: 'USD',
+      isTrial: true,
+      upfrontAmount: 100,
+    });
+
+    expect(copy).toBe('Trial $1 then $99.99/yr');
+  });
+
   it('drops the "today" clause when the server states no upfront amount', () => {
     const copy = planCopy({
       planCode: 'TRIAL',
